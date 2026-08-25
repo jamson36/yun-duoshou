@@ -1,0 +1,4 @@
+interface:
+  display_name: "交互网站借鉴与重建设计"
+  short_description: "分析创意网站交互，产出原创 DESIGN.md、场景架构和验证计划"
+  default_prompt: "分析一个公开或已授权的创意网站，只借鉴交互机制并为当前项目生成原创 DESIGN.md、实施里程碑和浏览器验收矩阵。"

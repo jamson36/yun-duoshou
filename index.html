@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#15141b" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
+    <meta
+      name="description"
+      content="云剁手——走进你的钱包房间，先假装下单，再认真决定。"
+    />
+    <title>云剁手｜钱包自救中心</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <main class="app" id="app" data-focus="none">
+      <header class="topbar">
+        <a class="brand" href="#room" aria-label="返回云剁手房间">
+          <span class="brand-mark">剁</span>
+          <span>
+            <strong>云剁手</strong>
+            <small>WALLET RESCUE ROOM</small>
+          </span>
+        </a>
+
+        <div class="topbar-status" aria-label="今日钱包状态">
+          <span><i></i> ROOM ONLINE</span>
+          <b id="clock">--:--</b>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="text-button" id="loadDemoButton" type="button">载入演示数据</button>
+          <button class="icon-button" id="motionButton" type="button" aria-pressed="false">
+            <span aria-hidden="true">≈</span>
+            <span class="sr-only">切换减少动态效果</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="room-shell" aria-labelledby="roomTitle">
+        <div class="room-heading">
+          <p class="eyebrow">ROOM 01 · PERSONAL WALLET CLINIC</p>
+          <h1 id="roomTitle">走进你的<br /><em>钱包房间</em></h1>
+          <p class="room-intro">四件东西都能点。先记录欲望，再让钱包兽替你看看。</p>
+        </div>
+
+        <div class="metric-strip" aria-label="钱包摘要">
+          <div>
+            <span>今日记录</span>
+            <strong id="metricRecorded">¥0</strong>
+          </div>
+          <div>
+            <span>确认省下</span>
+            <strong id="metricSaved">¥0</strong>
+          </div>
+          <div>
+            <span>冷静中</span>
+            <strong id="metricCooling">0</strong>
+          </div>
+        </div>
+
+        <div class="scene-frame" id="sceneFrame">
+          <div class="scene-camera" id="sceneCamera">
+            <div class="room-scene" id="roomScene">
+              <div class="wall wall-back" aria-hidden="true">
+                <div class="wall-sign">
+                  <span>NO REAL</span>
+                  <strong>PAYMENT</strong>
+                </div>
+                <div class="wall-clock"><span></span></div>
+                <div class="wall-pipes"><i></i><i></i><i></i></div>
+              </div>
+              <div class="wall wall-left" aria-hidden="true"></div>
+              <div class="wall wall-right" aria-hidden="true"></div>
+              <div class="room-floor" aria-hidden="true"></div>
+              <div class="ceiling-light" aria-hidden="true"></div>
+              <div class="ambient-orb orb-one" aria-hidden="true"></div>
+              <div class="ambient-orb orb-two" aria-hidden="true"></div>
+
+              <button
+                class="room-object object-printer"
+                type="button"
+                data-open="new"
+                data-label="云下单打印机"
+                aria-label="打开云下单打印机，记录一笔消费欲望"
+              >
+                <span class="object-tag"><b>01</b> 云下单</span>
+                <span class="object-status" id="printerStatus">随时可以演一下</span>
+                <svg class="object-art" viewBox="0 0 220 190" role="img" aria-hidden="true">
+                  <ellipse class="object-shadow" cx="110" cy="171" rx="77" ry="13" />
+                  <path class="printer-receipt" d="M72 18h88v72l-8-8-8 8-8-8-8 8-8-8-8 8-8-8-8 8-8-8-8 8z" />
+                  <path class="printer-line" d="M88 37h55M88 50h43M88 63h48" />
+                  <path class="printer-body" d="M42 72l24-19h108l14 22v72l-22 21H60l-18-25z" />
+                  <path class="printer-top" d="M42 72h146l-20 28H59z" />
+                  <rect class="printer-slot" x="75" y="80" width="77" height="12" rx="6" />
+                  <rect class="printer-screen" x="69" y="113" width="68" height="28" rx="4" />
+                  <circle class="printer-button" cx="158" cy="126" r="10" />
+                  <path class="printer-leg" d="M65 163v15M164 163v15" />
+                </svg>
+              </button>
+
+              <button
+                class="room-object object-computer"
+                type="button"
+                data-open="orders"
+                data-label="订单电脑"
+                aria-label="打开订单电脑，查看和处理订单"
+              >
+                <span class="object-tag"><b>02</b> 订单</span>
+                <span class="object-status" id="computerStatus">没有待处理小票</span>
+                <svg class="object-art" viewBox="0 0 240 205" role="img" aria-hidden="true">
+                  <ellipse class="object-shadow" cx="120" cy="184" rx="95" ry="13" />
+                  <path class="desk-side" d="M29 117h183l-17 58H46z" />
+                  <path class="desk-top" d="M22 108l22-17h166l18 17-16 18H40z" />
+                  <path class="monitor-back" d="M57 19h125l15 13-10 76H48l-9-13 9-67z" />
+                  <path class="monitor-screen" d="M60 33h109l-7 59H54z" />
+                  <path class="screen-grid" d="M67 48h28v28H67zM103 48h49M103 61h38M103 74h43" />
+                  <path class="monitor-neck" d="M99 106h33l9 26H89z" />
+                  <path class="keyboard" d="M67 132h105l18 22H47z" />
+                  <path class="keyboard-lines" d="M72 139h87M65 146h105" />
+                </svg>
+                <span class="object-badge" id="orderBadge" hidden>0</span>
+              </button>
+
+              <button
+                class="room-object object-clinic is-primary"
+                type="button"
+                data-open="clinic"
+                data-label="AI 钱包病历柜"
+                aria-label="打开 AI 钱包病历柜，查看消费习惯和建议"
+              >
+                <span class="object-tag"><b>03</b> 钱包病历本</span>
+                <span class="object-status" id="clinicStatus">等你留下三笔记录</span>
+                <svg class="object-art" viewBox="0 0 250 260" role="img" aria-hidden="true">
+                  <ellipse class="object-shadow" cx="125" cy="239" rx="94" ry="14" />
+                  <path class="clinic-cabinet" d="M45 23h155l14 18-6 184H38L31 42z" />
+                  <path class="clinic-top" d="M45 23h155l14 18H31z" />
+                  <rect class="clinic-screen" x="63" y="54" width="119" height="67" rx="8" />
+                  <path class="clinic-heart" d="M122 101c-25-16-33-29-22-39 9-8 19-2 22 6 4-8 14-14 23-6 11 10 3 23-23 39z" />
+                  <path class="clinic-pulse" d="M79 86h24l8-16 13 31 9-19h34" />
+                  <rect class="clinic-drawer" x="57" y="139" width="132" height="31" rx="4" />
+                  <rect class="clinic-drawer" x="57" y="180" width="132" height="31" rx="4" />
+                  <path class="clinic-handle" d="M108 154h27M108 195h27" />
+                  <circle class="clinic-light" cx="194" cy="55" r="7" />
+                </svg>
+                <span class="primary-flag">AI CORE</span>
+              </button>
+
+              <button
+                class="room-object object-goal"
+                type="button"
+                data-open="goals"
+                data-label="回血目标罐"
+                aria-label="打开回血目标罐，查看或设置回血计划"
+              >
+                <span class="object-tag"><b>04</b> 回血计划</span>
+                <span class="object-status" id="goalStatus">还没有目标</span>
+                <svg class="object-art" viewBox="0 0 230 215" role="img" aria-hidden="true">
+                  <ellipse class="object-shadow" cx="118" cy="194" rx="88" ry="13" />
+                  <path class="goal-board" d="M119 17h88v119h-88z" />
+                  <path class="goal-tape" d="M151 8h29v22h-29z" />
+                  <path class="goal-chart" d="M137 103V49M137 103h51M144 91l13-19 10 9 16-27" />
+                  <path class="pig-body" d="M31 125c0-37 37-59 79-53 37 5 63 30 58 66-3 21-18 40-43 48H70c-24-8-39-29-39-61z" />
+                  <path class="pig-ear" d="M66 79 52 52l32 18M132 76l16-23 13 35" />
+                  <path class="pig-snout" d="M124 122c20-8 34 1 33 15-1 13-18 20-36 11-11-6-9-21 3-26z" />
+                  <circle class="pig-eye" cx="119" cy="105" r="5" />
+                  <path class="pig-leg" d="M65 174v24M126 176v22" />
+                  <path class="pig-slot" d="M84 82h39" />
+                </svg>
+              </button>
+
+              <button class="mascot" id="mascotButton" type="button" aria-label="和钱包兽说话">
+                <span class="mascot-bubble" id="mascotBubble">嗨，我先看数据，不乱贴标签。</span>
+                <svg class="mascot-art" viewBox="0 0 210 240" role="img" aria-label="云剁手主 IP 钱包兽">
+                  <ellipse class="mascot-shadow" cx="106" cy="220" rx="62" ry="12" />
+                  <path class="mascot-tail" d="M158 169c47-3 48 44 6 41-19-2-22-24-6-27 13-3 18 10 10 17" />
+                  <path class="mascot-body" d="M54 134c7-37 94-41 104 3l-7 68H61z" />
+                  <path class="mascot-ear left" d="M63 79 42 35c-3-7 5-12 11-8l41 30z" />
+                  <path class="mascot-ear right" d="m145 78 25-43c4-7 12-2 10 5l-5 50z" />
+                  <path class="mascot-head" d="M50 84c9-46 103-49 117-2 15 49-14 83-57 84-45 1-70-34-60-82z" />
+                  <path class="mascot-mask" d="M62 99c6-24 31-27 45-11 14-18 42-14 48 9-5 35-87 38-93 2z" />
+                  <g class="mascot-eyes">
+                    <ellipse cx="85" cy="103" rx="8" ry="11" />
+                    <ellipse cx="132" cy="103" rx="8" ry="11" />
+                  </g>
+                  <path class="mascot-mouth" d="M99 124c7 6 14 6 21 0" />
+                  <path class="mascot-arm left" d="M64 151c-20 8-25 30-13 39 12 9 24-3 29-23" />
+                  <path class="mascot-arm right" d="M151 151c20 8 25 30 13 39-12 9-24-3-29-23" />
+                  <circle class="mascot-coin" cx="107" cy="177" r="24" />
+                  <path class="mascot-coin-mark" d="M97 166h20M97 176h20M107 158v38" />
+                  <path class="mascot-antenna" d="M108 62V42" />
+                  <circle class="mascot-antenna-tip" cx="108" cy="36" r="8" />
+                </svg>
+                <span class="mascot-name">主 IP · 钱包兽 01</span>
+              </button>
+
+              <div class="scene-instruction" aria-hidden="true">
+                <span>CLICK / TAB</span>
+                <strong>选择房间里的物件</strong>
+              </div>
+            </div>
+          </div>
+          <div class="focus-flash" aria-hidden="true"></div>
+          <div class="scene-corner corner-tl" aria-hidden="true"></div>
+          <div class="scene-corner corner-br" aria-hidden="true"></div>
+        </div>
+
+        <p class="room-footnote">这里只记录消费欲望，不会发生真实支付。</p>
+      </section>
+
+      <nav class="mobile-dock" aria-label="房间功能导航">
+        <button type="button" data-open="new"><b>01</b><span>云下单</span></button>
+        <button type="button" data-open="orders"><b>02</b><span>订单</span></button>
+        <button type="button" data-open="clinic"><b>03</b><span>病历本</span></button>
+        <button type="button" data-open="goals"><b>04</b><span>回血</span></button>
+      </nav>
+
+      <aside class="focus-panel" id="focusPanel" aria-hidden="true" aria-label="功能内容">
+        <div class="panel-rail" aria-hidden="true"><span id="panelIndex">00</span></div>
+        <div class="panel-inner">
+          <button class="panel-close" id="panelClose" type="button">
+            <span aria-hidden="true">←</span> 回房间 <kbd>ESC</kbd>
+          </button>
+
+          <section class="panel-view" data-panel="new" aria-labelledby="newPanelTitle">
+            <div class="panel-heading">
+              <p>OBJECT 01 · CLOUD ORDER PRINTER</p>
+              <h2 id="newPanelTitle" tabindex="-1">先假装<br />下个单</h2>
+              <span class="panel-sticker">不会发货</span>
+            </div>
+            <form class="order-form" id="orderForm">
+              <label>
+                <span>你刚刚想买什么？</span>
+                <input name="name" maxlength="30" required placeholder="例如：一杯超大奶茶" />
+              </label>
+              <label>
+                <span>差点花多少钱？</span>
+                <span class="money-input"><b>¥</b><input name="amount" type="number" min="0.01" max="99999" step="0.01" required placeholder="28" /></span>
+              </label>
+              <div class="form-grid">
+                <label>
+                  <span>分类</span>
+                  <select name="category" required>
+                    <option value="">请选择</option>
+                    <option>餐饮饮品</option><option>服饰美妆</option><option>数码家居</option>
+                    <option>娱乐社交</option><option>学习成长</option><option>旅行交通</option><option>其他</option>
+                  </select>
+                </label>
+                <label>
+                  <span>为什么想买？</span>
+                  <select name="reason" required>
+                    <option value="">请选择</option>
+                    <option>嘴馋</option><option>无聊</option><option>被种草</option><option>情绪不好</option>
+                    <option>限时优惠</option><option>社交需要</option><option>自我提升</option><option>其他</option>
+                  </select>
+                </label>
+              </div>
+              <button class="primary-action" type="submit"><span>打印一张冷静小票</span><b>↗</b></button>
+              <p class="form-note">创建后先进入“冷静中”，不会立刻算成省下。</p>
+            </form>
+          </section>
+
+          <section class="panel-view" data-panel="orders" aria-labelledby="ordersPanelTitle">
+            <div class="panel-heading compact">
+              <p>OBJECT 02 · ORDER TERMINAL</p>
+              <h2 id="ordersPanelTitle" tabindex="-1">订单<br />工作站</h2>
+              <span class="panel-sticker coral" id="orderCountSticker">0 张小票</span>
+            </div>
+            <div class="panel-toolbar">
+              <div class="segmented" role="group" aria-label="订单筛选">
+                <button class="is-active" type="button" data-filter="all">全部</button>
+                <button type="button" data-filter="cooling">冷静中</button>
+                <button type="button" data-filter="saved">幸好没买</button>
+              </div>
+              <button class="small-action" id="exportButton" type="button">导出 JSON</button>
+            </div>
+            <div class="order-list" id="orderList"></div>
+          </section>
+
+          <section class="panel-view" data-panel="clinic" aria-labelledby="clinicPanelTitle">
+            <div class="panel-heading compact">
+              <p>OBJECT 03 · AI WALLET CLINIC</p>
+              <h2 id="clinicPanelTitle" tabindex="-1">钱包<br />病历本</h2>
+              <span class="panel-sticker cyan">核心区域</span>
+            </div>
+            <div class="clinic-ledger" id="clinicLedger"></div>
+            <div class="ai-card" id="aiCard">
+              <div class="ai-card-top">
+                <span class="ai-avatar">兽</span>
+                <div><b>钱包兽正在候诊</b><small>AI INTERACTION PROTOTYPE</small></div>
+                <i></i>
+              </div>
+              <div id="aiResult">
+                <p>至少留下 3 笔记录，我才能从数据里看出一点模式。</p>
+              </div>
+              <button class="primary-action acid" id="analyzeButton" type="button">
+                <span>让钱包兽看看</span><b>◎</b>
+              </button>
+              <p class="form-note">当前为本地诊断交互原型；真实模型接入时只发送汇总数据。</p>
+            </div>
+          </section>
+
+          <section class="panel-view" data-panel="goals" aria-labelledby="goalsPanelTitle">
+            <div class="panel-heading compact">
+              <p>OBJECT 04 · RECOVERY TANK</p>
+              <h2 id="goalsPanelTitle" tabindex="-1">回血<br />目标罐</h2>
+              <span class="panel-sticker yellow">虚拟进度</span>
+            </div>
+            <div class="goal-visual">
+              <div class="goal-ring" id="goalRing"><span id="goalPercent">0%</span></div>
+              <div><small>当前确认省下</small><strong id="goalSaved">¥0</strong><p id="goalSummary">还没有设定目标。</p></div>
+            </div>
+            <form class="goal-form" id="goalForm">
+              <label><span>目标名称</span><input name="goalName" maxlength="20" required placeholder="例如：去海边看日落" /></label>
+              <label><span>目标金额</span><span class="money-input"><b>¥</b><input name="goalAmount" type="number" min="1" max="999999" step="1" required placeholder="3000" /></span></label>
+              <button class="primary-action" type="submit"><span>把目标贴到墙上</span><b>＋</b></button>
+            </form>
+            <p class="goal-disclaimer">回血进度来自你的自我记录，不代表钱已经进入真实账户。</p>
+          </section>
+        </div>
+      </aside>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+  </body>
+</html>
