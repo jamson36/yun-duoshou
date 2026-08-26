@@ -1599,6 +1599,7 @@ body.reduce-motion *::after {
   touch-action: none;
   user-select: none;
   isolation: isolate;
+  transition: top 520ms var(--ease-out);
 }
 
 .panorama-stage:focus-visible {
@@ -1606,6 +1607,216 @@ body.reduce-motion *::after {
 }
 
 .panorama-stage.is-dragging { cursor: grabbing; }
+.panorama-stage.is-interaction-locked { cursor: default; }
+
+.panorama-app:not([data-room-phase="room"]) .panorama-stage { top: 0; }
+
+.panorama-app:not([data-room-phase="room"]) .topbar,
+.panorama-app:not([data-room-phase="room"]) .panorama-heading,
+.panorama-app:not([data-room-phase="room"]) .panorama-metrics,
+.panorama-app:not([data-room-phase="room"]) .scene-scrim,
+.panorama-app:not([data-room-phase="room"]) .hotspot-layer,
+.panorama-app:not([data-room-phase="room"]) .scene-mascot,
+.panorama-app:not([data-room-phase="room"]) .panorama-hint,
+.panorama-app:not([data-room-phase="room"]) .zone-nav,
+.panorama-app:not([data-room-phase="room"]) .scene-status,
+.panorama-app:not([data-room-phase="room"]) .mobile-dock {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.panorama-app[data-room-phase="room"] .topbar,
+.panorama-app[data-room-phase="room"] .panorama-heading,
+.panorama-app[data-room-phase="room"] .panorama-metrics,
+.panorama-app[data-room-phase="room"] .scene-scrim,
+.panorama-app[data-room-phase="room"] .hotspot-layer,
+.panorama-app[data-room-phase="room"] .scene-mascot,
+.panorama-app[data-room-phase="room"] .panorama-hint,
+.panorama-app[data-room-phase="room"] .zone-nav,
+.panorama-app[data-room-phase="room"] .scene-status,
+.panorama-app[data-room-phase="room"] .mobile-dock {
+  transition: opacity 420ms ease, visibility 0s linear 0s;
+}
+
+.room-intro-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background: transparent;
+  color: #18110c;
+  pointer-events: auto;
+  transition: opacity 420ms ease, visibility 0s linear 420ms;
+}
+
+.intro-pixel-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 520ms ease;
+}
+
+.intro-loading-state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(360px, 82vw);
+  transform: translate(-50%, -50%);
+  color: #fff2dc;
+  font-family: var(--display);
+  letter-spacing: .15em;
+  text-align: center;
+  transition: opacity 220ms ease, visibility 0s linear 220ms;
+}
+
+.intro-loading-state span { font-size: clamp(13px, 1.6vw, 19px); }
+.intro-loading-state small { color: rgba(255,242,220,.66); font-family: var(--body); font-size: 10px; letter-spacing: .08em; }
+.intro-loading-state i {
+  width: min(250px, 66vw);
+  height: 8px;
+  border: 1px solid rgba(255,242,220,.55);
+  background: linear-gradient(90deg, #ff7a1a 0 36%, #ffe3aa 36% 49%, rgba(255,255,255,.12) 49%);
+  animation: intro-load 1s steps(5) infinite;
+}
+
+.panorama-app:not([data-room-phase="loading"]) .intro-loading-state {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.room-entry-lockup {
+  position: absolute;
+  z-index: 3;
+  right: clamp(24px, 6vw, 96px);
+  top: 50%;
+  width: min(520px, 42vw);
+  padding: clamp(25px, 3vw, 46px);
+  transform: translate(42px, -48%) rotate(.4deg);
+  border: 3px solid #18110c;
+  background: rgba(255, 245, 222, .94);
+  box-shadow: 16px 16px 0 #ff7a1a, 26px 26px 0 rgba(24,17,12,.76);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 480ms ease, transform 720ms var(--ease-out), visibility 0s linear 480ms;
+}
+
+.room-entry-lockup::before {
+  content: "ROOM ACCESS";
+  position: absolute;
+  right: 22px;
+  top: -13px;
+  padding: 5px 9px;
+  border: 2px solid #18110c;
+  background: #d7ff43;
+  color: #18110c;
+  font-family: var(--display);
+  font-size: 9px;
+  letter-spacing: .13em;
+}
+
+.room-entry-lockup > p {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: .13em;
+}
+
+.room-entry-lockup > p span { color: #d44b10; }
+.room-entry-lockup h1 {
+  margin: 0;
+  color: #18110c;
+  font-family: var(--display);
+  font-size: clamp(54px, 4.7vw, 68px);
+  font-weight: 500;
+  letter-spacing: -.055em;
+  line-height: .82;
+  white-space: nowrap;
+}
+
+.room-entry-lockup > strong {
+  display: block;
+  margin: clamp(20px, 3vh, 34px) 0 22px;
+  color: #3b271a;
+  font-size: clamp(13px, 1.3vw, 18px);
+  line-height: 1.65;
+}
+
+.enter-room-button {
+  display: grid;
+  grid-template-columns: 1fr 54px;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  padding: 0;
+  border: 3px solid #18110c;
+  background: #ff7a1a;
+  box-shadow: 6px 6px 0 #18110c;
+  color: #18110c;
+  cursor: pointer;
+  font-weight: 950;
+  text-align: left;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.enter-room-button span { padding-left: 20px; }
+.enter-room-button b { display: grid; align-self: stretch; place-items: center; border-left: 3px solid #18110c; font-size: 22px; }
+.enter-room-button:hover,
+.enter-room-button:focus-visible { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 #18110c; background: #d7ff43; }
+.enter-room-button:disabled { cursor: default; }
+.room-entry-lockup > small { display: block; margin-top: 14px; color: #72523f; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+
+.intro-system-status {
+  position: absolute;
+  z-index: 3;
+  left: clamp(18px, 3vw, 46px);
+  bottom: clamp(18px, 3vw, 38px);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(255,244,222,.84);
+  font-family: var(--display);
+  font-size: 9px;
+  letter-spacing: .14em;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.intro-system-status i { width: 8px; height: 8px; background: #ff7a1a; box-shadow: 0 0 18px #ff7a1a; animation: status-pulse 1.2s ease-in-out infinite; }
+.panorama-app[data-room-phase="intro"] .intro-system-status { opacity: 1; }
+
+.panorama-app[data-room-phase="entry"] .intro-pixel-canvas,
+.panorama-app[data-room-phase="entering"] .intro-pixel-canvas { opacity: 0; }
+
+.panorama-app[data-room-phase="entry"] .room-entry-lockup {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(0, -50%) rotate(.4deg);
+  transition-delay: 120ms, 120ms, 0s;
+}
+
+.panorama-app[data-room-phase="entering"] .room-entry-lockup {
+  opacity: 0;
+  visibility: visible;
+  transform: translate(50px, -50%) rotate(2deg);
+  pointer-events: none;
+}
+
+.panorama-app[data-room-phase="room"] .room-intro-gate {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 
 .panorama-canvas {
   position: absolute;
@@ -1972,6 +2183,27 @@ body.reduce-motion *::after {
   transform: none;
 }
 
+.raccoon-guide-art {
+  position: relative;
+  display: block;
+  width: 88px;
+  height: 102px;
+  margin: 0 auto;
+  overflow: hidden;
+  filter: drop-shadow(5px 7px 0 rgba(24,17,12,.78)) drop-shadow(0 14px 22px rgba(0,0,0,.32));
+  transition: transform 260ms var(--ease-out), filter 260ms ease;
+}
+
+.raccoon-guide-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.scene-mascot:hover .raccoon-guide-art,
+.scene-mascot:focus-visible .raccoon-guide-art { transform: translateY(-5px) rotate(-2deg); filter: drop-shadow(7px 9px 0 #ff7a1a) drop-shadow(0 18px 28px rgba(0,0,0,.38)); }
+
 .mascot-face {
   position: relative;
   display: grid;
@@ -2232,6 +2464,7 @@ body.reduce-motion *::after {
 .poster-preview > small { position: absolute; left: 23px; bottom: 17px; font-size: 8px; }
 
 @keyframes panorama-load { 50% { background-position: 28px 0; } }
+@keyframes intro-load { 50% { background-position: 52px 0; filter: saturate(1.4); } }
 @keyframes hotspot-orbit { to { transform: rotate(360deg); } }
 @keyframes hotspot-breathe { 50% { transform: scale(.65); opacity: .45; } }
 @keyframes phone-confirm { 45% { transform: scale(1.35); box-shadow: 0 0 0 18px rgba(255,107,74,.25), 0 0 75px var(--coral); } }
@@ -2248,6 +2481,22 @@ body.reduce-motion *::after {
   .panorama-app { min-height: 100svh; }
   .panorama-room { min-height: 100svh; padding: 0; }
   .panorama-stage { inset: 64px 0 0; aspect-ratio: auto; margin: 0; min-height: 0; }
+  .room-entry-lockup {
+    top: 56px;
+    right: 12px;
+    width: min(88vw, 420px);
+    padding: 22px 20px 21px;
+    transform: translate(28px, 0) rotate(.4deg);
+    box-shadow: 9px 9px 0 #ff7a1a, 15px 15px 0 rgba(24,17,12,.72);
+  }
+  .room-entry-lockup h1 { font-size: clamp(46px, 13vw, 66px); }
+  .room-entry-lockup > strong { margin: 15px 0 16px; font-size: 12px; line-height: 1.5; }
+  .room-entry-lockup > p { margin-bottom: 12px; font-size: 8px; }
+  .enter-room-button { min-height: 52px; grid-template-columns: 1fr 49px; }
+  .room-entry-lockup > small { font-size: 7px; }
+  .panorama-app[data-room-phase="entry"] .room-entry-lockup { transform: translate(0, 0) rotate(.4deg); }
+  .panorama-app[data-room-phase="entering"] .room-entry-lockup { transform: translate(36px, -8px) rotate(2deg); }
+  .intro-system-status { left: 14px; bottom: 18px; font-size: 7px; }
   .panorama-heading {
     top: 14px;
     left: 12px;
@@ -2294,6 +2543,7 @@ body.reduce-motion *::after {
   .panorama-hint,
   .scene-status { display: none; }
   .scene-mascot { left: 12px; bottom: 78px; width: 67px; min-height: 74px; }
+  .raccoon-guide-art { width: 62px; height: 72px; filter: drop-shadow(3px 4px 0 rgba(24,17,12,.78)) drop-shadow(0 8px 16px rgba(0,0,0,.3)); }
   .mascot-face { width: 54px; height: 59px; border-width: 2px; box-shadow: 4px 4px 0 var(--coral); }
   .mascot-ear { top: -11px; width: 21px; height: 24px; border-width: 2px; }
   .mascot-face > b { gap: 11px; }

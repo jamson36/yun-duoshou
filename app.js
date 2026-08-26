@@ -1,6 +1,7 @@
-import { PanoramaRoom } from './panorama.js';
-import { FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_GROUPS, createPackageHotspots } from './scene-config.js';
-import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js';
+import { RoomIntro } from './intro-transition.js?v=20260826-intro-2';
+import { PanoramaRoom } from './panorama.js?v=20260826-intro-2';
+import { FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_GROUPS, SCENE_INTRO_VIEW, createPackageHotspots } from './scene-config.js?v=20260826-intro-2';
+import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260826-privacy-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -50,6 +51,9 @@ const allowAiButton = document.querySelector('#allowAiButton');
 const localOnlyButton = document.querySelector('#localOnlyButton');
 const revokeAiConsentButton = document.querySelector('#revokeAiConsentButton');
 const sceneStatus = document.querySelector('#sceneStatus');
+const roomIntroGate = document.querySelector('#roomIntroGate');
+const roomEntryLockup = document.querySelector('#roomEntryLockup');
+const enterRoomButton = document.querySelector('#enterRoomButton');
 
 let activePanel = null;
 let activeTrigger = null;
@@ -60,15 +64,19 @@ let aiRequestController = null;
 let aiUiState = { status: 'idle', message: '' };
 let toastTimer = null;
 let state = loadState();
+let roomEntered = false;
+let pendingPanel = null;
 
 const sceneHotspots = [...FEATURE_HOTSPOTS, ...createPackageHotspots()];
 const panorama = new PanoramaRoom({
   stage: sceneFrame,
   canvas: document.querySelector('#panoramaCanvas'),
   hotspotLayer: document.querySelector('#hotspotLayer'),
-  imageUrl: './assets/room-panorama.webp',
+  imageUrl: './assets/room-panorama-hd.webp',
   hotspots: sceneHotspots,
   defaultView: SCENE_DEFAULT_VIEW,
+  initialView: SCENE_INTRO_VIEW,
+  interactionEnabled: false,
   groups: SCENE_GROUPS,
   onActivate: (hotspot, trigger) => {
     panorama.focusHotspot(hotspot.id);
@@ -79,6 +87,44 @@ const panorama = new PanoramaRoom({
       setMascotSpeech(hotspot.thought);
     }
   },
+});
+
+const roomUiLayers = [...document.querySelectorAll('.topbar, .room-heading, .metric-strip, .hotspot-layer, .scene-mascot, .zone-nav, .mobile-dock')];
+
+function setRoomUiInteractive(value) {
+  roomUiLayers.forEach((element) => {
+    element.inert = !value;
+  });
+  sceneFrame.tabIndex = value ? 0 : -1;
+}
+
+function completeRoomEntry() {
+  roomEntered = true;
+  setRoomUiInteractive(true);
+  panorama.setInteractionEnabled(true);
+  if (pendingPanel) {
+    applyPanel(pendingPanel);
+    return;
+  }
+  sceneStatus.textContent = panorama.ready ? '全景已就绪 · 拖动环视' : '静态房间已就绪 · 使用文字导航';
+  sceneFrame.focus({ preventScroll: true });
+}
+
+setRoomUiInteractive(false);
+focusPanel.inert = true;
+focusPanel.setAttribute('aria-hidden', 'true');
+
+const roomIntro = new RoomIntro({
+  app,
+  gate: roomIntroGate,
+  canvas: document.querySelector('#introPixelCanvas'),
+  status: document.querySelector('#introStatus'),
+  lockup: roomEntryLockup,
+  enterButton: enterRoomButton,
+  duration: 3000,
+  reducedMotion: state.settings.reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  onEnter: () => panorama.animateToView(SCENE_DEFAULT_VIEW, { duration: 1300, updateIdle: true }),
+  onComplete: completeRoomEntry,
 });
 
 function defaultState() {
@@ -227,7 +273,7 @@ function applyPanel(panel, trigger = null) {
 }
 
 function openPanel(panel, trigger = null) {
-  if (!PANEL_META[panel]) return;
+  if (!roomEntered || !PANEL_META[panel]) return;
   history.pushState({ panel, openedByApp: true }, '', `#${panel}`);
   applyPanel(panel, trigger);
 }
@@ -713,6 +759,7 @@ function toggleMotion() {
   state.settings.reduceMotion = !state.settings.reduceMotion;
   document.body.classList.toggle('reduce-motion', state.settings.reduceMotion);
   panorama.setReducedMotion(state.settings.reduceMotion);
+  roomIntro.setReducedMotion(state.settings.reduceMotion);
   document.querySelector('#motionButton').setAttribute('aria-pressed', String(state.settings.reduceMotion));
   saveState();
   showToast(state.settings.reduceMotion ? '已减少房间动态效果。' : '已恢复房间动态效果。');
@@ -834,11 +881,20 @@ sceneFrame.addEventListener('panoramaerror', (event) => {
 });
 
 window.addEventListener('popstate', (event) => {
-  applyPanel(event.state?.panel || panelFromHash());
+  const nextPanel = event.state?.panel || panelFromHash();
+  if (!roomEntered) {
+    pendingPanel = nextPanel;
+    return;
+  }
+  applyPanel(nextPanel);
 });
 
 window.addEventListener('hashchange', () => {
   const nextPanel = panelFromHash();
+  if (!roomEntered) {
+    pendingPanel = nextPanel;
+    return;
+  }
   if (nextPanel !== activePanel) applyPanel(nextPanel);
 });
 
@@ -847,12 +903,18 @@ function updateClock() {
 }
 
 document.body.classList.toggle('reduce-motion', state.settings.reduceMotion);
-panorama.setReducedMotion(state.settings.reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const shouldReduceMotion = state.settings.reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+panorama.setReducedMotion(shouldReduceMotion);
+roomIntro.setReducedMotion(shouldReduceMotion);
 document.querySelector('#motionButton').setAttribute('aria-pressed', String(state.settings.reduceMotion));
 updateClock();
 window.setInterval(updateClock, 30_000);
 renderAll();
 
 const initialPanel = panelFromHash();
+pendingPanel = initialPanel;
 history.replaceState({ panel: initialPanel, openedByApp: false }, '', initialPanel ? `#${initialPanel}` : '#room');
-applyPanel(initialPanel);
+panorama.whenReady().then((result) => {
+  if (result.fallback) sceneStatus.textContent = result.message;
+  roomIntro.start();
+});

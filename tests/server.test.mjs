@@ -32,6 +32,7 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
     const responses = await Promise.all([
       fetch(`${baseUrl}/`),
       fetch(`${baseUrl}/app.js`),
+      fetch(`${baseUrl}/intro-transition.js`),
       fetch(`${baseUrl}/styles.css`),
     ]);
     const publicSource = (await Promise.all(responses.map((response) => response.text()))).join('\n');
@@ -46,6 +47,19 @@ test('同源服务能返回首页和安全响应头', async () => {
     assert.equal(response.status, 200);
     assert.match(html, /让你花个爽/);
     assert.match(response.headers.get('content-security-policy'), /connect-src 'self'/);
+  });
+});
+
+test('开屏逻辑与高清房间素材可由静态白名单访问', async () => {
+  await withServer({}, async (baseUrl) => {
+    const [script, panorama] = await Promise.all([
+      fetch(`${baseUrl}/intro-transition.js`),
+      fetch(`${baseUrl}/assets/room-panorama-hd.webp`, { method: 'HEAD' }),
+    ]);
+    assert.equal(script.status, 200);
+    assert.match(script.headers.get('content-type'), /text\/javascript/);
+    assert.equal(panorama.status, 200);
+    assert.equal(panorama.headers.get('content-type'), 'image/webp');
   });
 });
 

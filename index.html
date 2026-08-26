@@ -7,12 +7,12 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！｜钱包全景房间</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css?v=20260826-privacy-1" />
-    <script type="module" src="./app.js?v=20260826-privacy-1"></script>
+    <link rel="stylesheet" href="./styles.css?v=20260826-intro-2" />
+    <script type="module" src="./app.js?v=20260826-intro-2"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
-    <main class="app panorama-app" id="app" data-focus="none">
+    <main class="app panorama-app" id="app" data-focus="none" data-room-phase="loading">
       <header class="topbar">
         <a class="brand" href="#room" aria-label="返回让你花个爽！全景房间">
           <span class="brand-mark">爽</span>
@@ -31,6 +31,23 @@
         <div class="panorama-stage" id="sceneFrame" tabindex="0" role="application" aria-label="钱包全景房间。拖动或使用方向键环视，滚轮或加减键缩放。">
           <canvas class="panorama-canvas" id="panoramaCanvas" aria-hidden="true"></canvas>
           <div class="panorama-loading" aria-hidden="true"><i></i><span>ROOM LOADING</span></div>
+          <section class="room-intro-gate" id="roomIntroGate" aria-label="让你花个爽！房间开屏" aria-busy="true">
+            <canvas class="intro-pixel-canvas" id="introPixelCanvas" aria-hidden="true"></canvas>
+            <div class="intro-loading-state" aria-hidden="true">
+              <span>LOADING ROOM TEXTURE</span><i></i><small>正在准备小浣熊的房间</small>
+            </div>
+            <div class="room-entry-lockup" id="roomEntryLockup" aria-hidden="true" inert>
+              <p><span>WELCOME TO</span> WALLET ROOM 01</p>
+              <h1>让你花个爽！</h1>
+              <strong>先把想买的放进房间，<br />再决定它值不值得带走。</strong>
+              <button class="enter-room-button" id="enterRoomButton" type="button" disabled>
+                <span>进入房间</span><b aria-hidden="true">↗</b>
+              </button>
+              <small>同一间房 · 点击后镜头平滑拉远</small>
+            </div>
+            <div class="intro-system-status" aria-hidden="true"><i></i><span>PIXEL REVEAL / 03.00 SEC</span></div>
+            <p class="sr-only" id="introStatus" role="status" aria-live="polite">正在加载房间。</p>
+          </section>
           <div class="scene-scrim" aria-hidden="true"></div>
           <div class="hotspot-layer" id="hotspotLayer"></div>
 
@@ -46,13 +63,10 @@
             <div><span>冷静中</span><strong id="metricCooling">0</strong></div>
           </div>
 
-          <button class="mascot scene-mascot" id="mascotButton" type="button" aria-label="和钱包兽说话">
+          <button class="mascot scene-mascot" id="mascotButton" type="button" aria-label="看看小浣熊的提示">
             <span class="mascot-bubble" id="mascotBubble">欢迎。先左右看看，这间房里的东西都认识你的钱包。</span>
-            <span class="mascot-face" aria-hidden="true">
-              <i class="mascot-ear ear-left"></i><i class="mascot-ear ear-right"></i>
-              <b><i></i><i></i></b><em>¥</em>
-            </span>
-            <span class="mascot-name">钱包兽 · 房间向导</span>
+            <span class="raccoon-guide-art" aria-hidden="true"><img src="./assets/raccoon-guide.webp" alt="" /></span>
+            <span class="mascot-name">小浣熊 · 房间向导</span>
           </button>
 
           <div class="panorama-hint" aria-hidden="true"><span>DRAG</span><i></i><strong>左右环视</strong><small>滚轮缩放</small></div>

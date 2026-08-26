@@ -6,6 +6,12 @@ export const SCENE_DEFAULT_VIEW = Object.freeze({
   fov: degrees(70),
 });
 
+export const SCENE_INTRO_VIEW = Object.freeze({
+  yaw: degrees(-56),
+  pitch: degrees(-14),
+  fov: degrees(47),
+});
+
 export const FEATURE_HOTSPOTS = Object.freeze([
   {
     id: 'gym-screen',

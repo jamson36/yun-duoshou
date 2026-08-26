@@ -62,6 +62,8 @@ export class PanoramaRoom {
     imageUrl,
     hotspots,
     defaultView,
+    initialView = defaultView,
+    interactionEnabled = true,
     groups = {},
     onActivate,
     onThought,
@@ -75,7 +77,7 @@ export class PanoramaRoom {
     this.groups = groups;
     this.onActivate = onActivate;
     this.onThought = onThought;
-    this.view = { ...defaultView };
+    this.view = { ...initialView };
     this.idleView = { ...defaultView };
     this.hotspotElements = new Map();
     this.pointer = null;
@@ -84,10 +86,25 @@ export class PanoramaRoom {
     this.renderRequested = false;
     this.ready = false;
     this.destroyed = false;
+    this.interactionEnabled = Boolean(interactionEnabled);
+    this.readyPromise = new Promise((resolve) => {
+      this.resolveReady = resolve;
+    });
 
     this.createHotspots();
     this.bindEvents();
+    this.setInteractionEnabled(this.interactionEnabled);
     this.initRenderer();
+  }
+
+  finishReady(detail) {
+    if (!this.resolveReady) return;
+    this.resolveReady(detail);
+    this.resolveReady = null;
+  }
+
+  whenReady() {
+    return this.readyPromise;
   }
 
   initRenderer() {
@@ -104,7 +121,9 @@ export class PanoramaRoom {
     if (!gl) {
       this.stage.classList.add('is-static-fallback');
       this.stage.style.setProperty('--panorama-image', `url("${this.imageUrl}")`);
-      this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: '浏览器不支持 WebGL，已显示静态场景。' }));
+      const message = '浏览器不支持 WebGL，已显示静态场景。';
+      this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
+      this.finishReady({ fallback: true, message });
       this.projectHotspots();
       return;
     }
@@ -170,6 +189,7 @@ export class PanoramaRoom {
       this.stage.classList.add('is-static-fallback');
       this.stage.style.setProperty('--panorama-image', `url("${this.imageUrl}")`);
       this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: error.message }));
+      this.finishReady({ fallback: true, message: error.message });
     }
   }
 
@@ -201,11 +221,14 @@ export class PanoramaRoom {
       this.ready = true;
       this.stage.classList.add('is-ready');
       this.stage.dispatchEvent(new CustomEvent('panoramaready'));
+      this.finishReady({ fallback: false, message: '全景已就绪' });
       this.requestRender();
     };
     image.onerror = () => {
+      const message = '全景图片加载失败，文字导航仍可使用。';
       this.stage.classList.add('is-static-fallback', 'is-image-missing');
-      this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: '全景图片加载失败，文字导航仍可使用。' }));
+      this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
+      this.finishReady({ fallback: true, message });
     };
     image.src = this.imageUrl;
   }
@@ -239,6 +262,7 @@ export class PanoramaRoom {
       }
 
       button.addEventListener('click', (event) => {
+        if (!this.interactionEnabled) return;
         event.stopPropagation();
         if (hotspot.kind === 'thought') {
           this.hotspotLayer.querySelectorAll('.scene-hotspot.is-thought.is-revealed').forEach((element) => {
@@ -251,6 +275,7 @@ export class PanoramaRoom {
         this.onActivate?.(hotspot, button);
       });
       button.addEventListener('pointerenter', () => {
+        if (!this.interactionEnabled) return;
         if (hotspot.kind === 'thought') this.onThought?.(hotspot, button, { preview: true });
       });
       this.hotspotLayer.appendChild(button);
@@ -260,6 +285,7 @@ export class PanoramaRoom {
 
   bindEvents() {
     this.onPointerDown = (event) => {
+      if (!this.interactionEnabled) return;
       if (event.button !== 0 || event.target.closest('button, a, input, select')) return;
       this.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
       this.stage.setPointerCapture?.(event.pointerId);
@@ -267,6 +293,7 @@ export class PanoramaRoom {
       this.animation = null;
     };
     this.onPointerMove = (event) => {
+      if (!this.interactionEnabled) return;
       if (!this.pointer || this.pointer.id !== event.pointerId) return;
       const dx = event.clientX - this.pointer.x;
       const dy = event.clientY - this.pointer.y;
@@ -286,6 +313,7 @@ export class PanoramaRoom {
       this.stage.classList.remove('is-dragging');
     };
     this.onWheel = (event) => {
+      if (!this.interactionEnabled) return;
       if (event.target.closest('button, a')) return;
       event.preventDefault();
       this.animation = null;
@@ -294,6 +322,7 @@ export class PanoramaRoom {
       this.requestRender();
     };
     this.onKeyDown = (event) => {
+      if (!this.interactionEnabled) return;
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', '='].includes(event.key)) return;
       event.preventDefault();
       const turn = 0.12;
@@ -323,6 +352,16 @@ export class PanoramaRoom {
 
   setReducedMotion(value) {
     this.reducedMotion = Boolean(value);
+  }
+
+  setInteractionEnabled(value) {
+    this.interactionEnabled = Boolean(value);
+    this.hotspotLayer.inert = !this.interactionEnabled;
+    this.stage.classList.toggle('is-interaction-locked', !this.interactionEnabled);
+    if (!this.interactionEnabled) {
+      this.pointer = null;
+      this.stage.classList.remove('is-dragging');
+    }
   }
 
   getTriggerForPanel(panel) {
@@ -355,20 +394,29 @@ export class PanoramaRoom {
     this.animateTo(this.idleView || this.defaultView);
   }
 
-  animateTo(target) {
+  animateTo(target, { duration = 520, updateIdle = false } = {}) {
+    if (this.animation?.resolve) this.animation.resolve(false);
+    if (updateIdle) this.idleView = { ...target };
     if (this.reducedMotion) {
       this.view = { ...target };
       this.animation = null;
       this.requestRender();
-      return;
+      return Promise.resolve(true);
     }
-    this.animation = {
-      startedAt: performance.now(),
-      duration: 520,
-      from: { ...this.view },
-      to: { ...target },
-    };
-    this.requestRender();
+    return new Promise((resolve) => {
+      this.animation = {
+        startedAt: performance.now(),
+        duration,
+        from: { ...this.view },
+        to: { ...target },
+        resolve,
+      };
+      this.requestRender();
+    });
+  }
+
+  animateToView(target, options = {}) {
+    return this.animateTo(target, options);
   }
 
   requestRender() {
@@ -387,7 +435,11 @@ export class PanoramaRoom {
       this.view.yaw = wrapAngle(this.animation.from.yaw + shortestAngle(this.animation.from.yaw, this.animation.to.yaw) * eased);
       this.view.pitch = this.animation.from.pitch + (this.animation.to.pitch - this.animation.from.pitch) * eased;
       this.view.fov = this.animation.from.fov + (this.animation.to.fov - this.animation.from.fov) * eased;
-      if (progress >= 1) this.animation = null;
+      if (progress >= 1) {
+        const completed = this.animation;
+        this.animation = null;
+        completed.resolve?.(true);
+      }
     }
 
     if (this.gl && this.ready) {

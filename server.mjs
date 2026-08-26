@@ -8,7 +8,7 @@ import { DEEPSEEK_DEFAULTS, ServiceError, requestDeepSeekDiagnosis } from './ser
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const MAX_BODY_BYTES = 64 * 1024;
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'panorama.js', 'scene-config.js', 'personality-scoring.js']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'intro-transition.js', 'panorama.js', 'scene-config.js', 'personality-scoring.js']);
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
