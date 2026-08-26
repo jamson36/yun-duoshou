@@ -1,0 +1,15 @@
+{
+  "name": "spree",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "让你花个爽！全景消费冲动缓冲器与消费人格复诊",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

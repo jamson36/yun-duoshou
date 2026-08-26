@@ -1,0 +1,6 @@
+# BEGIN SPREE
+spree.jamson.top {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8787
+}
+# END SPREE
