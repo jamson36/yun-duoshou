@@ -266,7 +266,7 @@ export class RoomGestureController {
       if (!sessionIsCurrent()) return;
 
       this.setState('loading', '正在载入本地手势识别…');
-      const worker = new Worker(new URL('./gesture-recognizer.worker.js?v=20260901-hand-gesture-2', import.meta.url), { type: 'module' });
+      const worker = new Worker(new URL('./gesture-recognizer.worker.js?v=20260901-gesture-classic-1', import.meta.url));
       this.worker = worker;
       await waitForWorker(worker);
       if (!sessionIsCurrent()) {

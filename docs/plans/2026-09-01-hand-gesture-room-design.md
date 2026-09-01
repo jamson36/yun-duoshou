@@ -6,7 +6,7 @@
 
 **Architecture:** 摄像头帧只在用户主动授权后发送给同源 Worker。Worker 使用本站托管的 MediaPipe Tasks Vision 运行时和 Gesture Recognizer 模型，向主线程返回手势类别、置信度与单手关键点；纯函数状态机再把结果转换为全景相机增量和热点停留进度。业务路由、订单、评分与目标数据不接触摄像头或手势数据，现有鼠标、触摸、键盘和顶部语义入口始终保留。
 
-**Tech Stack:** 原生 ES Modules、Web Worker、MediaPipe Tasks Vision、MediaDevices、现有 WebGL 全景与 Node 测试。
+**Tech Stack:** 原生 ES Modules、经典 Web Worker、MediaPipe Tasks Vision、MediaDevices、现有 WebGL 全景与 Node 测试。识别 Worker 使用同版本的经典运行文件；实测模块 Worker 首次初始化约 52 秒，而经典运行文件约 0.28 秒，因此不在识别 Worker 中使用模块版 WASM。
 
 ---
 
@@ -47,10 +47,10 @@
 
 **Files:**
 - Create: `gesture-recognizer.worker.js`
-- Create: `assets/vendor/mediapipe/NOTICE.md`
-- Create: `assets/vendor/mediapipe/vision_bundle.mjs`
-- Create: `assets/vendor/mediapipe/wasm/*`
-- Create: `assets/vendor/mediapipe/gesture_recognizer.task`
+- Create: `assets/vendor/gesture-runtime/NOTICE.md`
+- Create: `assets/vendor/gesture-runtime/vision_bundle.js`
+- Create: `assets/vendor/gesture-runtime/wasm/vision_wasm_internal.*`
+- Create: `assets/vendor/gesture-runtime/hand-gesture.task`
 - Modify: `tests/server.test.mjs`
 
 1. 固定并记录官方包与模型版本、来源和 Apache-2.0 许可信息。

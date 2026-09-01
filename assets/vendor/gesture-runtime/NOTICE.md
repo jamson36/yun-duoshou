@@ -9,16 +9,16 @@ gesture controller.
 - Source package: <https://www.npmjs.com/package/@mediapipe/tasks-vision/v/1.0.1>
 - License: Apache License 2.0 (see `LICENSE`)
 - Vendored files:
-  - `vision_bundle.mjs`
-  - `wasm/vision_wasm_module_internal.js`
-  - `wasm/vision_wasm_module_internal.wasm`
+  - `vision_bundle.js`
+  - `wasm/vision_wasm_internal.js`
+  - `wasm/vision_wasm_internal.wasm`
 
 SHA-256:
 
 ```text
-d885630c297c0b20b1fe86096cb06291c4c8080876f27852e724f24ac603713f  vision_bundle.mjs
-da8934057f147b622e82cfb4c0dbd85461c598e268588b5a8ba9ca963a8ff82d  wasm/vision_wasm_module_internal.js
-2dabd8e23c60984628beb7bb338764c81a08e6837145273f59578684b5d53c1b  wasm/vision_wasm_module_internal.wasm
+98db72469ffb176f5e9f2687be0f70783893aca681f7789c34b872b0a764371a  vision_bundle.js
+e170ee67dd4e16c1a6fcd8840a206687e5a59b22c20e4a902bc445b095454d73  wasm/vision_wasm_internal.js
+8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886  wasm/vision_wasm_internal.wasm
 ```
 
 ## Gesture recognizer model

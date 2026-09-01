@@ -11,11 +11,16 @@ console.error = (...parts) => {
 const RUNTIME_ROOT = new URL('./assets/vendor/gesture-runtime/wasm', self.location.href)
   .href
   .replace(/\/$/, '');
+const RUNTIME_BUNDLE_URL = new URL(
+  './assets/vendor/gesture-runtime/vision_bundle.js',
+  self.location.href,
+).href;
 const MODEL_URL = new URL('./assets/vendor/gesture-runtime/hand-gesture.task', self.location.href).href;
+
+importScripts(RUNTIME_BUNDLE_URL);
 
 let recognizer = null;
 let initializing = null;
-let visionTasks = null;
 
 function serializeResult(result) {
   const category = result?.gestures?.[0]?.[0] || null;
@@ -32,12 +37,16 @@ async function initialize() {
   if (initializing) return initializing;
 
   initializing = (async () => {
-    visionTasks ||= await import('./assets/vendor/gesture-runtime/vision_bundle.mjs');
-    const { FilesetResolver, GestureRecognizer } = visionTasks;
-    const fileset = await FilesetResolver.forVisionTasks(RUNTIME_ROOT, true);
+    const { FilesetResolver, GestureRecognizer } = self.Vision;
+    const [fileset, modelResponse] = await Promise.all([
+      FilesetResolver.forVisionTasks(RUNTIME_ROOT, false),
+      fetch(MODEL_URL),
+    ]);
+    if (!modelResponse.ok) throw new Error('gesture-model-unavailable');
+    const modelAssetBuffer = new Uint8Array(await modelResponse.arrayBuffer());
     recognizer = await GestureRecognizer.createFromOptions(fileset, {
       baseOptions: {
-        modelAssetPath: MODEL_URL,
+        modelAssetBuffer,
         delegate: 'CPU',
       },
       runningMode: 'VIDEO',

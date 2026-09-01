@@ -157,8 +157,8 @@ test('手势与体感控制模块、Worker 与本地模型只通过同源白名�
       fetch(`${baseUrl}/gesture-recognizer.worker.js`),
       fetch(`${baseUrl}/orientation-controls.js`),
       fetch(`${baseUrl}/orientation-ui.js`),
-      fetch(`${baseUrl}/assets/vendor/gesture-runtime/vision_bundle.mjs`),
-      fetch(`${baseUrl}/assets/vendor/gesture-runtime/wasm/vision_wasm_module_internal.wasm`, { method: 'HEAD' }),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/vision_bundle.js`),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/wasm/vision_wasm_internal.wasm`, { method: 'HEAD' }),
       fetch(`${baseUrl}/assets/vendor/gesture-runtime/hand-gesture.task`, { method: 'HEAD' }),
     ]);
 
@@ -177,6 +177,19 @@ test('手势与体感控制模块、Worker 与本地模型只通过同源白名�
     assert.ok(Number(wasm.headers.get('content-length')) > 100_000);
     assert.ok(Number(model.headers.get('content-length')) > 1_000_000);
   });
+});
+
+test('手势 Worker 使用经典同源运行文件，避免模块版 WASM 初始化长时间阻塞', async () => {
+  const [workerSource, uiSource] = await Promise.all([
+    readFile(new URL('../gesture-recognizer.worker.js', import.meta.url), 'utf8'),
+    readFile(new URL('../gesture-ui.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(workerSource, /importScripts\(/);
+  assert.match(workerSource, /FilesetResolver\.forVisionTasks\(RUNTIME_ROOT, false\)/);
+  assert.match(workerSource, /modelAssetBuffer/);
+  assert.doesNotMatch(workerSource, /vision_bundle\.mjs/);
+  assert.doesNotMatch(uiSource, /type:\s*['"]module['"]/);
 });
 
 test('生产镜像包含手势与体感控制的根级运行模块', async () => {
