@@ -89,9 +89,9 @@ function waitForVideo(video, sessionIsCurrent) {
   });
 }
 
-function waitForWorker(worker) {
+function waitForWorker(worker, onStatus = () => {}) {
   return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => finish(new Error('runtime-timeout')), 20_000);
+    const timeout = window.setTimeout(() => finish(new Error('runtime-timeout')), 90_000);
     const finish = (error = null) => {
       window.clearTimeout(timeout);
       worker.removeEventListener('message', onMessage);
@@ -102,6 +102,15 @@ function waitForWorker(worker) {
     const onMessage = (event) => {
       if (event.data?.type === 'ready') finish();
       if (event.data?.type === 'error') finish(new Error(event.data.code || 'runtime-error'));
+      if (event.data?.type === 'load-progress') {
+        const loadedBytes = Number(event.data.loadedBytes) || 0;
+        const totalBytes = Number(event.data.totalBytes) || 0;
+        const percent = totalBytes > 0 ? Math.round(clamp(loadedBytes / totalBytes, 0, 1) * 100) : null;
+        onStatus(percent === null
+          ? '正在下载本地识别资源…'
+          : `正在下载本地识别资源 ${percent}%…`);
+      }
+      if (event.data?.type === 'runtime-loading') onStatus('正在启动本地手势识别…');
     };
     const onError = () => finish(new Error('runtime-error'));
     worker.addEventListener('message', onMessage);
@@ -135,6 +144,7 @@ export class RoomGestureController {
     this.starting = false;
     this.stream = null;
     this.worker = null;
+    this.workerReady = false;
     this.frameRequest = 0;
     this.stableSince = null;
     this.calibrated = false;
@@ -265,22 +275,39 @@ export class RoomGestureController {
       await this.elements.video.play();
       if (!sessionIsCurrent()) return;
 
-      this.setState('loading', '正在载入本地手势识别…');
-      const worker = new Worker(new URL('./gesture-recognizer.worker.js?v=20260901-gesture-classic-1', import.meta.url));
-      this.worker = worker;
-      await waitForWorker(worker);
-      if (!sessionIsCurrent()) {
-        worker.terminate();
-        return;
-      }
+      let worker = this.worker;
+      if (!worker || !this.workerReady) {
+        this.setState('loading', '正在载入本地手势识别…');
+        worker = new Worker(new URL('./gesture-recognizer.worker.js?v=20260901-gesture-runtime-2', import.meta.url));
+        this.worker = worker;
+        this.workerReady = false;
+        await waitForWorker(worker, (message) => {
+          if (sessionIsCurrent() && this.worker === worker) this.setState('loading', message);
+        });
+        if (!sessionIsCurrent()) {
+          worker.terminate();
+          if (this.worker === worker) {
+            this.worker = null;
+            this.workerReady = false;
+          }
+          return;
+        }
 
-      worker.addEventListener('message', (event) => {
-        if (this.worker !== worker) return;
-        this.handleWorkerMessage(event.data);
-      });
-      worker.addEventListener('error', () => {
-        if (this.worker === worker) this.stop('runtime-error');
-      });
+        worker.addEventListener('message', (event) => {
+          if (this.worker !== worker) return;
+          if (!this.active) {
+            if (event.data?.type === 'result' || event.data?.type === 'frame-error') this.frameGate.release();
+            return;
+          }
+          this.handleWorkerMessage(event.data);
+        });
+        worker.addEventListener('error', () => {
+          if (this.worker === worker) this.stop('runtime-error');
+        });
+        this.workerReady = true;
+      } else {
+        this.setState('loading', '正在恢复本地手势识别…');
+      }
 
       this.starting = false;
       this.active = true;
@@ -433,6 +460,7 @@ export class RoomGestureController {
   }
 
   pauseForPanel() {
+    if (this.panelResumePending && !this.active && !this.starting) return true;
     const wasRunning = this.active || this.starting || Boolean(this.stream) || Boolean(this.worker);
     if (!wasRunning) return false;
     this.panelResumePending = true;
@@ -452,12 +480,13 @@ export class RoomGestureController {
 
   stop(reason = 'user') {
     const wasRunning = this.active || this.starting || Boolean(this.stream) || Boolean(this.worker);
+    const keepWorker = reason === 'panel' && this.active && this.workerReady;
     if (reason !== 'panel') this.panelResumePending = false;
     if (!wasRunning) return false;
     this.session += 1;
     this.active = false;
     this.starting = false;
-    this.releaseResources();
+    this.releaseResources({ keepWorker });
     this.mapper.reset();
     this.updatePointer(null);
     this.elements.root.removeAttribute('data-calibrated');
@@ -478,11 +507,11 @@ export class RoomGestureController {
     return wasRunning;
   }
 
-  releaseResources() {
+  releaseResources({ keepWorker = false } = {}) {
     window.cancelAnimationFrame(this.frameRequest);
     this.frameRequest = 0;
     this.frameGate.reset();
-    if (this.worker) {
+    if (this.worker && !keepWorker) {
       try {
         this.worker.postMessage({ type: 'stop' });
       } catch {
@@ -490,6 +519,7 @@ export class RoomGestureController {
       this.worker.terminate();
       this.worker = null;
     }
+    if (!keepWorker) this.workerReady = false;
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;

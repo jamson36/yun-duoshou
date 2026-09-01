@@ -10,7 +10,7 @@ import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from '.
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-flow-alignment-3';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
-import { RoomGestureController } from './gesture-ui.js?v=20260901-gesture-classic-1';
+import { RoomGestureController } from './gesture-ui.js?v=20260901-gesture-runtime-2';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';

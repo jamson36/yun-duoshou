@@ -15,7 +15,11 @@ const RUNTIME_BUNDLE_URL = new URL(
   './assets/vendor/gesture-runtime/vision_bundle.js',
   self.location.href,
 ).href;
-const MODEL_URL = new URL('./assets/vendor/gesture-runtime/hand-gesture.task', self.location.href).href;
+const RUNTIME_WASM_URL = new URL(
+  './assets/vendor/gesture-runtime/wasm/vision_wasm_internal.bin',
+  self.location.href,
+).href;
+const MODEL_URL = new URL('./assets/vendor/gesture-runtime/hand-gesture.bin', self.location.href).href;
 
 importScripts(RUNTIME_BUNDLE_URL);
 
@@ -32,18 +36,59 @@ function serializeResult(result) {
   };
 }
 
+async function loadModelAsset() {
+  const response = await fetch(MODEL_URL);
+  if (!response.ok) throw new Error('gesture-model-unavailable');
+
+  const totalBytes = Number(response.headers.get('content-length')) || 0;
+  if (!response.body?.getReader) {
+    const modelAssetBuffer = new Uint8Array(await response.arrayBuffer());
+    self.postMessage({
+      type: 'load-progress',
+      loadedBytes: modelAssetBuffer.byteLength,
+      totalBytes: totalBytes || modelAssetBuffer.byteLength,
+    });
+    return modelAssetBuffer;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loadedBytes = 0;
+  let lastPercent = -1;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loadedBytes += value.byteLength;
+    const percent = totalBytes > 0 ? Math.floor((loadedBytes / totalBytes) * 100) : null;
+    if (percent === null || percent >= lastPercent + 2 || loadedBytes >= totalBytes) {
+      lastPercent = percent ?? lastPercent;
+      self.postMessage({ type: 'load-progress', loadedBytes, totalBytes });
+    }
+  }
+
+  const modelAssetBuffer = new Uint8Array(loadedBytes);
+  let offset = 0;
+  chunks.forEach((chunk) => {
+    modelAssetBuffer.set(chunk, offset);
+    offset += chunk.byteLength;
+  });
+  return modelAssetBuffer;
+}
+
 async function initialize() {
   if (recognizer) return recognizer;
   if (initializing) return initializing;
 
   initializing = (async () => {
     const { FilesetResolver, GestureRecognizer } = self.Vision;
-    const [fileset, modelResponse] = await Promise.all([
+    const [fileset, modelAssetBuffer] = await Promise.all([
       FilesetResolver.forVisionTasks(RUNTIME_ROOT, false),
-      fetch(MODEL_URL),
+      loadModelAsset(),
     ]);
-    if (!modelResponse.ok) throw new Error('gesture-model-unavailable');
-    const modelAssetBuffer = new Uint8Array(await modelResponse.arrayBuffer());
+    fileset.wasmBinaryPath = RUNTIME_WASM_URL;
+    self.postMessage({ type: 'runtime-loading' });
     recognizer = await GestureRecognizer.createFromOptions(fileset, {
       baseOptions: {
         modelAssetBuffer,

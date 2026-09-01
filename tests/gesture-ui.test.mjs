@@ -64,6 +64,47 @@ test('进入功能页时暂停正在运行的手势，并保留返回房间的�
   assert.deepEqual(calls, ['panel']);
 });
 
+test('功能页暂停释放摄像头与推理帧，但保留已初始化的 Worker 供快速恢复', () => {
+  const calls = [];
+  const controller = {
+    active: true,
+    starting: false,
+    stream: { getTracks: () => [] },
+    worker: {},
+    workerReady: true,
+    panelResumePending: true,
+    session: 4,
+    releaseResources: (options) => calls.push(['release', options]),
+    mapper: { reset: () => calls.push(['mapper-reset']) },
+    updatePointer: (value) => calls.push(['pointer', value]),
+    elements: {
+      root: { removeAttribute: (name) => calls.push(['remove', name]) },
+      dialog: { open: false },
+    },
+    setState: (state, copy) => calls.push(['state', state, copy]),
+    onToast: (copy) => calls.push(['toast', copy]),
+  };
+
+  assert.equal(RoomGestureController.prototype.stop.call(controller, 'panel'), true);
+  assert.equal(controller.session, 5);
+  assert.equal(controller.active, false);
+  assert.equal(controller.starting, false);
+  assert.deepEqual(calls[0], ['release', { keepWorker: true }]);
+});
+
+test('功能页之间切换不会重复停止已保留的 Worker', () => {
+  const controller = {
+    active: false,
+    starting: false,
+    worker: {},
+    panelResumePending: true,
+    stop: () => assert.fail('不应重复停止 Worker'),
+  };
+
+  assert.equal(RoomGestureController.prototype.pauseForPanel.call(controller), true);
+  assert.equal(controller.panelResumePending, true);
+});
+
 test('退出功能页后只消费一次恢复资格，未开启或减少动态时不自动启动', () => {
   const calls = [];
   const controller = {

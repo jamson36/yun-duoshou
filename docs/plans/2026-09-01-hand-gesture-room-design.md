@@ -6,7 +6,7 @@
 
 **Architecture:** 摄像头帧只在用户主动授权后发送给同源 Worker。Worker 使用本站托管的 MediaPipe Tasks Vision 运行时和 Gesture Recognizer 模型，向主线程返回手势类别、置信度与单手关键点；纯函数状态机再把结果转换为全景相机增量和热点停留进度。业务路由、订单、评分与目标数据不接触摄像头或手势数据，现有鼠标、触摸、键盘和顶部语义入口始终保留。
 
-**Tech Stack:** 原生 ES Modules、经典 Web Worker、MediaPipe Tasks Vision、MediaDevices、现有 WebGL 全景与 Node 测试。识别 Worker 使用同版本的经典运行文件；实测模块 Worker 首次初始化约 52 秒，而经典运行文件约 0.28 秒，因此不在识别 Worker 中使用模块版 WASM。
+**Tech Stack:** 原生 ES Modules、经典 Web Worker、MediaPipe Tasks Vision、MediaDevices、现有 WebGL 全景与 Node 测试。识别 Worker 使用同版本的经典运行文件；实测模块 Worker 首次初始化约 52 秒，而经典运行文件本地约 0.28 秒，因此不在识别 Worker 中使用模块版 WASM。固定模型与 WASM 以内容不变的 `.bin` URL 提供，避免 CDN 默认扩展名规则把它们长期判定为不可缓存。
 
 ---
 
@@ -17,7 +17,7 @@
 - `Closed_Fist` 加手掌位移控制环视；捏合后上下移动控制缩放；`Pointing_Up` 映射为空气指针，在房间热点停留约 800ms 后激活。
 - 握拳环视的水平增益高于垂直增益，一次完整左右挥动应能跨越原先约两次的可视角度；垂直移动、缩放和指向灵敏度保持不变。
 - 手势只允许控制全景相机和打开非破坏性的房间入口，不允许操作表单、订单状态、删除、购买确认、目标或消费报告数据。
-- 打开功能面板时立即停止推理并释放摄像头；如果进入前手势正在运行，返回房间后在当前页面会话内自动恢复。用户主动停止、页面隐藏、启用减少动态效果、摄像头轨道结束或识别错误都会取消自动恢复资格。
+- 打开功能面板时立即停止推理并释放摄像头，同时在当前前台页面会话保留已初始化的 Worker；如果进入前手势正在运行，返回房间后自动快速恢复。用户主动停止、页面隐藏、启用减少动态效果、摄像头轨道结束或识别错误都会销毁 Worker 并取消自动恢复资格。
 - 权限拒绝、无摄像头、模型失败、低置信度或性能不足都只降级为状态提示，不能阻断原有交互。
 - 模型、WASM 和脚本全部同源托管并按需加载；不开启手势时不下载模型，不改变原有首屏执行路径。
 
@@ -50,7 +50,7 @@
 - Create: `assets/vendor/gesture-runtime/NOTICE.md`
 - Create: `assets/vendor/gesture-runtime/vision_bundle.js`
 - Create: `assets/vendor/gesture-runtime/wasm/vision_wasm_internal.*`
-- Create: `assets/vendor/gesture-runtime/hand-gesture.task`
+- Create: `assets/vendor/gesture-runtime/hand-gesture.bin`
 - Modify: `tests/server.test.mjs`
 
 1. 固定并记录官方包与模型版本、来源和 Apache-2.0 许可信息。
@@ -68,8 +68,8 @@
 - Create: `tests/gesture-ui.test.mjs`
 
 1. 增加顶部手势入口、用途说明、校准视频/关键点画布、状态提示、开始与停止按钮、全景空气指针和停留进度环。
-2. `gesture-ui.js` 管理摄像头、Worker、帧节流、校准折叠、错误映射和资源清理；不读写业务状态。
-3. `app.js` 只注入全景控制、热点命中/激活和生命周期回调；面板打开时暂停并释放摄像头，回到房间时按会话恢复资格自动重启，减少动态效果时彻底停止。
+2. `gesture-ui.js` 管理摄像头、Worker、帧节流、校准折叠、加载进度、慢网超时保护和资源清理；不读写业务状态。
+3. `app.js` 只注入全景控制、热点命中/激活和生命周期回调；面板打开时暂停并释放摄像头、保留已初始化 Worker，回到房间时按会话恢复资格自动重启，减少动态效果时彻底停止。
 4. 在 390×844、768px 与 1440×1000 下保持无横向溢出，校准层不遮挡退出按钮和顶部三个入口。
 
 ## Task 5: 服务权限与回归
@@ -80,7 +80,7 @@
 
 1. 把摄像头 Permissions Policy 从完全禁用收窄为仅允许当前源；麦克风、定位与支付继续禁用。
 2. CSP 保持 `script-src 'self'`、`connect-src 'self'`，不开放远程脚本、模型或连接。
-3. 为 `.wasm` 与 `.task` 返回正确类型；根目录仅新增明确列入白名单的手势模块和 Worker。
+3. 为缓存友好的 `.bin` 模型和 WASM 路径返回各自正确类型；根目录仅新增明确列入白名单的手势模块和 Worker。
 4. 验证公开路径无法读取源码目录、环境文件或其他内部文件。
 
 ## Task 6: 验证与本地交付

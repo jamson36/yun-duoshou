@@ -158,8 +158,8 @@ test('手势与体感控制模块、Worker 与本地模型只通过同源白名�
       fetch(`${baseUrl}/orientation-controls.js`),
       fetch(`${baseUrl}/orientation-ui.js`),
       fetch(`${baseUrl}/assets/vendor/gesture-runtime/vision_bundle.js`),
-      fetch(`${baseUrl}/assets/vendor/gesture-runtime/wasm/vision_wasm_internal.wasm`, { method: 'HEAD' }),
-      fetch(`${baseUrl}/assets/vendor/gesture-runtime/hand-gesture.task`, { method: 'HEAD' }),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/wasm/vision_wasm_internal.bin`, { method: 'HEAD' }),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/hand-gesture.bin`, { method: 'HEAD' }),
     ]);
 
     assert.deepEqual(
@@ -187,9 +187,15 @@ test('手势 Worker 使用经典同源运行文件，避免模块版 WASM 初始
 
   assert.match(workerSource, /importScripts\(/);
   assert.match(workerSource, /FilesetResolver\.forVisionTasks\(RUNTIME_ROOT, false\)/);
+  assert.match(workerSource, /fileset\.wasmBinaryPath\s*=\s*RUNTIME_WASM_URL/);
+  assert.match(workerSource, /vision_wasm_internal\.bin/);
+  assert.match(workerSource, /hand-gesture\.bin/);
   assert.match(workerSource, /modelAssetBuffer/);
+  assert.match(workerSource, /load-progress/);
+  assert.match(workerSource, /runtime-loading/);
   assert.doesNotMatch(workerSource, /vision_bundle\.mjs/);
   assert.doesNotMatch(uiSource, /type:\s*['"]module['"]/);
+  assert.match(uiSource, /90_000/);
 });
 
 test('生产镜像包含手势与体感控制的根级运行模块', async () => {

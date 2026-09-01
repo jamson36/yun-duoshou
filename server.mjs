@@ -25,7 +25,13 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.wasm': 'application/wasm',
   '.task': 'application/octet-stream',
+  '.bin': 'application/octet-stream',
 };
+
+function staticContentType(filePath) {
+  if (filePath.endsWith(`${sep}vision_wasm_internal.bin`)) return 'application/wasm';
+  return MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
+}
 
 function securityHeaders(contentType = 'application/json; charset=utf-8') {
   return {
@@ -127,7 +133,7 @@ async function serveStatic(request, response, pathname) {
     return false;
   }
   if (!fileInfo.isFile()) return false;
-  const contentType = MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
+  const contentType = staticContentType(filePath);
   response.writeHead(200, {
     ...securityHeaders(contentType),
     'Content-Length': fileInfo.size,
