@@ -7,191 +7,544 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！｜钱包全景房间</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css?v=20260826-intro-2" />
-    <script type="module" src="./app.js?v=20260826-intro-2"></script>
+  <link rel="stylesheet" href="./styles.css?v=20260901-commerce-phone-6" />
+  <script type="module" src="./app.js?v=20260901-commerce-phone-6"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
     <main class="app panorama-app" id="app" data-focus="none" data-room-phase="loading">
-      <header class="topbar">
-        <a class="brand" href="#room" aria-label="返回让你花个爽！全景房间">
-          <span class="brand-mark">爽</span>
-          <span><strong>让你花个爽！</strong><small>WALLET PANORAMA ROOM</small></span>
-        </a>
-        <div class="topbar-status" aria-label="房间状态">
+      <header class="topbar room-utilities">
+        <div class="topbar-status sr-only" aria-label="房间状态">
           <span><i></i> PANORAMA ONLINE</span><b id="clock">--:--</b>
         </div>
         <div class="topbar-actions">
-          <button class="text-button" id="loadDemoButton" type="button">载入演示数据</button>
-          <button class="icon-button" id="motionButton" type="button" aria-pressed="false"><span aria-hidden="true">≈</span><span class="sr-only">切换减少动态效果</span></button>
+          <button class="text-button" id="loadDemoButton" type="button">导入测试数据</button>
+          <button class="icon-button room-help-button" id="roomHelpButton" type="button" aria-haspopup="dialog" aria-controls="roomHelpDialog" aria-label="查看使用说明">?</button>
         </div>
       </header>
+
+      <dialog class="room-help-dialog" id="roomHelpDialog" aria-labelledby="roomHelpTitle">
+        <div class="room-help-card">
+          <div class="room-help-heading modal-header">
+            <div><small>HOW TO PLAY</small><h2 id="roomHelpTitle">这间房怎么玩？</h2></div>
+            <button class="modal-close" id="roomHelpCloseButton" type="button" aria-label="关闭使用说明"></button>
+          </div>
+          <ol>
+            <li><b>左右环视</b><span>拖动房间或使用左右方向键，滚轮与加减键可缩放。</span></li>
+            <li><b>三个入口</b><span>健身屏做消费测试，茶几手机记录想买，白板设置回血目标。</span></li>
+            <li><b>只做模拟</b><span>不会发起真实支付；只有你确认“幸好没买”才计入目标进度。</span></li>
+          </ol>
+          <div class="room-help-actions">
+            <button id="resetRoomViewButton" type="button">回到房间中间</button>
+            <button id="motionButton" type="button" aria-pressed="false">减少动态效果</button>
+          </div>
+        </div>
+      </dialog>
 
       <section class="room-shell panorama-room" aria-labelledby="roomTitle">
         <div class="panorama-stage" id="sceneFrame" tabindex="0" role="application" aria-label="钱包全景房间。拖动或使用方向键环视，滚轮或加减键缩放。">
           <canvas class="panorama-canvas" id="panoramaCanvas" aria-hidden="true"></canvas>
           <div class="panorama-loading" aria-hidden="true"><i></i><span>ROOM LOADING</span></div>
           <section class="room-intro-gate" id="roomIntroGate" aria-label="让你花个爽！房间开屏" aria-busy="true">
+            <video class="intro-background-video" id="roomIntroVideo" muted playsinline preload="auto" poster="./assets/room-intro-poster-hq.webp" aria-hidden="true" tabindex="-1">
+              <source src="./assets/room-intro-hq.mp4" type="video/mp4" />
+            </video>
+            <div class="entry-loop-stage">
+              <video class="entry-background-video" id="roomEntryVideo" muted playsinline loop preload="auto" poster="./assets/room-entry-poster-hq.webp" aria-hidden="true" tabindex="-1">
+                <source src="./assets/room-entry-loop.mp4" type="video/mp4" />
+              </video>
+              <div class="room-entry-lockup" id="roomEntryLockup" aria-hidden="true" inert>
+                <p class="room-entry-welcome"><span>WELCOME TO</span><b>Have a great time!</b></p>
+                <img class="room-entry-dots" src="./assets/figma-entry-dots.svg" alt="" width="76" height="21" aria-hidden="true" />
+                <img class="room-entry-title-art" src="./assets/figma-entry-title.webp" alt="让你花个爽！" width="2048" height="1152" />
+                <button class="enter-room-button" id="enterRoomButton" type="button" aria-label="进入房间" disabled>
+                  <span>点击开始</span>
+                </button>
+                <small><i aria-hidden="true">——————</i> 假装下单，真的回血 <i aria-hidden="true">——————</i></small>
+              </div>
+            </div>
             <canvas class="intro-pixel-canvas" id="introPixelCanvas" aria-hidden="true"></canvas>
             <div class="intro-loading-state" aria-hidden="true">
               <span>LOADING ROOM TEXTURE</span><i></i><small>正在准备小浣熊的房间</small>
-            </div>
-            <div class="room-entry-lockup" id="roomEntryLockup" aria-hidden="true" inert>
-              <p><span>WELCOME TO</span> WALLET ROOM 01</p>
-              <h1>让你花个爽！</h1>
-              <strong>先把想买的放进房间，<br />再决定它值不值得带走。</strong>
-              <button class="enter-room-button" id="enterRoomButton" type="button" disabled>
-                <span>进入房间</span><b aria-hidden="true">↗</b>
-              </button>
-              <small>同一间房 · 点击后镜头平滑拉远</small>
             </div>
             <div class="intro-system-status" aria-hidden="true"><i></i><span>PIXEL REVEAL / 03.00 SEC</span></div>
             <p class="sr-only" id="introStatus" role="status" aria-live="polite">正在加载房间。</p>
           </section>
           <div class="scene-scrim" aria-hidden="true"></div>
+          <div class="scene-whiteboard-layer" id="sceneWhiteboardLayer" aria-label="全景白板便签层"></div>
           <div class="hotspot-layer" id="hotspotLayer"></div>
+          <h1 class="sr-only" id="roomTitle">让你花个爽！钱包房间</h1>
 
-          <div class="room-heading panorama-heading">
-            <p class="eyebrow">ROOM 01 · PERSONAL WALLET PANORAMA</p>
-            <h1 id="roomTitle">走进你的<br /><em>钱包房间</em></h1>
-            <p class="room-intro">拖动环视，点击屏幕、手机和白板。快递箱里还藏着一点真心话。</p>
-          </div>
-
-          <div class="metric-strip panorama-metrics" aria-label="钱包摘要">
+          <div class="room-metrics-semantic sr-only" aria-label="钱包摘要">
             <div><span>今日记录</span><strong id="metricRecorded">¥0</strong></div>
             <div><span>确认省下</span><strong id="metricSaved">¥0</strong></div>
             <div><span>冷静中</span><strong id="metricCooling">0</strong></div>
+            <span class="metric-data-scope" id="metricDataScope">暂无记录</span>
           </div>
 
-          <button class="mascot scene-mascot" id="mascotButton" type="button" aria-label="看看小浣熊的提示">
-            <span class="mascot-bubble" id="mascotBubble">欢迎。先左右看看，这间房里的东西都认识你的钱包。</span>
-            <span class="raccoon-guide-art" aria-hidden="true"><img src="./assets/raccoon-guide.webp" alt="" /></span>
-            <span class="mascot-name">小浣熊 · 房间向导</span>
-          </button>
-
-          <div class="panorama-hint" aria-hidden="true"><span>DRAG</span><i></i><strong>左右环视</strong><small>滚轮缩放</small></div>
-
-          <nav class="zone-nav" aria-label="全景房间区域导航">
-            <button type="button" data-scene-target="gym-screen"><b>01</b><span>消费测试</span></button>
-            <button type="button" data-scene-target="sofa-phone"><b>02</b><span>下单 / 订单</span></button>
-            <button type="button" data-scene-target="whiteboard"><b>03</b><span>预算计划</span></button>
-            <button type="button" data-scene-group="packages"><b>···</b><span>看看快递</span></button>
-          </nav>
-          <div class="scene-status" id="sceneStatus" role="status" aria-live="polite">全景加载中</div>
+          <p class="scene-raccoon-speech" id="mascotBubble" role="status" aria-live="polite">嗨，欢迎来到让你花个爽！拖动房间左右看看，三个入口都可以点。</p>
+          <div class="scene-status sr-only" id="sceneStatus" role="status" aria-live="polite">全景加载中</div>
         </div>
-        <p class="room-footnote">这里只记录消费欲望，不会发生真实支付。</p>
+        <p class="room-footnote sr-only">这里只记录消费欲望，不会发生真实支付。</p>
       </section>
 
-      <nav class="mobile-dock" aria-label="房间功能导航">
-        <button type="button" data-scene-target="gym-screen"><b>01</b><span>测试</span></button>
-        <button type="button" data-scene-target="sofa-phone"><b>02</b><span>下单</span></button>
-        <button type="button" data-open="orders"><b>02B</b><span>订单</span></button>
-        <button type="button" data-scene-target="whiteboard"><b>03</b><span>预算</span></button>
+      <nav class="mobile-dock room-entry-cluster" aria-label="主要功能">
+        <button type="button" data-scene-target="gym-screen"><b>01</b><span>消费测试</span></button>
+        <button type="button" data-scene-target="sofa-phone"><b>02</b><span>开始买吧</span></button>
+        <button type="button" data-scene-target="whiteboard"><b>03</b><span>回血计划</span></button>
       </nav>
 
       <aside class="focus-panel" id="focusPanel" aria-hidden="true" aria-label="功能内容">
         <div class="panel-rail" aria-hidden="true"><span id="panelIndex">00</span></div>
         <div class="panel-inner">
-          <button class="panel-close" id="panelClose" type="button"><span aria-hidden="true">←</span> 回房间 <kbd>ESC</kbd></button>
+          <button class="panel-close app-back app-back-floating" id="panelClose" type="button" aria-label="回房间"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span class="panel-close-label">回房间</span><kbd>ESC</kbd></button>
 
-          <section class="panel-view" data-panel="new" aria-labelledby="newPanelTitle">
-            <div class="device-tabs" role="navigation" aria-label="手机功能">
-              <button type="button" class="is-active" data-open="new">模拟下单</button><button type="button" data-open="orders">我的订单</button>
+          <section class="panel-view phone-device" data-panel="new" aria-label="开始买吧">
+            <div class="phone-status-bar" aria-hidden="true">
+              <time data-phone-clock>--:--</time>
+              <span class="phone-dynamic-island"></span>
+              <span class="phone-status-icons"><i></i><i></i><i></i></span>
             </div>
-            <div class="panel-heading">
-              <p>SOFA PHONE · CLOUD ORDER</p><h2 id="newPanelTitle" tabindex="-1">先假装<br />下个单</h2><span class="panel-sticker">不会发货</span>
-            </div>
-            <form class="order-form" id="orderForm">
-              <label><span>你刚刚想买什么？</span><input name="name" maxlength="30" required placeholder="例如：一杯超大奶茶" /></label>
-              <label><span>差点花多少钱？</span><span class="money-input"><b>¥</b><input name="amount" type="number" min="0.01" max="99999" step="0.01" required placeholder="28" /></span></label>
-              <div class="form-grid">
-                <label><span>分类</span><select name="category" required><option value="">请选择</option><option>餐饮饮品</option><option>服饰美妆</option><option>数码家居</option><option>娱乐社交</option><option>学习成长</option><option>旅行交通</option><option>其他</option></select></label>
-                <label><span>为什么想买？</span><select name="reason" required><option value="">请选择</option><option>嘴馋</option><option>无聊</option><option>被种草</option><option>情绪不好</option><option>限时优惠</option><option>社交需要</option><option>自我提升</option><option>其他</option></select></label>
+            <div class="phone-screen-scroll" id="newPhoneScreen">
+            <section class="shopping-intro-view" id="shoppingIntroView" aria-labelledby="shoppingIntroTitle">
+              <div class="shopping-intro-copy">
+                <small class="sr-only">让你花个爽！· 模拟消费入口</small>
+                <h2 id="shoppingIntroTitle" tabindex="-1">还在为深夜剁手<br />后悔不已吗？</h2>
+                <p class="shopping-intro-lead">还在为突如其来的消费焦虑而焦虑吗？<br /><strong>你的消费缓冲器来啦！</strong></p>
+                <p>今天想 🛍️ 买什么、🍜 吃什么、🎮 玩什么，统统可以先在这里模拟下单，过一把消费瘾。</p>
+                <p>购物、外卖、兴趣，想逛哪个自己选。Don't worry，你的钱还是你的钱，每一笔只会进入冷静单。</p>
+                <button class="shopping-intro-enter" id="enterShoppingPhoneButton" type="button">
+                  <span class="sr-only">进入模拟手机</span>
+                  <i aria-hidden="true"><img src="./assets/figma-arrow-right-small.svg" alt="" /></i>
+                </button>
               </div>
-              <fieldset class="decision-signals">
-                <legend><span>这次做过什么判断？</span><small>可选，最多 2 项；会让人格评分更准确</small></legend>
-                <div class="decision-signal-grid">
-                  <label><input type="checkbox" name="decisionSignals" value="instant" /><span>没做功课就想下单</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="wait" /><span>等一晚再决定</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="compare" /><span>比过价格</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="research" /><span>查过参数 / 成分</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="reviews" /><span>看过评价 / 差评</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="friends" /><span>问过朋友</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="creator" /><span>达人 / 直播推荐</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="deal" /><span>找券 / 凑满减</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="comfort" /><span>为了舒适 / 氛围</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="achievement" /><span>为了学习 / 作品</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="identity" /><span>认同品牌故事</span></label>
-                  <label><input type="checkbox" name="decisionSignals" value="stock" /><span>已有同类还想囤</span></label>
+              <picture class="shopping-intro-art" aria-hidden="true">
+                <source media="(min-width: 821px)" srcset="./assets/figma-commerce-20260901/hand-21-155/hand-21-155-4x.png" />
+                <img src="./assets/figma-commerce-20260901/shopping-intro-raw-02.png" alt="" width="504" height="504" decoding="async" />
+              </picture>
+              <div class="shopping-intro-phone-preview" aria-hidden="true">
+                <img src="./assets/figma-commerce-20260901/phone-20-3/phone-home-20-3-4x.png" alt="" width="2052" height="3856" decoding="async" />
+              </div>
+            </section>
+            <div class="phone-home-view" id="phoneHomeView">
+            <div class="phone-greeting">
+              <div><h2 id="newPanelTitle" tabindex="-1">今日剁手</h2><p id="phoneGreetingLabel">你好，要买东西嘛 👋</p></div>
+            </div>
+            <section class="order-overview-card" aria-label="今日消费欲望摘要">
+              <span class="order-overview-goal-pill" id="orderGoalLabel">本月目标 ¥0</span>
+              <span class="order-data-scope" id="orderDataScope">暂无记录</span>
+              <div class="order-overview-head"><div><small>今日消费欲</small><strong id="orderTodayRecorded">¥0</strong></div><span id="orderCoolingSummary">0 笔冷静中</span></div>
+              <div class="order-goal-row"><span id="orderGoalProgressLabel">还没有预算便签</span><b id="orderGoalPercent">0%</b></div>
+              <div class="order-goal-track" id="orderGoalTrack" role="progressbar" aria-label="当前目标回血进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+              <p>模拟记录 · 不支付、不发货</p>
+              <span class="phone-raccoon-avatar" aria-hidden="true"><img src="./assets/phone-raccoon.webp" alt="" width="384" height="384" loading="lazy" decoding="async" /></span>
+            </section>
+            <section class="order-trend-card" aria-labelledby="orderTrendTitle">
+              <div class="order-trend-head"><div><h3 id="orderTrendTitle">我的消费曲线</h3><small>最近 7 天消费欲望走势</small></div><output id="orderTrendDelta">本周消费欲 · 暂无</output></div>
+              <div class="order-trend-visual" aria-hidden="true">
+                <svg viewBox="0 0 280 106" preserveAspectRatio="none">
+                  <defs><linearGradient id="orderTrendGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffb742" stop-opacity=".42" /><stop offset="1" stop-color="#ffb742" stop-opacity="0" /></linearGradient></defs>
+                  <path class="order-trend-grid" d="M 0 22 H 280 M 0 53 H 280 M 0 84 H 280"></path>
+                  <path class="order-trend-area" id="orderTrendArea"></path>
+                  <path class="order-trend-line" id="orderTrendLine"></path>
+                  <g class="order-trend-points" id="orderTrendPoints"></g>
+                </svg>
+                <output class="order-trend-peak" id="orderTrendPeak" hidden>¥0</output>
+              </div>
+              <ol class="order-trend-bars" id="orderTrendBars" aria-label="最近七天每天记录的想买金额"></ol>
+            </section>
+            <fieldset class="category-shortcuts" id="categoryCarousel" aria-describedby="categoryCarouselHelp">
+              <legend><span>去哪儿剁一笔？</span><i class="category-pagination" aria-hidden="true"><b data-category-dot="0"></b><b class="is-active" data-category-dot="1"></b><b data-category-dot="2"></b></i></legend>
+              <p class="sr-only" id="categoryCarouselHelp">点击任意卡片直接进入对应模拟商城；也可以使用左右方向键或横向滑动切换当前选择。</p>
+              <output class="sr-only" id="categoryCarouselStatus" aria-live="polite">当前选中：购物</output>
+              <button type="button" data-category-shortcut="学习成长" data-card-state="previous" aria-pressed="false"><i aria-hidden="true"><img src="./assets/phone-icon-guitar.svg" alt="" /></i><small>兴趣</small><b>摄影 · 陶艺 · 潜水</b><span>查看模拟商品 →</span></button>
+              <button type="button" data-category-shortcut="服饰美妆" data-card-state="active" aria-pressed="true"><i aria-hidden="true"><img src="./assets/phone-icon-bag.svg" alt="" /></i><small>购物</small><b>耳机 · 包包 · 潮玩</b><span>查看模拟商品 →</span></button>
+              <button type="button" data-category-shortcut="餐饮饮品" data-card-state="next" aria-pressed="false"><i aria-hidden="true"><img src="./assets/phone-icon-burger.svg" alt="" /></i><small>外卖</small><b>奶茶 · 炸鸡 · 火锅</b><span>查看模拟商品 →</span></button>
+            </fieldset>
+            <button class="mall-entry-button" id="openMallButton" type="button"><span><small>SIMULATED SHOP</small><b id="openMallButtonLabel">逛购物模拟商城</b></span><i aria-hidden="true">→</i></button>
+            <section class="order-composer-modal" id="orderComposerModal" role="dialog" aria-modal="true" aria-labelledby="orderFormTitle" hidden>
+              <div class="order-composer-card">
+                <div class="order-form-heading modal-header">
+                  <div><small id="orderFormEyebrow">NEW COOLING TICKET</small><h3 id="orderFormTitle">新增想买的东西</h3></div>
+                  <button id="cancelOrderEditButton" type="button" hidden>取消编辑</button>
+                  <button class="modal-close order-composer-close" id="orderComposerCloseButton" type="button" aria-label="关闭新增想买物弹窗"></button>
                 </div>
-              </fieldset>
-              <button class="primary-action" type="submit"><span>放进模拟订单</span><b>↗</b></button>
-              <p class="form-note">创建后先进入“冷静中”，不会立刻算成省下，也不会发生支付。</p>
-            </form>
-          </section>
-
-          <section class="panel-view" data-panel="orders" aria-labelledby="ordersPanelTitle">
-            <div class="device-tabs" role="navigation" aria-label="手机功能">
-              <button type="button" data-open="new">模拟下单</button><button type="button" class="is-active" data-open="orders">我的订单</button>
-            </div>
-            <div class="panel-heading compact">
-              <p>SOFA PHONE · ORDER LIST</p><h2 id="ordersPanelTitle" tabindex="-1">订单<br />收件箱</h2><span class="panel-sticker coral" id="orderCountSticker">0 张小票</span>
-            </div>
-            <div class="panel-toolbar">
-              <div class="segmented" role="group" aria-label="订单筛选"><button class="is-active" type="button" data-filter="all">全部</button><button type="button" data-filter="cooling">冷静中</button><button type="button" data-filter="saved">幸好没买</button></div>
-              <button class="small-action" id="exportButton" type="button">导出 JSON</button>
-            </div>
-            <div class="order-list" id="orderList"></div>
-          </section>
-
-          <section class="panel-view" data-panel="clinic" aria-labelledby="clinicPanelTitle">
-            <div class="panel-heading compact">
-              <p>GYM SCREEN · WALLET CHECK</p><h2 id="clinicPanelTitle" tabindex="-1">钱包<br />体检屏</h2><span class="panel-sticker cyan">行为评分</span>
-            </div>
-            <div class="clinic-period-bar">
-              <div class="period-switch" id="clinicPeriodSwitch" role="group" aria-label="画像统计周期">
-                <button type="button" data-clinic-period="7">近 7 天</button>
-                <button class="is-active" type="button" data-clinic-period="30">近 30 天</button>
+                <form class="order-form" id="orderForm">
+                  <div class="order-form-visual" aria-hidden="true"><span>▣</span><b>商品图片</b><small>按分类自动配图</small></div>
+                  <label><span>你刚刚想买什么？</span><input name="name" maxlength="30" required placeholder="商品名称，例如：Longchamp 包" /></label>
+                  <div class="form-grid order-form-main-grid">
+                    <label><span>差点花多少钱？</span><span class="money-input"><b>¥</b><input name="amount" type="number" min="0.01" max="99999" step="0.01" required placeholder="金额" /></span></label>
+                    <label><span>分类</span><select name="category" required><option value="">请选择</option><option>餐饮饮品</option><option>服饰美妆</option><option>数码家居</option><option>娱乐社交</option><option>学习成长</option><option>旅行交通</option><option>其他</option></select></label>
+                  </div>
+                  <label><span>为什么想买？</span><select name="reason" required><option value="">请选择一个最接近的原因</option><option>嘴馋</option><option>无聊</option><option>被种草</option><option>情绪不好</option><option>限时优惠</option><option>社交需要</option><option>自我提升</option><option>其他</option></select></label>
+                  <details class="order-form-evidence">
+                    <summary>补充这次的判断 <small>选填，最多 2 项</small></summary>
+                    <fieldset class="decision-signals">
+                      <legend class="sr-only">这次做过什么判断？可选，最多 2 项</legend>
+                      <div class="decision-signal-grid">
+                        <label><input type="checkbox" name="decisionSignals" value="instant" /><span>没做功课就想下单</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="wait" /><span>等一晚再决定</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="compare" /><span>比过价格</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="research" /><span>查过参数 / 成分</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="reviews" /><span>看过评价 / 差评</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="friends" /><span>问过朋友</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="creator" /><span>达人 / 直播推荐</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="deal" /><span>找券 / 凑满减</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="comfort" /><span>为了舒适 / 氛围</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="achievement" /><span>为了学习 / 作品</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="identity" /><span>认同品牌故事</span></label>
+                        <label><input type="checkbox" name="decisionSignals" value="stock" /><span>已有同类还想囤</span></label>
+                      </div>
+                    </fieldset>
+                  </details>
+                  <button class="primary-action order-submit" type="submit"><span id="orderSubmitLabel">保存到冷静单</span><b>↗</b></button>
+                  <p class="form-note">只生成“冷静中”记录，不支付、不发货。</p>
+                </form>
+                <section class="order-receipt" id="orderReceipt" aria-live="polite" hidden>
+                  <div class="receipt-perforation" aria-hidden="true"></div>
+                  <p>SIMULATED RECEIPT · NOT PAID</p>
+                  <span>已放进冷静单</span>
+                  <h3 id="receiptProductName" tabindex="-1">你的想买清单</h3>
+                  <strong id="receiptAmount">¥0</strong>
+                  <dl><div><dt>当前状态</dt><dd>冷静中</dd></div><div><dt>计入省下</dt><dd>暂不计入</dd></div></dl>
+                  <p class="receipt-note">这是一张模拟小票，不会发货、不代表付款。等你自己决定“幸好没买”或“最终购买”。</p>
+                  <div class="receipt-actions"><button id="continueOrderButton" type="button">再记一笔</button><button id="viewOrdersButton" type="button">查看冷静单 →</button></div>
+                </section>
               </div>
-              <span id="clinicConfidence">等待记录</span>
+            </section>
             </div>
-            <div class="clinic-ledger" id="clinicLedger"></div>
-            <section class="personality-profile" id="personalityProfile" aria-live="polite"></section>
-            <div class="ai-card" id="aiCard">
-              <div class="ai-card-top"><span class="ai-avatar">诊</span><div><b id="aiCardTitle">复诊室</b><small id="aiCardStatus">LOCAL SCORE FIRST · SUMMARY REVIEW</small></div><i id="aiStatusLight"></i></div>
-              <div id="aiResult"><p>本地评分会先完成；你确认发送汇总后，再给出模式解读。</p></div>
-              <section class="ai-consent" id="aiConsentPanel" hidden aria-labelledby="aiConsentTitle">
-                <div class="consent-stamp">SEND SUMMARY?</div>
-                <h3 id="aiConsentTitle" tabindex="-1">确认本次发送范围</h3>
-                <p>只发送聚合数据和本地评分，不发送商品名称、订单备注、订单 ID、支付或身份信息。</p>
-                <div class="consent-summary" id="aiConsentSummary"></div>
-                <div class="consent-actions">
-                  <button class="consent-allow" id="allowAiButton" type="button">同意并开始复诊</button>
-                  <button id="localOnlyButton" type="button">暂不发送，只看本地结果</button>
+            <section class="phone-commerce" id="phoneCommerce" aria-labelledby="commerceTitle" hidden>
+              <header class="commerce-header">
+                <button class="commerce-round-button app-back app-back-header" id="commerceBackButton" type="button" aria-label="返回上一页"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span></button>
+                <h2 id="commerceTitle" tabindex="-1">商 城</h2>
+                <button class="commerce-round-button commerce-orders-button" id="commerceOrdersButton" type="button" aria-label="查看冷静单"><img src="./assets/phone-tab-cart.svg" alt="" /><b id="commerceCoolingBadge" hidden>0</b></button>
+              </header>
+              <div class="commerce-catalog-view" id="commerceCatalogView">
+                <label class="commerce-search"><span aria-hidden="true">⌕</span><span class="sr-only">搜索模拟商品</span><input id="commerceSearchInput" type="search" autocomplete="off" placeholder="搜索想放进冷静单的东西" /></label>
+                <div class="commerce-filters" id="commerceFilters" role="group" aria-label="商品分类筛选"></div>
+                <div class="commerce-products" id="commerceProducts" aria-live="polite"></div>
+              </div>
+              <section class="commerce-detail-view" id="commerceDetailView" aria-labelledby="commerceProductName" hidden>
+                <div id="commerceDetailContent"></div>
+                <div class="commerce-detail-actions">
+                  <button class="commerce-prefill-button" id="commercePrefillButton" type="button">先填一填</button>
+                  <button class="commerce-buy-button" id="commerceBuyButton" type="button">立即模拟</button>
                 </div>
               </section>
-              <button class="primary-action acid" id="analyzeButton" type="button"><span>开始复诊</span><b>◎</b></button>
-              <button class="ai-revoke" id="revokeAiConsentButton" type="button" hidden>撤回数据发送同意</button>
-              <button class="poster-action" id="posterButton" type="button" disabled>生成分享海报预览</button>
-              <div class="poster-preview" id="posterPreview" hidden></div>
-              <p class="form-note">分数由本地规则计算，复诊只解读汇总。结果是近期行为观察，不是心理、医疗或财务诊断。</p>
+            </section>
             </div>
+            <div class="device-tabs" role="navigation" aria-label="手机功能">
+              <button type="button" class="is-active" data-open="new" aria-current="page"><i class="phone-tab-icon" aria-hidden="true"><img src="./assets/phone-tab-bag.svg" alt="" /></i><span>购物</span></button>
+              <button type="button" data-open="orders"><i class="phone-tab-icon" aria-hidden="true"><img src="./assets/phone-tab-cart.svg" alt="" /></i><span>订单</span></button>
+            </div>
+            <section class="mall-success-modal" id="mallSuccessModal" role="dialog" aria-modal="true" aria-labelledby="mallSuccessTitle" hidden>
+              <img class="mall-confetti-gif" id="mallConfettiGif" alt="" />
+              <img class="mall-confetti-poster" src="./assets/mall-confetti-poster.png" alt="" loading="lazy" decoding="async" />
+              <div class="mall-static-barrage" aria-hidden="true"><span>先冷静一下</span><span>想买已记录</span><span>没有真实支付</span></div>
+              <div class="mall-success-card">
+                <span class="mall-mood-icon" id="mallMoodIcon" aria-hidden="true">😂</span>
+                <span class="mall-horn-art" aria-hidden="true">
+                  <img class="mall-horn-gif" id="mallHornGif" alt="" />
+                  <img class="mall-horn-poster" src="./assets/mall-horn-poster.png" alt="" loading="lazy" decoding="async" />
+                </span>
+                <h2 id="mallSuccessTitle" tabindex="-1">记录好了，先冷静一下</h2>
+                <p>本次记录 <strong id="mallSuccessAmount">¥0</strong></p>
+                <div class="mall-success-total"><small>今日累计</small><b id="mallSuccessTotal">¥0</b></div>
+                <div class="mall-success-actions"><button id="mallSuccessBackButton" type="button">返 回</button><button id="mallSuccessContinueButton" type="button">再看看</button></div>
+                <small class="mall-success-note">已进入冷静单 · 没有支付和发货</small>
+              </div>
+            </section>
+          </section>
+
+          <section class="panel-view phone-device" data-panel="orders" aria-labelledby="ordersPanelTitle">
+            <div class="phone-status-bar" aria-hidden="true">
+              <time data-phone-clock>--:--</time>
+              <span class="phone-dynamic-island"></span>
+              <span class="phone-status-icons"><i></i><i></i><i></i></span>
+            </div>
+            <div class="phone-screen-scroll">
+              <header class="recovery-route-header">
+                <span aria-hidden="true">‹</span>
+                <strong>回血计划</strong>
+                <i aria-hidden="true"></i>
+              </header>
+              <nav class="recovery-tabs" aria-label="回血计划页面" role="tablist">
+                <button id="recoveryGoalTabOrders" type="button" role="tab" data-recovery-view="goal" data-open="goals" data-goals-view="goal" aria-controls="goalPlannerView" aria-selected="false"><span aria-hidden="true">🎯</span>消费小目标</button>
+                <button id="recoveryControllerTabOrders" type="button" role="tab" data-recovery-view="controller" data-open="goals" data-goals-view="controller" aria-controls="goalController" aria-selected="false"><span aria-hidden="true">🎚️</span>欲望控制器</button>
+                <button id="recoveryOrdersTabOrders" class="is-active" type="button" role="tab" data-recovery-view="orders" aria-current="page" aria-controls="wishlistSurface" aria-selected="true"><span aria-hidden="true">🛒</span>剁手清单</button>
+              </nav>
+              <section class="wishlist-surface" id="wishlistSurface" role="tabpanel" aria-labelledby="recoveryOrdersTabOrders">
+                <div class="wishlist-heading">
+                  <div>
+                    <small>WISH BUFFER</small>
+                    <h2 id="ordersPanelTitle" tabindex="-1">剁手清单</h2>
+                    <p>想买可以，先放这里冷静一下。</p>
+                  </div>
+                  <div class="wishlist-summary">
+                    <span class="order-count-pill" id="orderCountSticker">0 笔</span>
+                    <p class="order-summary" id="orderSummary" aria-live="polite">共 0 笔虚拟订单 · 合计 ¥0</p>
+                    <button class="wishlist-add" type="button" data-open="new"><b aria-hidden="true">＋</b>添加</button>
+                  </div>
+                </div>
+                <div class="panel-toolbar">
+                  <div class="order-filter-controls">
+                    <div class="order-time-filter" id="orderTimeFilter">
+                      <button class="order-time-filter-trigger" id="orderTimeFilterButton" type="button" aria-haspopup="menu" aria-controls="orderTimeFilterMenu" aria-expanded="false"><span id="orderTimeFilterLabel">全部时间</span><i aria-hidden="true"></i></button>
+                      <div class="order-time-filter-menu" id="orderTimeFilterMenu" role="menu" aria-labelledby="orderTimeFilterButton" hidden>
+                        <button class="is-active" type="button" role="menuitemradio" data-time-filter="all" aria-checked="true"><span>全部时间</span><i aria-hidden="true">✓</i></button>
+                        <button type="button" role="menuitemradio" data-time-filter="week" aria-checked="false"><span>本周</span><i aria-hidden="true">✓</i></button>
+                        <button type="button" role="menuitemradio" data-time-filter="month" aria-checked="false"><span>本月</span><i aria-hidden="true">✓</i></button>
+                        <button type="button" role="menuitemradio" data-time-filter="year" aria-checked="false"><span>年度</span><i aria-hidden="true">✓</i></button>
+                      </div>
+                    </div>
+                      <div class="segmented" role="group" aria-label="订单状态筛选"><button class="is-active" type="button" data-filter="all" aria-pressed="true">全部</button><button type="button" data-filter="cooling" aria-pressed="false" title="冷静中">欲望冷却中</button><button type="button" data-filter="saved" aria-pressed="false" title="幸好没买">回血中</button><button type="button" data-filter="purchased" aria-pressed="false" title="最终购买">已剁手</button></div>
+                  </div>
+                </div>
+                <details class="order-export-panel">
+                  <summary>备份与导出</summary>
+                  <div class="order-export-actions"><button class="small-action" id="exportButton" type="button">完整备份 JSON</button><button class="small-action" id="exportCsvButton" type="button">导出订单 CSV</button></div>
+                  <p class="order-data-note">导出默认不包含演示订单和演示目标；所有文件只在当前浏览器生成。</p>
+                </details>
+                <div class="order-list" id="orderList"></div>
+              </section>
+            </div>
+            <div class="device-tabs" role="navigation" aria-label="手机功能">
+              <button type="button" data-open="new"><i class="phone-tab-icon" aria-hidden="true"><img src="./assets/phone-tab-bag.svg" alt="" /></i><span>购物</span></button>
+              <button type="button" class="is-active" data-open="orders" aria-current="page"><i class="phone-tab-icon" aria-hidden="true"><img src="./assets/phone-tab-cart.svg" alt="" /></i><span>订单</span></button>
+            </div>
+          </section>
+
+          <section class="panel-view" data-panel="clinic" data-clinic-view="start" aria-labelledby="clinicPanelTitle">
+            <div class="panel-heading compact">
+              <p>WALLET PERSONALITY REPORT</p><h2 id="clinicPanelTitle" tabindex="-1">消费人格报告</h2><span class="panel-sticker cyan">近期倾向</span>
+            </div>
+            <div class="clinic-start-view" id="clinicStartView">
+              <div class="ai-card" id="aiCard" data-gachapon-state="ready">
+                <div class="ai-card-top"><span class="ai-avatar">诊</span><div><b id="aiCardTitle">人格扭蛋机</b><small id="aiCardStatus">LOCAL SCORE FIRST · SUMMARY REVIEW</small></div><i id="aiStatusLight"></i></div>
+                <div class="ai-card-grid">
+                  <section class="gachapon-stage" id="gachaponStage" aria-labelledby="gachaponTitle">
+                    <div class="gachapon-copy">
+                      <small>PERSONALITY GACHAPON</small>
+                      <h3 id="gachaponTitle" tabindex="-1">一起看看你的钱到底去哪了～</h3>
+                      <p id="gachaponHint">30 秒消费测试，生成你的专属消费报告</p>
+                    </div>
+                    <div class="gachapon-machine" aria-hidden="true">
+                      <i class="gachapon-glow"></i>
+                      <img src="./assets/personality-gachapon-figma.png" alt="" />
+                      <i class="gachapon-chamber"></i>
+                      <span class="gachapon-token is-shopping"><img src="./assets/gachapon-ball-shopping.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-food"><img src="./assets/gachapon-ball-food.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-drink"><img src="./assets/gachapon-ball-drink.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-headphones"><img src="./assets/gachapon-ball-headphones.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-shoes"><img src="./assets/gachapon-ball-shoes.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-game"><img src="./assets/gachapon-ball-game.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-prize" id="gachaponPrize"><b>?</b><small>等待抽取</small></span>
+                    </div>
+                    <section class="ai-consent ai-consent-inline" id="aiConsentPanel" hidden aria-labelledby="aiConsentTitle">
+                      <label class="consent-check" for="aiConsentCheckbox">
+                        <input id="aiConsentCheckbox" type="checkbox" aria-describedby="aiConsentTitle aiConsentMessage" />
+                        <span><b>允许用匿名聚合摘要综合推演</b><small>不发送商品名、备注、订单 ID、单笔时间、支付或身份信息</small></span>
+                      </label>
+                      <details class="consent-details">
+                        <summary id="aiConsentTitle">查看这次会发送的范围</summary>
+                        <p>仅发送所选周期、有效记录数、分类与诱因汇总、本地规则评分、人格底座和目标进度，用于综合推演趣味人格与行动建议。</p>
+                        <div class="consent-summary" id="aiConsentSummary"></div>
+                      </details>
+                      <div class="consent-inline-footer">
+                        <button id="localOnlyButton" type="button">只看本地人格</button>
+                        <p id="aiConsentMessage" role="status" aria-live="polite"></p>
+                      </div>
+                    </section>
+                    <button class="primary-action gachapon-action" id="analyzeButton" type="button"><span>开始测试</span><b>＋</b></button>
+                    <button class="ai-revoke" id="revokeAiConsentButton" type="button" hidden>撤回数据发送同意</button>
+                    <p class="gachapon-caption">只分析近期虚拟消费记录，不涉及真实支付。</p>
+                  </section>
+                  <div class="ai-card-content clinic-analysis-status">
+                    <div id="aiResult"><p>本地规则会先形成底座；授权后将用匿名聚合摘要综合推演趣味人格和行动建议。</p></div>
+                  </div>
+                </div>
+                <p class="form-note">五维分数和规则人格由本地计算；复诊根据聚合证据推演趣味人格，再由本地门槛综合判断。结果是近期行为观察，不是心理、医疗或财务诊断。</p>
+              </div>
+            </div>
+
+            <div class="clinic-report-view" id="clinicReportView" hidden>
+              <header class="clinic-report-header">
+                <button class="clinic-report-back app-back app-back-text" id="clinicReportBackButton" type="button"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span>返回扭蛋机</span></button>
+                <div><small>WALLET PERSONALITY REPORT</small><h2 id="clinicReportTitle" tabindex="-1">你的消费人格报告</h2></div>
+              </header>
+              <div class="clinic-period-bar">
+                <div class="period-switch" id="clinicPeriodSwitch" role="group" aria-label="画像统计周期">
+                  <button type="button" data-clinic-period="7" aria-pressed="false">近 7 天</button>
+                  <button class="is-active" type="button" data-clinic-period="30" aria-pressed="true">近 30 天</button>
+                </div>
+                <span id="clinicConfidence">等待记录</span>
+              </div>
+              <div class="clinic-ledger" id="clinicLedger"></div>
+              <section class="personality-profile" id="personalityProfile" tabindex="-1"></section>
+              <section class="test-history" aria-labelledby="testHistoryTitle">
+                <div class="report-section-heading"><div><small>PAST TESTS</small><h3 id="testHistoryTitle">过往测试记录</h3></div><span>保存在当前浏览器</span></div>
+                <div class="test-history-list" id="testHistoryList"></div>
+              </section>
+              <div class="clinic-report-actions">
+                <button class="poster-action" id="posterButton" type="button" disabled>分享报告</button>
+              </div>
+              <dialog class="poster-share" id="posterShare" data-state="idle" aria-label="消费人格分享报告" aria-describedby="posterShareStatus">
+                <div class="poster-figma-card">
+                  <div class="poster-preview-shell">
+                    <img class="poster-preview" id="posterPreview" alt="让你花个爽消费人格分享海报" />
+                    <div class="poster-preview-placeholder" aria-hidden="true"><span></span><b>正在绘制你的人格海报</b><small>只在当前浏览器生成</small></div>
+                  </div>
+                </div>
+                <div class="poster-share-actions">
+                  <button id="posterReturnButton" type="button">返回</button>
+                  <button id="downloadPosterButton" type="button">保存到相册</button>
+                </div>
+                <p class="sr-only" id="posterShareStatus" role="status" aria-live="polite">海报只在当前浏览器中生成。</p>
+              </dialog>
+            </div>
+
+            <dialog class="gachapon-result-modal" id="gachaponResultModal" aria-labelledby="gachaponResultTitle" aria-describedby="gachaponResultDescription">
+              <div class="gachapon-result-card">
+                <div class="gachapon-result-header modal-header">
+                  <div><small>✨ 恭喜获得</small><p>你的专属报告</p></div>
+                  <button class="modal-close gachapon-result-close" id="gachaponResultCloseButton" type="button" aria-label="关闭人格揭晓卡"></button>
+                </div>
+                <div class="gachapon-result-art" aria-hidden="true"><i></i><img id="gachaponResultArt" src="./assets/figma-gachapon-result.png" alt="" width="267" height="267" decoding="async" /></div>
+                <span class="gachapon-result-flair" id="gachaponResultFlair">近期消费身份</span>
+                <h2 id="gachaponResultTitle" tabindex="-1">欲望观察员</h2>
+                <div class="gachapon-result-tags" id="gachaponResultTags" aria-label="人格特点"></div>
+                <p id="gachaponResultDescription">近期记录已经生成本地人格报告。</p>
+                <div class="gachapon-result-actions">
+                  <button id="gachaponResultRetryButton" type="button">再测一次</button>
+                  <button id="gachaponResultOpenButton" type="button">打开报告 →</button>
+                </div>
+                <em>规则人格本地计算 · 趣味人格综合推演 · 不涉及真实支付</em>
+              </div>
+            </dialog>
           </section>
 
           <section class="panel-view" data-panel="goals" aria-labelledby="goalsPanelTitle">
-            <div class="panel-heading compact">
-              <p>WHITEBOARD · BUDGET PLAN</p><h2 id="goalsPanelTitle" tabindex="-1">预算<br />计划板</h2><span class="panel-sticker yellow">自行填写</span>
-            </div>
-            <div class="goal-visual">
-              <div class="goal-ring" id="goalRing"><span id="goalPercent">0%</span></div>
-              <div><small>当前确认省下</small><strong id="goalSaved">¥0</strong><p id="goalSummary">还没有设定计划。</p></div>
-            </div>
-            <form class="goal-form" id="goalForm">
-              <label><span>计划名称</span><input name="goalName" maxlength="20" required placeholder="例如：三个月后去海边" /></label>
-              <label><span>预算金额</span><span class="money-input"><b>¥</b><input name="goalAmount" type="number" min="1" max="999999" step="1" required placeholder="3000" /></span></label>
-              <button class="primary-action" type="submit"><span>贴到预算白板</span><b>＋</b></button>
-            </form>
-            <p class="goal-disclaimer">进度来自你的自我记录，不代表钱已经进入真实账户。</p>
+            <header class="recovery-route-header">
+              <span aria-hidden="true">‹</span>
+              <strong>回血计划</strong>
+              <i aria-hidden="true"></i>
+            </header>
+            <nav class="recovery-tabs" aria-label="回血计划页面" role="tablist">
+              <button id="recoveryGoalTabGoals" class="is-active" type="button" role="tab" data-recovery-view="goal" data-goals-view="goal" aria-current="page" aria-controls="goalPlannerView" aria-selected="true"><span aria-hidden="true">🎯</span>消费小目标</button>
+              <button id="recoveryControllerTabGoals" type="button" role="tab" data-recovery-view="controller" data-goals-view="controller" aria-controls="goalController" aria-selected="false"><span aria-hidden="true">🎚️</span>欲望控制器</button>
+              <button id="recoveryOrdersTabGoals" type="button" role="tab" data-recovery-view="orders" data-open="orders" aria-controls="wishlistSurface" aria-selected="false"><span aria-hidden="true">🛒</span>剁手清单</button>
+            </nav>
+            <section class="goals-surface">
+              <div class="goals-tab-view is-active" id="goalPlannerView" data-goals-panel="goal" role="tabpanel" aria-labelledby="recoveryGoalTabGoals">
+              <div class="goals-intro">
+                <small>RECOVERY GOAL</small>
+                <h2 id="goalsPanelTitle" tabindex="-1">消费小目标</h2>
+                <p>给钱包定个小目标，一颗珠子 ¥1,000。</p>
+              </div>
+              <div class="monthly-goal-presets" role="group" aria-label="快速设定本月额度">
+                <span><small>MONTHLY QUICK SET</small><b>快速设定本月额度</b></span>
+                <button type="button" data-monthly-goal="1000">¥1,000</button>
+                <button type="button" data-monthly-goal="3000">¥3,000</button>
+                <button type="button" data-monthly-goal="5000">¥5,000</button>
+              </div>
+              <div class="goals-main-grid">
+                <form class="goal-form goal-note-editor" id="goalForm">
+                  <div class="goal-form-heading"><span id="goalFormTitle">新建目标</span><small>只记录目标，不连接账户</small></div>
+                  <label><span>目标名称</span><input name="goalName" maxlength="20" required placeholder="例如：换台新相机" /></label>
+                  <div class="goal-form-row">
+                    <label><span>目标金额</span><span class="money-input"><b>¥</b><input id="goalAmountInput" name="goalAmount" type="number" min="1" max="10000" step="1" required placeholder="8000" aria-describedby="goalAmountHint goalAmountError" /></span><small class="goal-field-hint" id="goalAmountHint">最高 ¥10,000；也可以点击右侧珠子快速选择</small><small class="goal-field-error" id="goalAmountError" role="alert" hidden>目标金额最多为 ¥10,000</small></label>
+                    <label><span>当前已存</span><output class="goal-current-saved" id="goalCurrentSaved">¥0</output></label>
+                  </div>
+                  <div class="goal-form-row">
+                    <div class="goal-date-field" id="goalDateField">
+                      <span class="goal-field-label" id="goalDeadlineFieldLabel">预计完成时间</span>
+                      <input name="goalDeadline" type="hidden" data-date-value />
+                      <button class="goal-date-trigger" type="button" data-date-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="goalDatePopover" aria-labelledby="goalDeadlineFieldLabel goalDeadlineDisplay">
+                        <span id="goalDeadlineDisplay" data-date-label>选择目标日期</span><i aria-hidden="true"></i>
+                      </button>
+                      <section class="goal-date-popover" id="goalDatePopover" data-date-popover role="dialog" aria-label="选择目标日期" hidden>
+                        <div class="goal-date-head">
+                          <button type="button" data-date-action="previous" aria-label="上个月">←</button>
+                          <strong data-date-month>本月</strong>
+                          <button type="button" data-date-action="next" aria-label="下个月">→</button>
+                        </div>
+                        <div class="goal-date-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+                        <div class="goal-date-grid" data-date-grid role="grid" aria-label="日期"></div>
+                        <div class="goal-date-actions">
+                          <button type="button" data-date-action="today">选今天</button>
+                          <button type="button" data-date-action="clear">清除日期</button>
+                        </div>
+                      </section>
+                    </div>
+                    <label><span>每周建议减少支出</span><input name="goalNoteText" maxlength="36" placeholder="例如：380" inputmode="decimal" /></label>
+                  </div>
+                  <fieldset class="goal-note-color-picker">
+                    <legend>目标便签颜色</legend>
+                    <label><input type="radio" name="goalNoteColor" value="yellow" checked /><span class="is-yellow">奶油黄</span></label>
+                    <label><input type="radio" name="goalNoteColor" value="cyan" /><span class="is-cyan">湖水蓝</span></label>
+                    <label><input type="radio" name="goalNoteColor" value="coral" /><span class="is-coral">珊瑚橙</span></label>
+                    <label><input type="radio" name="goalNoteColor" value="acid" /><span class="is-acid">荧光绿</span></label>
+                  </fieldset>
+                  <div class="goal-note-form-actions">
+                    <button class="primary-action" type="submit"><span id="goalSubmitLabel">保存目标</span><b aria-hidden="true">▣</b></button>
+                    <button class="goal-note-current" id="setActiveGoalButton" type="button" hidden>设为当前目标</button>
+                    <button class="goal-note-remove" id="deleteGoalButton" type="button" hidden>删除目标</button>
+                  </div>
+                </form>
+                <aside class="goal-progress-column" aria-label="当前目标进度">
+                  <section class="goal-target-card">
+                    <small>目标金额</small>
+                    <strong id="goalTargetAmount">¥0</strong>
+                    <fieldset class="goal-amount-beads">
+                      <legend>快速选择目标金额，每颗珠子代表一千元</legend>
+                      <button type="button" data-goal-amount="1000" aria-label="1 颗珠子，目标金额 ¥1,000" aria-pressed="false">1</button><button type="button" data-goal-amount="2000" aria-label="2 颗珠子，目标金额 ¥2,000" aria-pressed="false">2</button><button type="button" data-goal-amount="3000" aria-label="3 颗珠子，目标金额 ¥3,000" aria-pressed="false">3</button><button type="button" data-goal-amount="4000" aria-label="4 颗珠子，目标金额 ¥4,000" aria-pressed="false">4</button><button type="button" data-goal-amount="5000" aria-label="5 颗珠子，目标金额 ¥5,000" aria-pressed="false">5</button><button type="button" data-goal-amount="6000" aria-label="6 颗珠子，目标金额 ¥6,000" aria-pressed="false">6</button><button type="button" data-goal-amount="7000" aria-label="7 颗珠子，目标金额 ¥7,000" aria-pressed="false">7</button><button type="button" data-goal-amount="8000" aria-label="8 颗珠子，目标金额 ¥8,000" aria-pressed="false">8</button><button type="button" data-goal-amount="9000" aria-label="9 颗珠子，目标金额 ¥9,000" aria-pressed="false">9</button><button type="button" data-goal-amount="10000" aria-label="10 颗珠子，目标金额 ¥10,000" aria-pressed="false">10</button>
+                    </fieldset>
+                    <p>目标完成后，你的钱包可能会松一口气。（上限 ¥10,000）</p>
+                  </section>
+                  <div class="goal-visual">
+                    <div class="goal-ring" id="goalRing"><span id="goalPercent">0%</span></div>
+                    <div><small>当前目标</small><b id="goalCurrentName">等待设置</b><strong id="goalSaved">¥0</strong><p id="goalSummary">还没有设定目标。</p></div>
+                  </div>
+                </aside>
+              </div>
+              <details class="goal-library">
+                <summary>管理更多目标与白板便签</summary>
+                <div class="goal-board-toolbar">
+                  <div><b id="goalCount">0 个目标</b><small>新增的“幸好没买”只计入当前目标</small></div>
+                  <button id="newGoalButton" type="button"><span>新建目标</span><b>＋</b></button>
+                </div>
+                <div class="goal-note-list" id="goalList" aria-label="已保存的消费目标"></div>
+                <p class="scene-whiteboard-help">桌面端可在房间白板上拖动目标便签；键盘用户可聚焦便签后用方向键移动，按 Enter 返回编辑。</p>
+              </details>
+              <p class="sr-only" id="sceneWhiteboardStatus" aria-live="polite"></p>
+              <p class="goal-disclaimer">进度来自你的自我记录，不代表钱已经进入真实账户。</p>
+              </div>
+
+              <section class="goals-tab-view goal-controller-view" id="goalController" data-goals-panel="controller" role="tabpanel" aria-labelledby="recoveryControllerTabGoals" hidden>
+                <div class="controller-heading">
+                  <small>DESIRE CONTROLLER · LOCAL PREVIEW</small>
+                  <h2 id="goalControllerTitle" tabindex="-1">欲望控制器</h2>
+                  <p>拖动预算刻度，看看钱包会给出哪一种冷静提醒。</p>
+                </div>
+                <div class="controller-budget">
+                  <span>当前情境预算</span>
+                  <output id="controllerBudgetAmount" for="desireBudgetRange">¥600</output>
+                </div>
+                <figure class="controller-raccoon">
+                  <img id="controllerRaccoonImage" src="./assets/phone-raccoon.webp" alt="小浣熊正在从容记录预算" width="384" height="384" loading="lazy" decoding="async" />
+                  <figcaption><b id="controllerStateBadge">轻松观察</b><q id="controllerQuote">先记下想买，再决定值不值。</q></figcaption>
+                </figure>
+                <div class="controller-range-wrap">
+                  <input id="desireBudgetRange" type="range" min="500" max="10000" step="100" value="600" aria-label="情境预算" />
+                  <div class="controller-tier-scale" aria-hidden="true"><span><b>尊贵模式</b><small>¥500</small></span><span><b>努力上班</b><small>¥3,500</small></span><span><b>副业跑起来</b><small>¥10,000</small></span></div>
+                </div>
+                <div class="controller-verdicts">
+                  <div><small>本地判断</small><strong id="controllerVerdict">钱包状态：从容观察</strong></div>
+                  <p id="controllerAdvice">把想买的先记下来，明天再看一次。</p>
+                </div>
+                <p class="goal-controller-boundary">这只是本地情境预览，不会保存预算、修改订单、改变目标或操作任何真实资金。</p>
+              </section>
+            </section>
           </section>
         </div>
       </aside>

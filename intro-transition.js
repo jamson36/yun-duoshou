@@ -1,4 +1,5 @@
-const DEFAULT_DURATION = 3000;
+export const INTRO_DURATION_MS = 3000;
+export const ENTRY_TRANSITION_MS = 420;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -22,6 +23,10 @@ export function pixelBoundary({ column, columns, rows, progress }) {
   return easeInOut(progress) * (rows + 11) - 5 + wave;
 }
 
+export function introProgress({ startedAt, now, duration = INTRO_DURATION_MS }) {
+  return clamp((now - startedAt) / Math.max(1, duration), 0, 1);
+}
+
 export class RoomIntro {
   constructor({
     app,
@@ -30,7 +35,9 @@ export class RoomIntro {
     status,
     lockup,
     enterButton,
-    duration = DEFAULT_DURATION,
+    video = null,
+    entryVideo = null,
+    duration = INTRO_DURATION_MS,
     reducedMotion = false,
     onEnter,
     onComplete,
@@ -41,6 +48,8 @@ export class RoomIntro {
     this.status = status;
     this.lockup = lockup;
     this.enterButton = enterButton;
+    this.video = video;
+    this.entryVideo = entryVideo;
     this.duration = duration;
     this.reducedMotion = reducedMotion;
     this.onEnter = onEnter;
@@ -48,18 +57,143 @@ export class RoomIntro {
     this.started = false;
     this.finished = false;
     this.frame = null;
+    this.finishTimer = null;
     this.lastFrameAt = 0;
+    this.renderProgress = 0;
+    this.videoPlaying = false;
+    this.videoFailed = false;
+    this.entryVideoPlaying = false;
+    this.entryVideoFailed = false;
 
     this.onResize = () => this.resize();
     this.onEnterClick = () => this.enter();
+    this.onVideoPlaying = () => this.activateVideo();
+    this.onVideoFailure = () => this.fallbackFromVideo();
+    this.onEntryVideoPlaying = () => this.activateEntryVideo();
+    this.onEntryVideoFailure = () => this.fallbackFromEntryVideo();
     window.addEventListener('resize', this.onResize);
     this.enterButton.addEventListener('click', this.onEnterClick);
+    this.video?.addEventListener('playing', this.onVideoPlaying);
+    this.video?.addEventListener('error', this.onVideoFailure);
+    this.video?.addEventListener('stalled', this.onVideoFailure);
+    this.entryVideo?.addEventListener('playing', this.onEntryVideoPlaying);
+    this.entryVideo?.addEventListener('error', this.onEntryVideoFailure);
+    this.entryVideo?.addEventListener('stalled', this.onEntryVideoFailure);
     this.resize();
     this.draw(0);
   }
 
+  activateVideo() {
+    if (!this.started || this.finished || this.reducedMotion || this.videoFailed) return;
+    this.videoPlaying = true;
+    if (this.frame !== null) cancelAnimationFrame(this.frame);
+    this.frame = null;
+    this.gate.classList.add('is-video-playing');
+  }
+
+  activateEntryVideo() {
+    if (!this.started || !this.finished || this.reducedMotion || this.entryVideoFailed) return;
+    this.entryVideoPlaying = true;
+    this.gate.classList.add('is-entry-video-playing');
+  }
+
+  stopOpeningVideo() {
+    this.video?.pause?.();
+    if (!this.videoPlaying) return;
+    this.videoPlaying = false;
+    this.gate.classList.remove('is-video-playing');
+  }
+
+  stopEntryVideo() {
+    this.entryVideo?.pause?.();
+    if (!this.entryVideoPlaying) return;
+    this.entryVideoPlaying = false;
+    this.gate.classList.remove('is-entry-video-playing');
+  }
+
+  stopVideo() {
+    this.stopOpeningVideo();
+    this.stopEntryVideo();
+  }
+
+  fallbackFromVideo() {
+    if (!this.started || this.finished) return;
+    this.videoFailed = true;
+    if (this.videoPlaying) {
+      const progress = introProgress({
+        startedAt: this.startedAt,
+        now: performance.now(),
+        duration: this.duration,
+      });
+      this.draw(progress);
+    }
+    this.stopOpeningVideo();
+    if (!this.reducedMotion && this.frame === null) {
+      this.frame = requestAnimationFrame((time) => this.tick(time));
+    }
+  }
+
+  fallbackFromEntryVideo() {
+    if (!this.started || !this.finished) return;
+    this.entryVideoFailed = true;
+    this.stopEntryVideo();
+  }
+
+  startVideo() {
+    if (!this.video || this.videoFailed || this.reducedMotion) return;
+    this.video.muted = true;
+    this.video.playsInline = true;
+    try {
+      this.video.currentTime = 0;
+    } catch {
+      // A browser may reject seeking before metadata exists; playback can
+      // still begin from the initial poster and the Canvas remains available.
+    }
+    try {
+      const playback = this.video.play();
+      playback?.catch?.(() => this.fallbackFromVideo());
+    } catch {
+      this.fallbackFromVideo();
+    }
+  }
+
+  startEntryVideo() {
+    if (!this.entryVideo || this.entryVideoFailed || this.reducedMotion) return;
+    this.entryVideo.muted = true;
+    this.entryVideo.playsInline = true;
+    this.entryVideo.loop = true;
+    try {
+      this.entryVideo.currentTime = 0;
+    } catch {
+      // Seeking can fail until metadata is available; loop playback can still start.
+    }
+    try {
+      const playback = this.entryVideo.play();
+      playback?.catch?.(() => this.fallbackFromEntryVideo());
+    } catch {
+      this.fallbackFromEntryVideo();
+    }
+  }
+
   setReducedMotion(value) {
-    this.reducedMotion = Boolean(value);
+    const nextValue = Boolean(value);
+    if (nextValue === this.reducedMotion) return;
+    this.reducedMotion = nextValue;
+    if (this.reducedMotion) this.stopVideo();
+    if (!this.started) return;
+    if (this.finished) {
+      if (!this.reducedMotion && this.app.dataset.roomPhase === 'entry') this.startEntryVideo();
+      return;
+    }
+    if (this.reducedMotion) {
+      if (this.frame !== null) cancelAnimationFrame(this.frame);
+      this.frame = null;
+      // Reveal the room without animation, but keep the fixed three-second
+      // entrance gate. Never redraw progress zero after the reveal began.
+      this.draw(1);
+      return;
+    }
+    if (this.frame === null) this.frame = requestAnimationFrame((time) => this.tick(time));
   }
 
   setStatus(message) {
@@ -87,13 +221,22 @@ export class RoomIntro {
     this.gate.setAttribute('aria-busy', 'true');
     this.setStatus('房间正在显现，进入按钮会在动画结束后出现。');
     this.startedAt = performance.now();
-    this.frame = requestAnimationFrame((time) => this.tick(time));
+    // The reveal clock starts independently from the panorama asset request.
+    // The timeout is the duration authority when animation frames are delayed.
+    this.finishTimer = window.setTimeout(() => this.finish(), this.duration);
+    if (this.reducedMotion) this.draw(1);
+    else {
+      this.frame = requestAnimationFrame((time) => this.tick(time));
+      this.startVideo();
+    }
   }
 
   tick(time) {
-    const progress = clamp((time - this.startedAt) / this.duration, 0, 1);
+    if (this.finished) return;
+    const progress = introProgress({ startedAt: this.startedAt, now: time, duration: this.duration });
+    const renderProgress = Math.max(this.renderProgress, progress);
     if (time - this.lastFrameAt >= 28 || progress >= 1) {
-      this.draw(progress);
+      this.draw(renderProgress);
       this.lastFrameAt = time;
     }
     if (progress < 1) {
@@ -104,6 +247,8 @@ export class RoomIntro {
   }
 
   draw(progress) {
+    this.renderProgress = Math.max(this.renderProgress, clamp(progress, 0, 1));
+    progress = this.renderProgress;
     const context = this.canvas.getContext('2d');
     context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     context.clearRect(0, 0, this.width, this.height);
@@ -157,7 +302,13 @@ export class RoomIntro {
   finish() {
     if (this.finished) return;
     this.finished = true;
+    if (this.frame !== null) cancelAnimationFrame(this.frame);
+    if (this.finishTimer !== null) window.clearTimeout(this.finishTimer);
     this.frame = null;
+    this.finishTimer = null;
+    // The three-second room reveal is a one-shot gate. The separate Figma 4:5
+    // entry composition owns the waiting loop after the gate completes.
+    this.stopOpeningVideo();
     this.draw(1);
     this.app.dataset.roomPhase = 'entry';
     this.gate.setAttribute('aria-busy', 'false');
@@ -166,6 +317,7 @@ export class RoomIntro {
     this.lockup.setAttribute('aria-hidden', 'false');
     this.enterButton.disabled = false;
     this.setStatus('房间已经显现。现在可以进入。');
+    this.startEntryVideo();
   }
 
   async enter() {
@@ -178,6 +330,7 @@ export class RoomIntro {
     try {
       await this.onEnter?.();
     } finally {
+      this.stopVideo();
       this.app.dataset.roomPhase = 'room';
       this.gate.classList.add('is-complete');
       this.gate.setAttribute('aria-hidden', 'true');

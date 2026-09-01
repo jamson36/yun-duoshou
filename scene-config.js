@@ -1,15 +1,35 @@
 const degrees = (value) => (value * Math.PI) / 180;
 
 export const SCENE_DEFAULT_VIEW = Object.freeze({
-  yaw: degrees(0),
-  pitch: degrees(-7),
-  fov: degrees(70),
+  // Start between the sofa hotspot and the Figma raccoon so its complete
+  // seated pose and red stool remain visible before the user begins rotating.
+  yaw: degrees(-18),
+  pitch: degrees(-13),
+  fov: degrees(86),
+});
+
+export const SCENE_MOBILE_DEFAULT_VIEW = Object.freeze({
+  // A portrait viewport has a much narrower horizontal field of view. Center
+  // the authored IP so the seated pose and red stool remain identifiable.
+  yaw: degrees(-40),
+  pitch: degrees(-16),
+  fov: degrees(88),
 });
 
 export const SCENE_INTRO_VIEW = Object.freeze({
   yaw: degrees(-56),
-  pitch: degrees(-14),
-  fov: degrees(47),
+  pitch: degrees(-8),
+  fov: degrees(55),
+});
+
+// The four physical corners of the whiteboard in the equirectangular room image.
+// Note positions are stored as normalized u/v values inside this surface so they
+// remain attached to the board while the camera pans and zooms.
+export const SCENE_WHITEBOARD_SURFACE = Object.freeze({
+  topLeft: Object.freeze({ yaw: degrees(-110.8), pitch: degrees(28.1) }),
+  topRight: Object.freeze({ yaw: degrees(-136.6), pitch: degrees(30.4) }),
+  bottomRight: Object.freeze({ yaw: degrees(-146.6), pitch: degrees(-50.8) }),
+  bottomLeft: Object.freeze({ yaw: degrees(-107.4), pitch: degrees(-50.9) }),
 });
 
 export const FEATURE_HOTSPOTS = Object.freeze([
@@ -17,7 +37,7 @@ export const FEATURE_HOTSPOTS = Object.freeze([
     id: 'gym-screen',
     kind: 'feature',
     panel: 'clinic',
-    label: '消费测试',
+    label: '消费习惯测试',
     eyebrow: '健身区 · 钱包体检屏',
     description: '总结、消费人格与分享海报',
     yaw: degrees(111),
@@ -26,13 +46,19 @@ export const FEATURE_HOTSPOTS = Object.freeze([
     accent: '#7e5cff',
     index: '01',
     statusId: 'clinicStatus',
+    asset: {
+      src: './assets/figma-room-hotspot-clinic-4x.png',
+      width: 190,
+      height: 69,
+      nodeId: '32:3637',
+    },
   },
   {
     id: 'sofa-phone',
     kind: 'feature',
     panel: 'new',
     panels: ['new', 'orders'],
-    label: '假装下单',
+    label: '开始买吧',
     eyebrow: '沙发区 · 茶几手机',
     description: '模拟下单与订单管理',
     yaw: degrees(-2),
@@ -42,12 +68,18 @@ export const FEATURE_HOTSPOTS = Object.freeze([
     index: '02',
     statusId: 'computerStatus',
     badgeId: 'orderBadge',
+    asset: {
+      src: './assets/figma-room-hotspot-new-4x.png',
+      width: 190,
+      height: 79,
+      nodeId: '32:3643',
+    },
   },
   {
     id: 'whiteboard',
     kind: 'feature',
     panel: 'goals',
-    label: '预算计划',
+    label: '回血计划',
     eyebrow: '白板区 · 预算便签',
     description: '填写目标、预算和回血进度',
     yaw: degrees(-125),
@@ -56,6 +88,12 @@ export const FEATURE_HOTSPOTS = Object.freeze([
     accent: '#36d3c8',
     index: '03',
     statusId: 'goalStatus',
+    asset: {
+      src: './assets/figma-room-hotspot-goals-4x.png',
+      width: 170,
+      height: 71,
+      nodeId: '32:3644',
+    },
   },
 ]);
 

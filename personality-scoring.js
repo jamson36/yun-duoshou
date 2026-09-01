@@ -1,4 +1,30 @@
-export const SCORING_MODEL_VERSION = 'wallet-personality-rules-1.0.0';
+export const SCORING_MODEL_VERSION = 'wallet-personality-rules-1.3.0';
+
+const PRESENTATION_SMALL_SPEND_LIMIT = 50;
+
+export const CONSUMPTION_CATEGORY_VALUES = Object.freeze([
+  '餐饮饮品',
+  '服饰美妆',
+  '数码家居',
+  '娱乐社交',
+  '学习成长',
+  '旅行交通',
+  '其他',
+]);
+
+export const CONSUMPTION_REASON_VALUES = Object.freeze([
+  '嘴馋',
+  '无聊',
+  '被种草',
+  '情绪不好',
+  '限时优惠',
+  '社交需要',
+  '自我提升',
+  '其他',
+]);
+
+const CATEGORY_VALUE_SET = new Set(CONSUMPTION_CATEGORY_VALUES);
+const REASON_VALUE_SET = new Set(CONSUMPTION_REASON_VALUES);
 
 export const AXIS_META = Object.freeze({
   I: { label: '即时冲动', low: '愿意冷静', high: '快速行动' },
@@ -71,6 +97,12 @@ function safeDate(value) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+function dataSourceOfGoal(goal) {
+  if (!goal) return null;
+  if (goal.source === 'demo' || goal.source === 'personal') return goal.source;
+  return goal.demo ? 'demo' : 'personal';
+}
+
 function median(values) {
   if (!values.length) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -110,12 +142,70 @@ function buildAggregates(orders) {
     if (statusCounts[order.status] !== undefined) statusCounts[order.status] += 1;
   }
   const categories = [...categoryMap.values()]
-    .sort((a, b) => b.amount - a.amount || b.count - a.count || b.latestAt - a.latestAt)
+    .sort((a, b) => b.count - a.count || b.amount - a.amount || b.latestAt - a.latestAt)
     .map(({ latestAt: _latestAt, ...entry }) => ({ ...entry, amount: round(entry.amount, 2) }));
   const reasons = [...reasonMap.entries()]
     .map(([reason, count]) => ({ reason, count }))
     .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason, 'zh-CN'));
   return { categories, reasons, statusCounts };
+}
+
+function buildPresentationSignals(orders) {
+  const nightCount = orders.filter((order) => {
+    const hour = order.createdAt.getHours();
+    return hour >= 22 || hour < 6;
+  }).length;
+  const smallSpendCount = orders.filter((order) => order.amount <= PRESENTATION_SMALL_SPEND_LIMIT).length;
+  const orderCount = orders.length;
+  return {
+    source: 'aggregated_local_orders',
+    purpose: 'presentation_only',
+    orderCount,
+    nightWindow: '22:00-05:59',
+    nightCount,
+    nightRate: orderCount ? round(nightCount / orderCount, 3) : 0,
+    smallSpendLimit: PRESENTATION_SMALL_SPEND_LIMIT,
+    smallSpendCount,
+    smallSpendRate: orderCount ? round(smallSpendCount / orderCount, 3) : 0,
+    medianAmount: orderCount ? round(median(orders.map((order) => order.amount)), 2) : null,
+  };
+}
+
+function sanitizeDiagnosisPresentationSignals(signals) {
+  const nonNegativeInteger = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+  };
+  const rate = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? round(clamp(numeric), 3) : 0;
+  };
+  const medianAmount = Number(signals?.medianAmount);
+  return {
+    source: 'aggregated_local_orders',
+    purpose: 'presentation_only',
+    orderCount: nonNegativeInteger(signals?.orderCount),
+    nightCount: nonNegativeInteger(signals?.nightCount),
+    nightRate: rate(signals?.nightRate),
+    smallSpendCount: nonNegativeInteger(signals?.smallSpendCount),
+    smallSpendRate: rate(signals?.smallSpendRate),
+    medianAmount: Number.isFinite(medianAmount) && medianAmount >= 0 ? round(medianAmount, 2) : null,
+  };
+}
+
+function sanitizeDiagnosisPersonaCandidates(candidates) {
+  return (Array.isArray(candidates) ? candidates : [])
+    .filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string')
+    .slice(0, 3)
+    .map((item) => {
+      const fitScore = Number(item.fitScore);
+      return {
+        id: item.id.slice(0, 64),
+        name: item.name.slice(0, 40),
+        fitScore: Number.isFinite(fitScore) ? Math.round(clamp(fitScore, 0, 100)) : 0,
+        rationale: typeof item.rationale === 'string' ? item.rationale.slice(0, 160) : '',
+      };
+    });
 }
 
 function normalizeOrders(rawOrders, period, now) {
@@ -127,8 +217,8 @@ function normalizeOrders(rawOrders, period, now) {
     .map((order) => ({
       ...order,
       amount: Number(order.amount),
-      category: String(order.category || '其他'),
-      reason: String(order.reason || '其他'),
+      category: typeof order.category === 'string' && CATEGORY_VALUE_SET.has(order.category) ? order.category : '其他',
+      reason: typeof order.reason === 'string' && REASON_VALUE_SET.has(order.reason) ? order.reason : '其他',
       status: ['cooling', 'saved', 'purchased'].includes(order.status) ? order.status : 'cooling',
       createdAt: safeDate(order.createdAt),
       decidedAt: safeDate(order.decidedAt),
@@ -273,7 +363,11 @@ function resultFacts({ orderCount, aggregates, totals, axes, motives, outcomes, 
 export function scorePersonality({ orders = [], period = 30, now = new Date() } = {}) {
   const normalizedPeriod = period === 7 ? 7 : 30;
   const currentTime = safeDate(now) || new Date();
-  const validOrders = normalizeOrders(orders, normalizedPeriod, currentTime);
+  const periodOrders = normalizeOrders(orders, normalizedPeriod, currentTime);
+  const personalOrders = periodOrders.filter((order) => !order.demo);
+  const source = personalOrders.length > 0 ? 'personal' : (periodOrders.length > 0 ? 'demo' : 'personal');
+  const validOrders = source === 'personal' ? personalOrders : periodOrders;
+  const excludedDemoCount = source === 'personal' ? periodOrders.length - personalOrders.length : 0;
   const orderCount = validOrders.length;
   const personalMedian = median(validOrders.map((order) => order.amount));
   const axisEvidence = makeEvidenceStore();
@@ -285,16 +379,18 @@ export function scorePersonality({ orders = [], period = 30, now = new Date() } 
     const baseWeight = orderWeight(order, currentTime, personalMedian, orderCount);
     perOrderWeights.push(baseWeight);
     const reasonRule = REASON_RULES[order.reason] || REASON_RULES.其他;
+    const orderEvents = new Set(reasonRule.events || []);
     addAxisEvidence(axisEvidence, reasonRule.axes, baseWeight * 0.9, 'reason', order.reason, order.id);
     addMotives(motiveScores, reasonRule.motives, baseWeight * 0.9);
-    for (const event of reasonRule.events || []) addEvent(eventCounts, event);
 
     for (const signal of order.decisionSignals) {
       const signalRule = SIGNAL_RULES[signal];
       addAxisEvidence(axisEvidence, signalRule.axes, baseWeight, 'decision_signal', signalRule.label, order.id);
       addMotives(motiveScores, signalRule.motives, baseWeight);
-      for (const event of signalRule.events || []) addEvent(eventCounts, event);
+      for (const event of signalRule.events || []) orderEvents.add(event);
     }
+
+    for (const event of orderEvents) addEvent(eventCounts, event);
 
     if (order.decidedAt && order.decidedAt >= order.createdAt) {
       const hours = (order.decidedAt - order.createdAt) / 3_600_000;
@@ -372,7 +468,10 @@ export function scorePersonality({ orders = [], period = 30, now = new Date() } 
     period: normalizedPeriod,
     eligible: orderCount >= 3,
     orderCount,
-    dataMode: orderCount && validOrders.every((order) => order.demo) ? 'demo' : (validOrders.some((order) => order.demo) ? 'mixed' : 'personal'),
+    dataMode: source,
+    source,
+    excludedDemoCount,
+    presentationSignals: buildPresentationSignals(validOrders),
     totals,
     categories: aggregates.categories,
     reasons: aggregates.reasons,
@@ -394,8 +493,11 @@ export function scorePersonality({ orders = [], period = 30, now = new Date() } 
 export function calculateGoalProgress(orders = [], goal = null) {
   if (!goal || !Number.isFinite(Number(goal.amount)) || Number(goal.amount) <= 0) return null;
   const createdAt = safeDate(goal.createdAt) || new Date(0);
+  const goalIsDemo = dataSourceOfGoal(goal) === 'demo';
   const saved = (Array.isArray(orders) ? orders : [])
     .filter((order) => order.status === 'saved' && !order.deletedAt)
+    .filter((order) => Boolean(order.demo) === goalIsDemo)
+    .filter((order) => !goal.id || order.goalId === goal.id)
     .filter((order) => (safeDate(order.updatedAt) || safeDate(order.createdAt)) >= createdAt)
     .reduce((total, order) => total + (Number(order.amount) || 0), 0);
   return {
@@ -408,7 +510,16 @@ export function calculateGoalProgress(orders = [], goal = null) {
 
 export function buildDiagnosisRequest({ assessment, goal = null, orders = [] }) {
   if (!assessment?.eligible) throw new Error('至少需要 3 笔有效记录');
-  const goalSummary = calculateGoalProgress(orders, goal);
+  const assessmentSource = ['personal', 'demo'].includes(assessment?.source) ? assessment.source : null;
+  const goalSource = dataSourceOfGoal(goal);
+  const goalProgress = assessmentSource && goalSource === assessmentSource
+    ? calculateGoalProgress(orders, goal)
+    : null;
+  const goalSummary = goalProgress ? {
+    targetAmount: goalProgress.targetAmount,
+    progress: goalProgress.progress,
+    progressRate: goalProgress.progressRate,
+  } : null;
   return {
     schemaVersion: 'wallet-summary-v1',
     scoringModelVersion: assessment.modelVersion,
@@ -419,6 +530,10 @@ export function buildDiagnosisRequest({ assessment, goal = null, orders = [] }) 
     statuses: assessment.statuses,
     goal: goalSummary,
     dataMode: assessment.dataMode,
+    source: assessment.source || assessment.dataMode,
+    excludedDemoCount: Number(assessment.excludedDemoCount) || 0,
+    presentationSignals: sanitizeDiagnosisPresentationSignals(assessment.presentationSignals),
+    personaCandidates: sanitizeDiagnosisPersonaCandidates(assessment.personaCandidates),
     localAssessment: {
       axes: Object.fromEntries(Object.entries(assessment.axes).map(([key, value]) => [key, {
         score: value.score,

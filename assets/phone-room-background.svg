@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 576" role="img" aria-labelledby="title">
+  <title id="title">暖色钱包房间背景插图</title>
+  <defs><linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff5de"/><stop offset="1" stop-color="#ffc98c"/></linearGradient><linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f5ae69"/><stop offset="1" stop-color="#c96d48"/></linearGradient></defs>
+  <rect width="1024" height="576" fill="url(#wall)"/>
+  <path d="M0 394 512 300l512 94v182H0Z" fill="url(#floor)"/>
+  <rect x="375" y="136" width="274" height="180" rx="20" fill="#fffaf0" stroke="#5b3c31" stroke-width="12"/>
+  <circle cx="474" cy="220" r="43" fill="#ffc928"/><path d="M529 184h78v18h-78zm0 42h63v18h-63zm0 42h48v18h-48z" fill="#31589c"/>
+  <path d="M125 394c0-87 62-149 137-149s137 62 137 149" fill="#ff8e65" stroke="#5b3c31" stroke-width="12"/>
+  <rect x="660" y="300" width="222" height="110" rx="28" fill="#75ded7" stroke="#5b3c31" stroke-width="12"/>
+  <circle cx="756" cy="322" r="34" fill="#fff7dd"/><circle cx="805" cy="336" r="30" fill="#ffe266"/>
+  <path d="M74 437h876" stroke="#fff" stroke-opacity=".42" stroke-width="12" stroke-linecap="round"/>
+</svg>

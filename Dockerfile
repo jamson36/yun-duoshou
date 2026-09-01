@@ -5,7 +5,23 @@ WORKDIR /app
 
 COPY --chown=node:node package.json server.mjs ./
 COPY --chown=node:node server ./server
-COPY --chown=node:node index.html styles.css app.js panorama.js scene-config.js personality-scoring.js ./
+COPY --chown=node:node \
+  index.html \
+  styles.css \
+  app.js \
+  analysis-stages.js \
+  budget-goals.js \
+  budget-whiteboard.js \
+  gachapon-motion.js \
+  goal-date-picker.js \
+  intro-transition.js \
+  panorama.js \
+  persona-presentations.js \
+  route-sync.js \
+  scene-config.js \
+  personality-scoring.js \
+  share-poster.js \
+  ./
 COPY --chown=node:node assets ./assets
 
 USER node

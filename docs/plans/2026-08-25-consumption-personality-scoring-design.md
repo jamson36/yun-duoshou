@@ -1,6 +1,6 @@
 # 让你花个爽！消费人格与 AI 评分机制设计
 
-> 版本：v1.0-draft
+> 版本：v1.1-draft
 > 日期：2026-08-25
 > 适用范围：让你花个爽！消费记录、分析页及后续 AI 消费洞察
 > 性质：产品与算法设计稿，不是心理测验或财务诊断
@@ -17,7 +17,12 @@
 3. **行为结果指标**：冷静成功率、购买转化率、决策时长、反复率。
 4. **人格与主题表达**：输出一个主人格、必要时一个副人格；原有“奶茶股东型选手”等改为钱包主题标签。
 
-AI 不直接“凭感觉打分”。AI 只负责把备注等自然语言整理成带置信度的结构化证据，以及把确定性评分结果写成用户看得懂的解释。最终分数由本地、可复算的规则引擎产生。
+AI 不直接“凭感觉打分”。五维、动机、数值置信度和 canonical 主副人格，始终由本地、可复算的规则引擎产生。在此底座上，获得用户同意后，后端可让 DeepSeek 根据去标识化的聚合特征和本地候选，提出 Figma 趣味展示人格候选；后端再按本地卡族和证据硬门槛融合。因此最终海报卡面可受 AI 候选影响，但不会产生第二套分数，也不能覆盖 canonical 结论。
+
+人格展示因此分为两层：
+
+- **canonical 规则人格**：9 类行为人格加“欲望观察员”兜底，与五维、动机、置信度一起构成可回放的事实底座。
+- **Figma 趣味展示人格**：用于卡面名称、插画、标签和色彩；可由本地映射或后端融合选中，但必须在版本化卡库和证据门槛内。
 
 ---
 
@@ -160,10 +165,14 @@ AI 不直接“凭感觉打分”。AI 只负责把备注等自然语言整理�
        五维评分   四类动机   行为结果
           └─────────┼─────────┘
                     ▼
-          主人格 / 副人格 / 主题标签
+       canonical 主副人格 / 本地候选 / 主题标签
+                    │
+            明示同意后只发聚合白名单
+                    ▼
+       DeepSeek 展示人格候选 + 证据化解释
                     │
                     ▼
-            AI 生成证据化解释与建议
+       后端卡族/硬门槛融合 → Figma 趣味卡面
 ```
 
 结果需要回答五个不同问题：
@@ -228,7 +237,14 @@ AI 不直接“凭感觉打分”。AI 只负责把备注等自然语言整理�
 | 决策反复率 | 发生过状态改写的订单 ÷ 已做决定单数 | 需要状态历史，表示犹豫程度 |
 | 待冷静率 | 冷静中订单 ÷ 全部有效订单 | 帮助提醒，而非人格评分 |
 
-删除订单、演示数据和无有效金额的记录不参与统计。状态改写后必须全量重算当前周期。
+删除订单和无有效金额的记录不参与统计。状态改写后必须全量重算当前周期。
+
+### 6.1 画像数据源隔离
+
+- 先按周期、删除状态和有效金额筛出候选记录，再选择画像数据源。
+- 同周期只要存在一笔有效个人记录，画像就只使用个人记录；演示记录不参与金额、行为、人格或主题计算，并通过 `excludedDemoCount` 告知界面本期排除了多少笔演示记录。
+- 同周期没有有效个人记录、但存在有效演示记录时，允许仅用演示记录生成明确标记的演示画像，便于无登录体验。
+- 画像结果以 `source: 'personal' | 'demo'` 和同值的 `dataMode` 表达来源，不生成个人与演示混算的 `mixed` 画像。
 
 ---
 
@@ -237,18 +253,39 @@ AI 不直接“凭感觉打分”。AI 只负责把备注等自然语言整理�
 ### 7.1 现有字段可继续使用
 
 ```ts
+type ConsumptionCategory =
+  | '餐饮饮品'
+  | '服饰美妆'
+  | '数码家居'
+  | '娱乐社交'
+  | '学习成长'
+  | '旅行交通'
+  | '其他'
+
+type ConsumptionReason =
+  | '嘴馋'
+  | '无聊'
+  | '被种草'
+  | '情绪不好'
+  | '限时优惠'
+  | '社交需要'
+  | '自我提升'
+  | '其他'
+
 type Order = {
   id: string
   name: string
   amount: number
-  category: string
-  reason: string
+  category: ConsumptionCategory
+  reason: ConsumptionReason
   note?: string
   status: 'cooling' | 'saved' | 'purchased'
   createdAt: string
   updatedAt: string
 }
 ```
+
+评分入口不信任 LocalStorage 中的历史字段：`normalizeOrders` 只接受上述固定分类和触发原因，任何未知值都在聚合、证据文案和在线请求之前归一为“其他”。这条边界防止商品名、备注或任意自由文本伪装成 `category` / `reason` 进入聚合请求。
 
 ### 7.2 推荐新增字段
 
@@ -380,7 +417,7 @@ amountModifier = clamp(sqrt(amount / personalMedianAmount), 0.75, 1.50)
 ```
 
 - 有效订单少于 5 条时，`amountModifier = 1.00`。
-- `validMask`：有效真实订单为 1；删除、演示、金额非法的记录为 0。
+- `validMask`：删除、金额非法或不属于当前画像数据源的记录为 0；当前选择的个人记录为 1，演示专属画像中的演示记录也为 1。
 
 ### 9.2 维度分数
 
@@ -425,6 +462,8 @@ low(s)  = clamp((50 - s) / 50, 0, 1)
 ```
 
 动机占比和各类事件比率本身为 0–1。
+
+用于人格硬门槛的事件数按订单去重：同一订单的触发原因和多个决策动作即使同时命中同一事件，该事件也只计 1 次；维度和动机证据仍按各来源的既定权重分别累积。
 
 ### 10.2 九类人格
 
@@ -513,7 +552,7 @@ low(s)  = clamp((50 - s) / 50, 0, 1)
 
 ## 11. 钱包主题标签
 
-原 PRD 的最高频品类映射保留，但更名为“本期钱包主题”，与人格并列展示：
+原 PRD 的最高频品类映射保留，但更名为“本期钱包主题”，与人格并列展示。最高频先按记录笔数判断；笔数相同时再按记录金额排序：
 
 | 最高频品类 | 钱包主题标签 |
 | --- | --- |
@@ -533,6 +572,16 @@ low(s)  = clamp((50 - s) / 50, 0, 1)
 - **行为结果**：冷静后最终发生了什么。
 
 这样可以避免把四种不同概念挤成一个标签。
+
+### 11.1 canonical 与 Figma 展示人格的融合次序
+
+1. 本地规则引擎先计算五维、动机、行为结果、canonical 主副人格和最多 3 个本地候选。
+2. 未同意在线复诊时，直接使用本地映射的 Figma 卡面；不发起网络请求。
+3. 已同意时，只发送聚合白名单、canonical 结果和裁剪后的本地候选。DeepSeek 可在服务端给定的 Figma 卡库中返回展示人格候选，但不能创建卡库外的 ID。
+4. 后端执行硬门槛：候选置信度至少 0.55，至少引用 2 条不同的合法证据 ID，且卡面必须属于 canonical 主人格、副人格或本地前三候选的兼容卡族；夜间和小额卡仍需额外通过本地聚合门槛。任一条不满足时保留本地卡面。
+5. 最终响应同时保留 `canonicalTitle`、本地卡面和融合后卡面的来源。海报可使用融合后的趣味名称、插画和标签，但五维分数、动机占比、行为金额、置信度和 canonical 人格仍使用本地值。
+
+网络超时、限流、上游错误、返回结构无效、候选无证据或用户撤回同意时，一律回退到当前同版本的本地 canonical 结果和本地 Figma 卡面，不应留下上一次在线候选。
 
 ---
 
@@ -584,15 +633,17 @@ confidence = 100 × (
 3. 基于规则引擎返回的分数生成解释。
 4. 给出一条低压力、可执行、可撤销的建议。
 5. 解释画像为什么变化，例如“最近两周被种草记录增加”。
+6. 在服务端给定的 Figma 卡库中，返回最多 3 个趣味展示人格候选，并为每个候选绑定 2–3 条已给定的聚合证据 ID。
 
 ### 13.2 AI 不可以做什么
 
-1. 直接输出无法复算的总分或人格。
+1. 直接输出或修改五维分数、动机占比、行为结果、置信度或 canonical 主副人格。
 2. 用商品名称猜测年龄、性别、收入、疾病、家庭关系或社会阶层。
 3. 把一次大额购买直接判成冲动。
 4. 把“没有记录”当作“不存在”。
 5. 使用羞辱、成瘾诊断或财务健康结论。
 6. 为了让结果更有趣而编造用户没有提供的行为。
+7. 绕过后端卡族、样本量和证据硬门槛，或返回 Figma 卡库之外的自创展示人格。
 
 ### 13.3 AI 结构化输出契约
 
@@ -615,48 +666,126 @@ confidence = 100 × (
 
 维度贡献必须从版本化证据字典读取，不能由模型自由生成。模型只选择 `signal`；规则引擎填入贡献值并计算最终结果。
 
-### 13.4 最终画像输出契约
+### 13.4 本地画像与后端请求契约
 
 ```json
 {
-  "schemaVersion": "consumption-personality-v1",
-  "modelVersion": "rules-1.0.0",
-  "period": { "days": 30 },
-  "axes": {
-    "I": { "score": 72, "confidence": 0.68, "evidenceCount": 5 },
-    "P": { "score": 54, "confidence": 0.51, "evidenceCount": 3 },
-    "R": { "score": 38, "confidence": 0.46, "evidenceCount": 2 },
-    "X": { "score": 76, "confidence": 0.72, "evidenceCount": 6 },
-    "E": { "score": 67, "confidence": 0.64, "evidenceCount": 4 }
+  "schemaVersion": "wallet-summary-v1",
+  "scoringModelVersion": "wallet-personality-rules-1.3.0",
+  "period": 30,
+  "dataMode": "personal",
+  "source": "personal",
+  "excludedDemoCount": 2,
+  "totals": {
+    "recorded": 886,
+    "saved": 368,
+    "purchased": 299,
+    "coolingCount": 2
   },
-  "motivations": {
-    "control": 0.15,
-    "healing": 0.34,
-    "achievement": 0.12,
-    "identity": 0.39
+  "categories": [
+    { "category": "餐饮饮品", "count": 4, "amount": 156 }
+  ],
+  "reasons": [
+    { "reason": "被种草", "count": 3 }
+  ],
+  "statuses": { "cooling": 2, "saved": 4, "purchased": 2 },
+  "goal": null,
+  "presentationSignals": {
+    "source": "aggregated_local_orders",
+    "purpose": "presentation_only",
+    "orderCount": 8,
+    "nightCount": 5,
+    "nightRate": 0.625,
+    "smallSpendCount": 2,
+    "smallSpendRate": 0.25,
+    "medianAmount": 89
   },
-  "outcomes": {
-    "savedCountRate": 0.57,
-    "savedAmountRate": 0.63,
-    "medianDecisionHours": 18
-  },
-  "primaryPersona": {
-    "id": "seeded_sprinter",
-    "name": "种草冲锋手",
-    "fitScore": 78
-  },
-  "secondaryPersona": {
-    "id": "social_resonator",
-    "name": "社交共鸣者",
-    "fitScore": 71
-  },
-  "walletTheme": "快乐充值体验官",
-  "confidence": { "score": 63, "level": "forming" },
-  "limitations": ["研究验证维度只有 2 条直接证据"]
+  "personaCandidates": [
+    {
+      "id": "seeded_sprinter",
+      "name": "种草冲锋手",
+      "fitScore": 78,
+      "rationale": "外部种草经常缩短你的决定时间。"
+    },
+    {
+      "id": "social_resonator",
+      "name": "社交共鸣者",
+      "fitScore": 71,
+      "rationale": "评价、朋友或圈层会明显参与决定。"
+    }
+  ],
+  "localAssessment": {
+    "axes": {
+      "I": { "score": 72, "confidence": 0.68, "evidenceCount": 5 },
+      "P": { "score": 54, "confidence": 0.51, "evidenceCount": 3 },
+      "R": { "score": 38, "confidence": 0.46, "evidenceCount": 2 },
+      "X": { "score": 76, "confidence": 0.72, "evidenceCount": 6 },
+      "E": { "score": 67, "confidence": 0.64, "evidenceCount": 4 }
+    },
+    "motivations": {
+      "control": 0.15,
+      "healing": 0.34,
+      "achievement": 0.12,
+      "identity": 0.39
+    },
+    "outcomes": {
+      "savedCountRate": 0.57,
+      "savedAmountRate": 0.63,
+      "medianDecisionHours": 18
+    },
+    "primaryPersona": {
+      "id": "seeded_sprinter",
+      "name": "种草冲锋手",
+      "fitScore": 78
+    },
+    "secondaryPersona": {
+      "id": "social_resonator",
+      "name": "社交共鸣者",
+      "fitScore": 71
+    },
+    "walletTheme": "快乐充值体验官",
+    "confidence": { "score": 63, "level": "forming" },
+    "evidence": [
+      { "id": "top-reason", "metric": "reason", "statement": "最常出现的触发原因是“被种草”，共 3 次。" }
+    ],
+    "localAdvice": "先保存商品，不保存付款冲动。"
+  }
 }
 ```
 
+`buildDiagnosisRequest` 对在线请求执行双重白名单：
+
+- `presentationSignals` 仅可包含 `source` / `purpose` / `orderCount` / `nightCount` / `nightRate` / `smallSpendCount` / `smallSpendRate` / `medianAmount`。夜间窗口 `22:00–05:59` 和小额门槛 `≤¥50` 是 `wallet-personality-rules-1.3.0` 中的版本化常量，不再随请求发送。
+- `personaCandidates` 仅可包含 `id` / `name` / `fitScore` / `rationale`，按本地排名保留最多 3 条。候选只是后端融合的允许边界，不是 AI 可覆盖的 canonical 结论。
+- `categories` 和 `reasons` 只能由本地固定枚举聚合；被污染的未知值必须先归一为“其他”，不得原样出现在证据 `statement` 或请求负载中。
+- `goal` 只保留 `targetAmount` / `progress` / `progressRate` 三个数值字段；目标名称、ID、备注、创建时间和其他自由文本不得进入在线请求。个人画像只可带个人目标的数值聚合，演示画像只可带演示目标的数值聚合，不得交叉或混算。
+- 整个请求不包含商品名、备注、订单 ID、单笔时间或原始订单数组。
+
+`presentationSignals` 只参与 Figma 趣味展示人格的候选与融合，不进入五维、动机、canonical 主副人格或置信度计算。夜间或小额卡面至少需要 3 笔同类记录且占当前周期有效记录的 60%。
+
 上述数值只用于说明接口结构，不代表任何真实用户结论。
+
+### 13.5 DeepSeek 展示人格候选与融合响应
+
+DeepSeek 只返回展示层候选，每次最多 3 个：
+
+```json
+{
+  "personaCandidates": [
+    {
+      "cardId": "figma-card-id",
+      "confidence": 0.82,
+      "rationale": "聚合证据表明外部推荐与快速决定同时出现。",
+      "evidenceIds": ["E1", "E3"]
+    }
+  ]
+}
+```
+
+- `cardId` 必须存在于服务端给定的 Figma 卡库中且不得重复；`confidence` 只能为 0–1。
+- `rationale` 为 1–160 个字符；`evidenceIds` 必须从本次证据目录选择 2–3 个去重 ID。
+- 后端校验候选后调用本地 resolver 融合，不直接采信模型排名。候选被采纳与否必须由版本化兼容族和证据门槛决定。
+- 融合响应的 `persona` 同时包含 `title`、`canonicalTitle`、`cardId`、`localCardId`、`decision`、`confidence`、`rationale`、`evidenceIds`、`candidates`和 `summary`。`title` 是最终 Figma 展示名；`canonicalTitle` 必须始终是本地规则人格。
 
 ---
 
@@ -712,7 +841,8 @@ confidence = 100 × (
 
 - 默认只把去标识化的结构化特征交给 AI。
 - 原始商品名与备注默认不离开本地；如需云端分析，必须单独说明、主动授权并支持撤回。
-- AI 只做文本提取和解释，分数由版本化规则引擎计算。
+- AI 可做文本提取、证据解释和 Figma 展示人格候选；分数与 canonical 人格仍由版本化规则引擎计算，展示候选由后端硬门槛融合。
+- 未同意、请求失败或候选未通过门槛时，使用同版本本地 Figma 卡面，不影响画像和海报生成。
 - 每次画像保留 `modelVersion`、`featureVersion` 和评分快照，便于回放。
 
 ---
@@ -733,6 +863,10 @@ confidence = 100 × (
 8. **来源约束**：AI 低置信度推断不得进入分数。
 9. **人格稳定性**：增加一条中性记录不应造成完全不同的人格。
 10. **隐私**：分享海报不包含商品名、备注原文和订单时间明细。
+11. **请求白名单**：`presentationSignals` 和 `personaCandidates` 丢弃未声明字段，本地候选最多保留 3 条。
+12. **展示候选校验**：AI 卡面 ID、置信度、证据 ID 和候选数量任一越界时，候选不得进入融合。
+13. **融合不变量**：无论 AI 候选是否被采纳，五维、动机、金额、置信度和 `canonicalTitle` 均不变。
+14. **失败回退**：未同意、超时、限流、无效 JSON 和证据不足都回退到本地卡面，不沿用过期在线结果。
 
 ### 16.2 数据校准
 

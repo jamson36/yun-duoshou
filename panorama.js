@@ -1,4 +1,8 @@
 const TAU = Math.PI * 2;
+const DEFAULT_SOURCE_ASPECT = 2;
+const DESKTOP_MIN_WIDTH = 821;
+const DESKTOP_STAGE_ASPECT = 16 / 9;
+const SPHERICAL_MAX_FOV = Math.PI / 2;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -15,8 +19,56 @@ function shortestAngle(from, to) {
   return wrapAngle(to - from);
 }
 
+function wrapUnit(value) {
+  let result = value % 1;
+  if (result > 0.5) result -= 1;
+  if (result < -0.5) result += 1;
+  return result;
+}
+
+export function canManipulatePanorama({ interactionEnabled, reducedMotion }) {
+  return Boolean(interactionEnabled) && !Boolean(reducedMotion);
+}
+
 function easeOutCubic(value) {
   return 1 - ((1 - value) ** 3);
+}
+
+function normalizeHotspotAsset(asset) {
+  if (!asset || typeof asset.src !== 'string' || !asset.src.trim()) return null;
+  const width = Math.round(Number(asset.width));
+  const height = Math.round(Number(asset.height));
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) return null;
+  return {
+    src: asset.src,
+    width,
+    height,
+    nodeId: typeof asset.nodeId === 'string' ? asset.nodeId : '',
+  };
+}
+
+export function renderFeatureHotspotMarkup(hotspot) {
+  const asset = normalizeHotspotAsset(hotspot.asset);
+  const assetMarkup = asset ? `
+    <span class="hotspot-asset" aria-hidden="true"${asset.nodeId ? ` data-figma-node-id="${asset.nodeId}"` : ''}>
+      <span class="hotspot-asset-bubble"></span>
+      <span class="hotspot-asset-icon">
+        <img src="${asset.src}" alt="" width="${asset.width}" height="${asset.height}" decoding="async" draggable="false" />
+      </span>
+      <strong class="hotspot-asset-label">${hotspot.label}</strong>
+    </span>` : '';
+
+  return `${assetMarkup}
+    <span class="hotspot-fallback">
+      <span class="hotspot-orbit" aria-hidden="true"><i></i></span>
+      <span class="hotspot-card">
+        <small>${hotspot.index} / ${hotspot.eyebrow}</small>
+        <strong>${hotspot.label}</strong>
+        <em>${hotspot.description}</em>
+        ${hotspot.statusId ? `<span id="${hotspot.statusId}"></span>` : ''}
+      </span>
+    </span>
+    ${hotspot.badgeId ? `<b class="hotspot-badge" id="${hotspot.badgeId}" hidden>0</b>` : ''}`;
 }
 
 function cross(a, b) {
@@ -29,6 +81,89 @@ function cross(a, b) {
 
 function dot(a, b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+export function computeFlatProjectionFrame({
+  width,
+  height,
+  sourceAspect = DEFAULT_SOURCE_ASPECT,
+  view,
+  defaultFov,
+}) {
+  const safeWidth = Math.max(1, width || 1);
+  const safeHeight = Math.max(1, height || 1);
+  const safeSourceAspect = Math.max(0.01, sourceAspect || DEFAULT_SOURCE_ASPECT);
+  const viewportAspect = safeWidth / safeHeight;
+  const useDesktopStage = safeWidth >= DESKTOP_MIN_WIDTH;
+  let contentWidth = safeWidth;
+  let contentHeight = safeHeight;
+
+  if (useDesktopStage && viewportAspect < DESKTOP_STAGE_ASPECT) {
+    contentHeight = safeWidth / DESKTOP_STAGE_ASPECT;
+  } else if (useDesktopStage && viewportAspect > DESKTOP_STAGE_ASPECT) {
+    contentWidth = safeHeight * DESKTOP_STAGE_ASPECT;
+  }
+
+  const contentX = (safeWidth - contentWidth) / 2;
+  const contentY = (safeHeight - contentHeight) / 2;
+  const contentAspect = contentWidth / contentHeight;
+  const baseSpanU = Math.min(1, contentAspect / safeSourceAspect);
+  const baseSpanV = Math.min(1, safeSourceAspect / contentAspect);
+  // Cover is the widest valid flat view. Capping here avoids stretching one
+  // axis after the first source edge has already reached the viewport edge.
+  const zoom = clamp(view.fov / Math.max(defaultFov, 0.01), 0.2, 1);
+  const spanU = Math.min(1, baseSpanU * zoom);
+  const spanV = Math.min(1, baseSpanV * zoom);
+  const requestedCenterV = 0.5 - view.pitch / Math.PI;
+
+  return {
+    width: safeWidth,
+    height: safeHeight,
+    aspect: viewportAspect,
+    contentX,
+    contentY,
+    contentWidth,
+    contentHeight,
+    contentAspect,
+    spanU,
+    spanV,
+    centerU: 0.5 - view.yaw / TAU,
+    centerV: clamp(requestedCenterV, spanV / 2, 1 - spanV / 2),
+  };
+}
+
+export function projectFlatPoint(yaw, pitch, frame) {
+  const sourceU = 0.5 - yaw / TAU;
+  const sourceV = 0.5 - pitch / Math.PI;
+  const deltaU = wrapUnit(sourceU - frame.centerU);
+  const deltaV = sourceV - frame.centerV;
+  const ndcX = deltaU / (frame.spanU / 2);
+  const ndcY = -deltaV / (frame.spanV / 2);
+  const visible = Math.abs(ndcX) < 1.14
+    && Math.abs(ndcY) < 1.18
+    && sourceV >= 0
+    && sourceV <= 1;
+
+  return {
+    x: frame.contentX + (ndcX * 0.5 + 0.5) * frame.contentWidth,
+    y: frame.contentY + (-ndcY * 0.5 + 0.5) * frame.contentHeight,
+    ndcX,
+    ndcY,
+    localZ: visible ? 1 : 0,
+    depthScale: 1,
+    visible,
+  };
+}
+
+export function unprojectFlatPoint(screenX, screenY, frame) {
+  const localX = (screenX - frame.contentX) / frame.contentWidth;
+  const localY = (screenY - frame.contentY) / frame.contentHeight;
+  const sourceU = frame.centerU + (localX - 0.5) * frame.spanU;
+  const sourceV = frame.centerV + (localY - 0.5) * frame.spanV;
+  return {
+    yaw: wrapAngle((0.5 - sourceU) * TAU),
+    pitch: clamp((0.5 - sourceV) * Math.PI, -Math.PI / 2, Math.PI / 2),
+  };
 }
 
 function compileShader(gl, type, source) {
@@ -63,23 +198,28 @@ export class PanoramaRoom {
     hotspots,
     defaultView,
     initialView = defaultView,
+    projection = 'flat',
     interactionEnabled = true,
     groups = {},
     onActivate,
     onThought,
   }) {
     this.stage = stage;
+    this.stageInteractionLabel = stage.getAttribute?.('aria-label') || '';
     this.canvas = canvas;
     this.hotspotLayer = hotspotLayer;
     this.imageUrl = imageUrl;
     this.hotspots = hotspots;
     this.defaultView = { ...defaultView };
+    this.projection = projection === 'spherical' ? 'spherical' : 'flat';
+    this.sourceAspect = DEFAULT_SOURCE_ASPECT;
     this.groups = groups;
     this.onActivate = onActivate;
     this.onThought = onThought;
     this.view = { ...initialView };
     this.idleView = { ...defaultView };
     this.hotspotElements = new Map();
+    this.projectionObservers = new Set();
     this.pointer = null;
     this.animation = null;
     this.reducedMotion = false;
@@ -141,6 +281,10 @@ export class PanoramaRoom {
       uniform float uYaw;
       uniform float uPitch;
       uniform float uFov;
+      uniform float uProjection;
+      uniform vec2 uFlatCenter;
+      uniform vec2 uFlatSpan;
+      uniform vec4 uFlatRect;
       uniform sampler2D uPanorama;
       const float PI = 3.141592653589793;
 
@@ -157,6 +301,28 @@ export class PanoramaRoom {
       }
 
       void main() {
+        if (uProjection > 0.5) {
+          vec2 rawScreenUv = (gl_FragCoord.xy - uFlatRect.xy) / uFlatRect.zw;
+          vec2 screenUv = clamp(rawScreenUv, 0.0, 1.0);
+          vec2 uv = vec2(
+            fract(uFlatCenter.x + (screenUv.x - 0.5) * uFlatSpan.x),
+            clamp(uFlatCenter.y + (0.5 - screenUv.y) * uFlatSpan.y, 0.0, 1.0)
+          );
+          vec4 roomColor = texture2D(uPanorama, uv);
+          float outsideDistance = max(
+            max(-rawScreenUv.x, rawScreenUv.x - 1.0),
+            max(-rawScreenUv.y, rawScreenUv.y - 1.0)
+          );
+          if (outsideDistance > 0.0) {
+            vec3 topFill = vec3(0.72, 0.45, 0.25);
+            vec3 bottomFill = vec3(0.95, 0.69, 0.42);
+            vec3 outsideFill = rawScreenUv.y > 1.0 ? topFill : bottomFill;
+            float edgeBlend = 1.0 - smoothstep(0.0, 0.025, outsideDistance);
+            roomColor.rgb = mix(outsideFill, roomColor.rgb, edgeBlend);
+          }
+          gl_FragColor = roomColor;
+          return;
+        }
         vec2 centered = (gl_FragCoord.xy * 2.0 - uResolution) / uResolution.y;
         float focal = 1.0 / tan(uFov * 0.5);
         vec3 ray = normalize(vec3(centered.x, centered.y, -focal));
@@ -182,6 +348,10 @@ export class PanoramaRoom {
         yaw: gl.getUniformLocation(this.program, 'uYaw'),
         pitch: gl.getUniformLocation(this.program, 'uPitch'),
         fov: gl.getUniformLocation(this.program, 'uFov'),
+        projection: gl.getUniformLocation(this.program, 'uProjection'),
+        flatCenter: gl.getUniformLocation(this.program, 'uFlatCenter'),
+        flatSpan: gl.getUniformLocation(this.program, 'uFlatSpan'),
+        flatRect: gl.getUniformLocation(this.program, 'uFlatRect'),
       };
       this.loadTexture();
     } catch (error) {
@@ -198,6 +368,7 @@ export class PanoramaRoom {
     image.decoding = 'async';
     image.onload = () => {
       if (this.destroyed) return;
+      this.sourceAspect = image.width / image.height;
       const gl = this.gl;
       const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
       let source = image;
@@ -245,15 +416,31 @@ export class PanoramaRoom {
 
       if (hotspot.kind === 'feature') {
         button.setAttribute('aria-label', `${hotspot.label}：${hotspot.description}`);
-        button.innerHTML = `
-          <span class="hotspot-orbit" aria-hidden="true"><i></i></span>
-          <span class="hotspot-card">
-            <small>${hotspot.index} / ${hotspot.eyebrow}</small>
-            <strong>${hotspot.label}</strong>
-            <em>${hotspot.description}</em>
-            ${hotspot.statusId ? `<span id="${hotspot.statusId}"></span>` : ''}
-          </span>
-          ${hotspot.badgeId ? `<b class="hotspot-badge" id="${hotspot.badgeId}" hidden>0</b>` : ''}`;
+        const asset = normalizeHotspotAsset(hotspot.asset);
+        if (asset) {
+          button.classList.add('has-hotspot-asset');
+          button.style.setProperty('--hotspot-asset-width', `${asset.width}px`);
+          button.style.setProperty('--hotspot-asset-height', `${asset.height}px`);
+        }
+        button.innerHTML = renderFeatureHotspotMarkup(hotspot);
+
+        const assetImage = button.querySelector('.hotspot-asset img');
+        if (assetImage) {
+          const markAssetReady = () => {
+            button.classList.add('is-hotspot-asset-ready');
+            button.classList.remove('is-hotspot-asset-failed');
+          };
+          const markAssetFailed = () => {
+            button.classList.remove('is-hotspot-asset-ready');
+            button.classList.add('is-hotspot-asset-failed');
+          };
+          assetImage.addEventListener('load', markAssetReady, { once: true });
+          assetImage.addEventListener('error', markAssetFailed, { once: true });
+          if (assetImage.complete) {
+            if (assetImage.naturalWidth > 0) markAssetReady();
+            else markAssetFailed();
+          }
+        }
       } else {
         button.setAttribute('aria-label', `${hotspot.label}：${hotspot.thought}`);
         button.innerHTML = `
@@ -285,7 +472,7 @@ export class PanoramaRoom {
 
   bindEvents() {
     this.onPointerDown = (event) => {
-      if (!this.interactionEnabled) return;
+      if (!canManipulatePanorama(this)) return;
       if (event.button !== 0 || event.target.closest('button, a, input, select')) return;
       this.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
       this.stage.setPointerCapture?.(event.pointerId);
@@ -293,7 +480,7 @@ export class PanoramaRoom {
       this.animation = null;
     };
     this.onPointerMove = (event) => {
-      if (!this.interactionEnabled) return;
+      if (!canManipulatePanorama(this)) return;
       if (!this.pointer || this.pointer.id !== event.pointerId) return;
       const dx = event.clientX - this.pointer.x;
       const dy = event.clientY - this.pointer.y;
@@ -313,16 +500,17 @@ export class PanoramaRoom {
       this.stage.classList.remove('is-dragging');
     };
     this.onWheel = (event) => {
-      if (!this.interactionEnabled) return;
+      if (!canManipulatePanorama(this)) return;
       if (event.target.closest('button, a')) return;
       event.preventDefault();
       this.animation = null;
-      this.view.fov = clamp(this.view.fov + event.deltaY * 0.0008, 0.55, 1.35);
+      const maxFov = this.projection === 'flat' ? this.defaultView.fov : SPHERICAL_MAX_FOV;
+      this.view.fov = clamp(this.view.fov + event.deltaY * 0.0008, 0.55, maxFov);
       this.idleView = { ...this.view };
       this.requestRender();
     };
     this.onKeyDown = (event) => {
-      if (!this.interactionEnabled) return;
+      if (!canManipulatePanorama(this)) return;
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', '='].includes(event.key)) return;
       event.preventDefault();
       const turn = 0.12;
@@ -330,8 +518,11 @@ export class PanoramaRoom {
       if (event.key === 'ArrowRight') this.view.yaw = wrapAngle(this.view.yaw + turn);
       if (event.key === 'ArrowUp') this.view.pitch = clamp(this.view.pitch + turn * 0.6, -0.56, 0.4);
       if (event.key === 'ArrowDown') this.view.pitch = clamp(this.view.pitch - turn * 0.6, -0.56, 0.4);
-      if (event.key === '+' || event.key === '=') this.view.fov = clamp(this.view.fov - 0.08, 0.55, 1.35);
-      if (event.key === '-') this.view.fov = clamp(this.view.fov + 0.08, 0.55, 1.35);
+      if (event.key === '+' || event.key === '=') this.view.fov = clamp(this.view.fov - 0.08, 0.55, SPHERICAL_MAX_FOV);
+      if (event.key === '-') {
+        const maxFov = this.projection === 'flat' ? this.defaultView.fov : SPHERICAL_MAX_FOV;
+        this.view.fov = clamp(this.view.fov + 0.08, 0.55, maxFov);
+      }
       this.idleView = { ...this.view };
       this.requestRender();
     };
@@ -352,6 +543,19 @@ export class PanoramaRoom {
 
   setReducedMotion(value) {
     this.reducedMotion = Boolean(value);
+    this.stage.classList.toggle('is-reduced-motion', this.reducedMotion);
+    this.stage.setAttribute?.(
+      'aria-label',
+      this.reducedMotion
+        ? '钱包全景房间。已减少动态，请使用下方三个文字入口。'
+        : this.stageInteractionLabel,
+    );
+    if (!this.reducedMotion) return;
+    const interruptedAnimation = this.animation;
+    this.animation = null;
+    interruptedAnimation?.resolve?.(false);
+    this.pointer = null;
+    this.stage.classList.remove('is-dragging');
   }
 
   setInteractionEnabled(value) {
@@ -379,6 +583,7 @@ export class PanoramaRoom {
     const hotspot = this.hotspots.find((item) => item.id === id);
     if (!hotspot) return;
     this.hotspotElements.forEach((element, elementId) => element.classList.toggle('is-active', elementId === id));
+    if (this.reducedMotion) return;
     this.animateTo(hotspot.focus || { yaw: hotspot.yaw, pitch: hotspot.pitch, fov: 0.8 });
   }
 
@@ -386,6 +591,7 @@ export class PanoramaRoom {
     const group = this.groups[id];
     if (!group) return;
     this.hotspotElements.forEach((element) => element.classList.toggle('is-group-active', element.dataset.group === id));
+    if (this.reducedMotion) return;
     this.animateTo(group.focus);
   }
 
@@ -394,7 +600,7 @@ export class PanoramaRoom {
     this.animateTo(this.idleView || this.defaultView);
   }
 
-  animateTo(target, { duration = 520, updateIdle = false } = {}) {
+  animateTo(target, { duration = 460, updateIdle = false } = {}) {
     if (this.animation?.resolve) this.animation.resolve(false);
     if (updateIdle) this.idleView = { ...target };
     if (this.reducedMotion) {
@@ -417,6 +623,93 @@ export class PanoramaRoom {
 
   animateToView(target, options = {}) {
     return this.animateTo(target, options);
+  }
+
+  addProjectionObserver(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this.projectionObservers.add(callback);
+    callback();
+    return () => this.projectionObservers.delete(callback);
+  }
+
+  projectionFrame() {
+    const width = this.stage.clientWidth || 1;
+    const height = this.stage.clientHeight || 1;
+    if (this.projection === 'flat') {
+      return computeFlatProjectionFrame({
+        width,
+        height,
+        sourceAspect: this.sourceAspect,
+        view: this.view,
+        defaultFov: this.defaultView.fov,
+      });
+    }
+    const forward = {
+      x: -Math.sin(this.view.yaw) * Math.cos(this.view.pitch),
+      y: Math.sin(this.view.pitch),
+      z: -Math.cos(this.view.yaw) * Math.cos(this.view.pitch),
+    };
+    const right = { x: Math.cos(this.view.yaw), y: 0, z: -Math.sin(this.view.yaw) };
+    return {
+      width,
+      height,
+      aspect: width / height,
+      forward,
+      right,
+      up: cross(right, forward),
+      tanHalfFov: Math.tan(this.view.fov / 2),
+    };
+  }
+
+  projectPoint(yaw, pitch, frame = this.projectionFrame()) {
+    if (this.projection === 'flat') return projectFlatPoint(yaw, pitch, frame);
+    const world = {
+      x: -Math.sin(yaw) * Math.cos(pitch),
+      y: Math.sin(pitch),
+      z: -Math.cos(yaw) * Math.cos(pitch),
+    };
+    const localX = dot(world, frame.right);
+    const localY = dot(world, frame.up);
+    const localZ = dot(world, frame.forward);
+    const ndcX = localX / (Math.max(localZ, 0.001) * frame.tanHalfFov * frame.aspect);
+    const ndcY = localY / (Math.max(localZ, 0.001) * frame.tanHalfFov);
+    return {
+      x: (ndcX * 0.5 + 0.5) * frame.width,
+      y: (-ndcY * 0.5 + 0.5) * frame.height,
+      ndcX,
+      ndcY,
+      localZ,
+      depthScale: clamp(0.78 + localZ * 0.24, 0.82, 1.05),
+      visible: localZ > 0.05 && Math.abs(ndcX) < 1.14 && Math.abs(ndcY) < 1.18,
+    };
+  }
+
+  unprojectPoint(clientX, clientY) {
+    const frame = this.projectionFrame();
+    const rect = this.stage.getBoundingClientRect();
+    if (this.projection === 'flat') {
+      return unprojectFlatPoint(clientX - rect.left, clientY - rect.top, frame);
+    }
+    const ndcX = (((clientX - rect.left) / frame.width) - 0.5) * 2;
+    const ndcY = -((((clientY - rect.top) / frame.height) - 0.5) * 2);
+    const local = {
+      x: ndcX * frame.tanHalfFov * frame.aspect,
+      y: ndcY * frame.tanHalfFov,
+      z: 1,
+    };
+    const world = {
+      x: frame.right.x * local.x + frame.up.x * local.y + frame.forward.x * local.z,
+      y: frame.right.y * local.x + frame.up.y * local.y + frame.forward.y * local.z,
+      z: frame.right.z * local.x + frame.up.z * local.y + frame.forward.z * local.z,
+    };
+    const length = Math.hypot(world.x, world.y, world.z) || 1;
+    world.x /= length;
+    world.y /= length;
+    world.z /= length;
+    return {
+      yaw: wrapAngle(Math.atan2(-world.x, -world.z)),
+      pitch: Math.asin(clamp(world.y, -1, 1)),
+    };
   }
 
   requestRender() {
@@ -457,6 +750,19 @@ export class PanoramaRoom {
       gl.uniform1f(this.uniforms.yaw, this.view.yaw);
       gl.uniform1f(this.uniforms.pitch, this.view.pitch);
       gl.uniform1f(this.uniforms.fov, this.view.fov);
+      gl.uniform1f(this.uniforms.projection, this.projection === 'flat' ? 1 : 0);
+      if (this.projection === 'flat') {
+        const frame = this.projectionFrame();
+        gl.uniform2f(this.uniforms.flatCenter, frame.centerU, frame.centerV);
+        gl.uniform2f(this.uniforms.flatSpan, frame.spanU, frame.spanV);
+        gl.uniform4f(
+          this.uniforms.flatRect,
+          frame.contentX * dpr,
+          (this.stage.clientHeight - frame.contentY - frame.contentHeight) * dpr,
+          frame.contentWidth * dpr,
+          frame.contentHeight * dpr,
+        );
+      }
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
@@ -465,36 +771,17 @@ export class PanoramaRoom {
   }
 
   projectHotspots() {
-    const width = this.stage.clientWidth || 1;
-    const height = this.stage.clientHeight || 1;
-    const aspect = width / height;
-    const forward = {
-      x: -Math.sin(this.view.yaw) * Math.cos(this.view.pitch),
-      y: Math.sin(this.view.pitch),
-      z: -Math.cos(this.view.yaw) * Math.cos(this.view.pitch),
-    };
-    const right = { x: Math.cos(this.view.yaw), y: 0, z: -Math.sin(this.view.yaw) };
-    const up = cross(right, forward);
-    const tanHalfFov = Math.tan(this.view.fov / 2);
+    const frame = this.projectionFrame();
 
     for (const hotspot of this.hotspots) {
       const element = this.hotspotElements.get(hotspot.id);
-      const world = {
-        x: -Math.sin(hotspot.yaw) * Math.cos(hotspot.pitch),
-        y: Math.sin(hotspot.pitch),
-        z: -Math.cos(hotspot.yaw) * Math.cos(hotspot.pitch),
-      };
-      const localX = dot(world, right);
-      const localY = dot(world, up);
-      const localZ = dot(world, forward);
-      const ndcX = localX / (Math.max(localZ, 0.001) * tanHalfFov * aspect);
-      const ndcY = localY / (Math.max(localZ, 0.001) * tanHalfFov);
-      const visible = localZ > 0.05 && Math.abs(ndcX) < 1.14 && Math.abs(ndcY) < 1.18;
-      element.hidden = !visible;
-      if (!visible) continue;
-      element.style.left = `${(ndcX * 0.5 + 0.5) * width}px`;
-      element.style.top = `${(-ndcY * 0.5 + 0.5) * height}px`;
-      element.style.setProperty('--depth-scale', clamp(0.78 + localZ * 0.24, 0.82, 1.05).toFixed(3));
+      const point = this.projectPoint(hotspot.yaw, hotspot.pitch, frame);
+      element.hidden = !point.visible;
+      if (!point.visible) continue;
+      element.style.left = `${point.x}px`;
+      element.style.top = `${point.y}px`;
+      element.style.setProperty('--depth-scale', point.depthScale.toFixed(3));
     }
+    this.projectionObservers.forEach((callback) => callback());
   }
 }

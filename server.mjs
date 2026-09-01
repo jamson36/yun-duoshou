@@ -7,8 +7,9 @@ import { randomUUID } from 'node:crypto';
 import { DEEPSEEK_DEFAULTS, ServiceError, requestDeepSeekDiagnosis } from './server/diagnosis-service.mjs';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
+const ASSETS_ROOT = resolve(ROOT, 'assets');
 const MAX_BODY_BYTES = 64 * 1024;
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'intro-transition.js', 'panorama.js', 'scene-config.js', 'personality-scoring.js']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'analysis-stages.js', 'budget-goals.js', 'budget-whiteboard.js', 'gachapon-motion.js', 'goal-date-picker.js', 'intro-transition.js', 'panorama.js', 'persona-presentations.js', 'route-sync.js', 'scene-config.js', 'personality-scoring.js', 'share-poster.js']);
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -18,6 +19,8 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
 };
 
@@ -28,7 +31,7 @@ function securityHeaders(contentType = 'application/json; charset=utf-8') {
     'Referrer-Policy': 'no-referrer',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     'Cross-Origin-Resource-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
   };
 }
 
@@ -75,14 +78,40 @@ function createRateLimiter({ limit = 20, windowMs = 10 * 60 * 1000 } = {}) {
   };
 }
 
-function staticPath(urlPath) {
-  const decoded = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
-  const relative = decoded.replace(/^\/+/, '');
-  if (!relative || (!PUBLIC_ROOT_FILES.has(relative) && !relative.startsWith('assets/'))) return null;
-  const absolute = resolve(ROOT, relative);
-  const rootPrefix = ROOT.endsWith(sep) ? ROOT : `${ROOT}${sep}`;
-  if (absolute !== ROOT && !absolute.startsWith(rootPrefix)) return null;
+function pathIsWithin(root, target) {
+  const rootPrefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  return target.startsWith(rootPrefix);
+}
+
+function staticPath(rawPathname) {
+  if (typeof rawPathname !== 'string' || !rawPathname.startsWith('/') || rawPathname.startsWith('//')) return null;
+  if (/[\\\u0000-\u001f\u007f]/.test(rawPathname) || /%(?:2f|5c)/i.test(rawPathname)) return null;
+  let decoded;
+  try {
+    decoded = decodeURIComponent(rawPathname === '/' ? '/index.html' : rawPathname);
+  } catch {
+    return null;
+  }
+  if (/[\\\u0000-\u001f\u007f]/.test(decoded)
+    || decoded.includes('//')
+    || /%(?:2e|2f|5c)/i.test(decoded)
+    || decoded.split('/').some((segment) => segment === '.' || segment === '..')) {
+    return null;
+  }
+  const relative = decoded.slice(1);
+  if (PUBLIC_ROOT_FILES.has(relative)) return resolve(ROOT, relative);
+  if (!decoded.startsWith('/assets/')) return null;
+  const assetRelative = decoded.slice('/assets/'.length);
+  if (!assetRelative) return null;
+  const absolute = resolve(ASSETS_ROOT, assetRelative);
+  if (!pathIsWithin(ASSETS_ROOT, absolute)) return null;
   return absolute;
+}
+
+function rawRequestPathname(requestUrl) {
+  const value = typeof requestUrl === 'string' && requestUrl ? requestUrl : '/';
+  const queryIndex = value.indexOf('?');
+  return queryIndex === -1 ? value : value.slice(0, queryIndex);
 }
 
 async function serveStatic(request, response, pathname) {
@@ -133,7 +162,8 @@ export function createAppServer({
         return;
       }
       if ((request.method === 'GET' || request.method === 'HEAD') && !url.pathname.startsWith('/api/')) {
-        if (await serveStatic(request, response, url.pathname)) return;
+        const pathname = rawRequestPathname(request.url);
+        if (await serveStatic(request, response, pathname)) return;
       }
       jsonResponse(response, 404, { code: 'not_found', message: '未找到请求的资源' });
     } catch (error) {

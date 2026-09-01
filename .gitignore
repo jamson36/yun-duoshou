@@ -6,6 +6,7 @@ dist/
 coverage/
 *.log
 .playwright-cli/
+.playwright-mcp/
 output/
 xiaoHongShu-mcp/
 xiaohongshu-mcp/
