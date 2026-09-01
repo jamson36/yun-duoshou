@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
@@ -69,10 +70,113 @@ test('移动端使用真实手机画板宽高并采用 Figma 单列冷静单', (
 test('欲望控制器是独立 Figma 子页面，并随预算更新本地提示', () => {
   assert.match(html, /data-goals-panel="goal"/);
   assert.match(html, /data-goals-panel="controller"/);
-  assert.match(html, /id="desireBudgetRange"[^>]*min="500"[^>]*max="10000"/);
+  assert.match(html, /id="desireBudgetRange"[^>]*min="500"[^>]*max="10000"[^>]*step="100"[^>]*value="600"/);
+  assert.match(html, /class="controller-range-limits"[^>]*>[\s\S]*?¥500[\s\S]*?¥10,000/);
+  assert.match(html, /id="controllerRaccoonImage"[^>]*controller-elegant\.webp[^>]*width="1024"[^>]*height="1024"/);
+  assert.match(html, /id="controllerStateBadge">优雅有钱人</);
+  assert.match(html, /id="controllerVerdict">钱包状态：容光焕发</);
+  assert.match(html, /id="controllerAdvice">不错不错，保持下去，小目标不是梦！</);
   assert.match(appSource, /const CONTROLLER_BUDGET_TIERS = Object\.freeze\(\[/);
   assert.match(appSource, /function setGoalsView\(/);
   assert.match(appSource, /desireBudgetRange\.addEventListener\('input', renderControllerBudget\)/);
+  assert.match(css, /data-tier="steady"[^}]*--controller-wash:\s*#fff4d2/);
+  assert.match(css, /data-tier="alert"[^}]*--controller-wash:\s*#ffce92/);
+  assert.match(css, /data-tier="pause"[^}]*--controller-wash:\s*#ffab80/);
+});
+
+test('欲望控制器按四个 Figma 代表态映射连续预算，并保留四张高清 IP', async () => {
+  const configSource = appSource.slice(
+    appSource.indexOf('const CONTROLLER_BUDGET_MIN'),
+    appSource.indexOf('function renderControllerBudget'),
+  );
+  const context = {};
+  vm.runInNewContext(`${configSource}\nthis.controllerBudgetTierFor = controllerBudgetTierFor; this.tiers = CONTROLLER_BUDGET_TIERS;`, context);
+
+  assert.equal(context.tiers.length, 4);
+  assert.deepEqual(
+    Array.from(context.tiers, ({ name, anchor, badge, quote, verdict, advice, imageSrc }) => ({
+      name,
+      anchor,
+      badge,
+      quote,
+      verdict,
+      advice,
+      imageSrc,
+    })),
+    [
+      {
+        name: 'calm',
+        anchor: 600,
+        badge: '优雅有钱人',
+        quote: '预算可以很自由，钱包不行。',
+        verdict: '钱包状态：容光焕发',
+        advice: '不错不错，保持下去，小目标不是梦！',
+        imageSrc: './assets/figma-controller-20260901/controller-elegant.webp',
+      },
+      {
+        name: 'steady',
+        anchor: 3000,
+        badge: '努力打工人',
+        quote: '花钱之前，先把班上了。',
+        verdict: '钱包状态：轻微颤抖',
+        advice: '已经够花了，再往右拖，浣熊要开始加班了。',
+        imageSrc: './assets/figma-controller-20260901/controller-worker.webp',
+      },
+      {
+        name: 'alert',
+        anchor: 7000,
+        badge: '深夜副业党',
+        quote: '节不了流就学着开源，少走弯路',
+        verdict: '钱包状态：勉强保命',
+        advice: '拉的大大胆胆，单子肥肥嘟嘟，钱包岌岌可危',
+        imageSrc: './assets/figma-controller-20260901/controller-side-hustle.webp',
+      },
+      {
+        name: 'pause',
+        anchor: 10000,
+        badge: '落魄讨饭人',
+        quote: '预算可以很自由，钱包不行。',
+        verdict: '钱包状态：命悬一线',
+        advice: '就只活一天，明天后天大后天都不想活了吗？',
+        imageSrc: './assets/figma-controller-20260901/controller-beggar.webp',
+      },
+    ],
+  );
+  assert.equal(context.controllerBudgetTierFor(600).name, 'calm');
+  assert.equal(context.controllerBudgetTierFor(3000).name, 'steady');
+  assert.equal(context.controllerBudgetTierFor(7000).name, 'alert');
+  assert.equal(context.controllerBudgetTierFor(10000).name, 'pause');
+
+  assert.equal(context.controllerBudgetTierFor(1800).name, 'calm');
+  assert.equal(context.controllerBudgetTierFor(1900).name, 'steady');
+  assert.equal(context.controllerBudgetTierFor(5000).name, 'steady');
+  assert.equal(context.controllerBudgetTierFor(5100).name, 'alert');
+  assert.equal(context.controllerBudgetTierFor(8500).name, 'alert');
+  assert.equal(context.controllerBudgetTierFor(8600).name, 'pause');
+  assert.equal(context.controllerBudgetTierFor(-1).name, 'calm');
+  assert.equal(context.controllerBudgetTierFor(50_000).name, 'pause');
+  assert.equal(context.controllerBudgetTierFor(Number.NaN).name, 'calm');
+
+  const tierOrder = new Map(context.tiers.map(({ name }, index) => [name, index]));
+  const steppedTiers = [];
+  for (let amount = 500; amount <= 10000; amount += 100) {
+    steppedTiers.push(tierOrder.get(context.controllerBudgetTierFor(amount).name));
+  }
+  steppedTiers.forEach((tierIndex, index) => {
+    assert.ok(tierIndex >= 0 && tierIndex <= 3);
+    if (index > 0) assert.ok(tierIndex >= steppedTiers[index - 1], '连续滑块状态只能随预算单向递进');
+  });
+
+  const assetPaths = context.tiers.map(({ imageSrc }) => new URL(`../${imageSrc.replace('./', '')}`, import.meta.url));
+  const assetBuffers = await Promise.all(assetPaths.map((assetPath) => readFile(assetPath)));
+  assetBuffers.forEach((asset, index) => assert.ok(asset.byteLength > 50_000, `第 ${index + 1} 张控制器 IP 应是高清导出资源`));
+  assert.equal(new Set(context.tiers.map(({ imageSrc }) => imageSrc)).size, 4);
+
+  const renderSource = appSource.slice(
+    appSource.indexOf('function renderControllerBudget'),
+    appSource.indexOf('CONTROLLER_BUDGET_TIERS.forEach'),
+  );
+  assert.doesNotMatch(renderSource, /mutate\(|saveState\(|setGoal\(|setMonthlyGoalPreset\(|localStorage/);
 });
 
 test('人格扭蛋起始态按 Figma 顺序收进桌面和手机首屏', () => {
@@ -188,8 +292,8 @@ test('手机业务长页统一预留底栏和系统安全区', () => {
   assert.match(mobileClearanceCss, /\.app\.is-focused \.toast\s*\{[\s\S]*?bottom:\s*var\(--mobile-dock-clearance\);/);
 });
 
-test('订单页归入开始买吧主入口并持续标记当前移动导航', () => {
-  assert.match(html, /<nav class="mobile-dock room-entry-cluster" aria-label="主要功能">/);
+test('订单页归入开始买吧主入口并持续标记当前顶部导航', () => {
+  assert.match(html, /<nav class="[^"]*room-primary-nav[^"]*" aria-label="房间顶部主要功能">/);
   assert.match(appSource, /const activePanel = panel === 'orders' \? 'new' : panel;/);
   assert.match(appSource, /panelForMobileDockButton\(button\) === activePanel/);
 });
@@ -232,7 +336,11 @@ test('复诊中保留四阶段状态与撤回入口，不再被最终样式隐�
 test('分享报告完整展示 1080×1538 人格卡，并且只留返回和保存两个按钮', () => {
   const posterDialog = html.match(/<dialog\b[^>]*\bid="posterShare"[^>]*>[\s\S]*?<\/dialog>/)?.[0] || '';
   const buttonLabels = [...posterDialog.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
-    .map((match) => match[1].replaceAll(/<[^>]+>/g, '').replaceAll(/\s+/g, ' ').trim());
+    .map((match) => match[1]
+      .replaceAll(/<span\b[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/span>/g, '')
+      .replaceAll(/<[^>]+>/g, '')
+      .replaceAll(/\s+/g, ' ')
+      .trim());
 
   assert.match(posterDialog, /class="poster-figma-card"[\s\S]*?class="poster-preview-shell"/);
   assert.deepEqual(buttonLabels, ['返回', '保存到相册']);

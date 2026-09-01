@@ -1,5 +1,5 @@
-import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260831-entry-loop-02';
-import { PanoramaRoom } from './panorama.js?v=20260901-room-camera-1';
+import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
+import { PanoramaRoom } from './panorama.js?v=20260901-flow-alignment-3';
 import { FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260901-room-camera-2';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
@@ -8,7 +8,7 @@ import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBud
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
 import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
-import { buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-commerce-phone-2';
+import { buildClinicHash, buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-flow-alignment-3';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
@@ -172,6 +172,75 @@ const COMMERCE_CATALOGS = {
   },
 };
 
+function commerceTypeForOrder(order = {}) {
+  if (order.category === '餐饮饮品') return 'food';
+  if (order.category === '学习成长' || order.category === '旅行交通') return 'interest';
+  return 'shop';
+}
+
+function stableCommerceProductSuffix(value) {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function staticCommerceProduct(productId) {
+  return Object.values(COMMERCE_CATALOGS)
+    .flatMap((catalog) => catalog.products)
+    .find((product) => product.id === productId) || null;
+}
+
+function derivedCommerceProducts(type, orders = []) {
+  const catalog = COMMERCE_CATALOGS[type] || COMMERCE_CATALOGS.shop;
+  const groups = new Map();
+  orders.filter((order) => commerceTypeForOrder(order) === type).forEach((order) => {
+    const normalizedName = String(order?.name || '').trim().toLocaleLowerCase('zh-CN');
+    if (!normalizedName) return;
+    const timestamp = new Date(order.updatedAt || order.createdAt).getTime() || 0;
+    const current = groups.get(normalizedName);
+    if (!current || timestamp >= current.timestamp) {
+      groups.set(normalizedName, {
+        latestOrder: order,
+        timestamp,
+        count: (current?.count || 0) + 1,
+      });
+    } else {
+      current.count += 1;
+    }
+  });
+
+  return [...groups.entries()].map(([normalizedName, group]) => {
+    const order = group.latestOrder;
+    const preset = catalog.products.find((product) => product.name.trim().toLocaleLowerCase('zh-CN') === normalizedName);
+    const fallback = staticCommerceProduct(ORDER_FALLBACK_PRODUCT_BY_CATEGORY[order.category]);
+    const stableValue = Number.parseInt(stableCommerceProductSuffix(`${type}:${normalizedName}`), 36) || 0;
+    return {
+      ...(fallback || {}),
+      ...(preset || {}),
+      id: `order-product-${type}-${stableCommerceProductSuffix(normalizedName)}`,
+      name: String(order.name).trim(),
+      price: Number(order.amount) || 0,
+      category: order.category || preset?.category || fallback?.category || '其他',
+      reason: order.reason || preset?.reason || fallback?.reason || '其他',
+      image: preset?.image || fallback?.image || './assets/phone-raccoon.webp',
+      filter: '我的商品',
+      badge: order.demo ? '我的商品 · 演示' : '我的商品',
+      detail: preset?.detail || `已在订单中记录 ${group.count} 次，状态会与订单页同步。`,
+      pitch: preset?.pitch || '它已经进入订单记录，先回订单页看看现在处于哪个状态。',
+      heat: preset?.heat || 60 + (stableValue % 39),
+      rating: preset?.rating || 60 + (stableValue % 31),
+      regret: preset?.regret || '待观察',
+      isOwned: true,
+      orderCount: group.count,
+      latestOrderId: order.id,
+      timestamp: group.timestamp,
+    };
+  }).sort((a, b) => b.timestamp - a.timestamp || a.name.localeCompare(b.name, 'zh-CN'));
+}
+
 const ORDER_FALLBACK_PRODUCT_BY_CATEGORY = {
   餐饮饮品: 'food-milktea',
   服饰美妆: 'shop-bag',
@@ -223,6 +292,8 @@ const mallSuccessTitle = document.querySelector('#mallSuccessTitle');
 const mallMoodIcon = document.querySelector('#mallMoodIcon');
 const mallConfettiGif = document.querySelector('#mallConfettiGif');
 const mallHornGif = document.querySelector('#mallHornGif');
+const mallSuccessAdviceTitle = document.querySelector('#mallSuccessAdviceTitle');
+const mallSuccessAdviceList = document.querySelector('#mallSuccessAdviceList');
 const mallSuccessBackButton = document.querySelector('#mallSuccessBackButton');
 const mallSuccessContinueButton = document.querySelector('#mallSuccessContinueButton');
 const cancelOrderEditButton = document.querySelector('#cancelOrderEditButton');
@@ -316,6 +387,7 @@ let toastTimer = null;
 let businessStateStorageDirty = false;
 let state = loadState();
 let testHistory = loadTestHistory();
+let restoredTestHistory = null;
 let aiConsentChannel = null;
 try {
   if (typeof BroadcastChannel === 'function') aiConsentChannel = new BroadcastChannel('spree-ai-consent');
@@ -448,11 +520,17 @@ function syncMobileDock(panel) {
 
 function setClinicView(view, { focus = false, scroll = true } = {}) {
   const nextView = view === 'report' ? 'report' : 'start';
+  const leavingHistoricalReport = nextView === 'start' && Boolean(restoredTestHistory);
+  if (leavingHistoricalReport) {
+    restoredTestHistory = null;
+    personalityProfileRenderSignature = '';
+  }
   clinicView = nextView;
   if (clinicPanel) clinicPanel.dataset.clinicView = nextView;
   if (clinicStartView) clinicStartView.hidden = nextView !== 'start';
   if (clinicReportView) clinicReportView.hidden = nextView !== 'report';
   if (activePanel === 'clinic' && scroll) panelInner.scrollTo({ top: 0, behavior: 'auto' });
+  if (leavingHistoricalReport && activePanel === 'clinic') renderClinic();
   if (!focus || activePanel !== 'clinic') return;
   window.requestAnimationFrame(() => {
     const target = nextView === 'report' ? clinicReportTitle : gachaponTitle;
@@ -837,6 +915,7 @@ function applyExternalBusinessState(rawValue) {
     diagnosis: diagnosisContextChanged ? null : currentDiagnosis,
     settings: { ...incoming.settings, aiConsent: consentIsCurrent },
   };
+  restoredTestHistory = null;
   businessStateStorageDirty = false;
   if (diagnosisContextChanged) {
     setAiDiagnosisInvalidatedForSession(true);
@@ -864,6 +943,7 @@ function applyExternalBusinessState(rawValue) {
 
 function mutate(mutator) {
   cancelAiRequest('data-changed');
+  restoredTestHistory = null;
   aiUiState = { status: 'idle', message: '' };
   mutator(state);
   state.dataRevision += 1;
@@ -958,6 +1038,68 @@ function loadTestHistory() {
   }
 }
 
+function restorableHistoryAssessment(assessment) {
+  return Boolean(assessment
+    && assessment.eligible
+    && [7, 30].includes(Number(assessment.period))
+    && assessment.primaryPersona
+    && assessment.totals
+    && assessment.axes
+    && assessment.motivations
+    && assessment.confidence
+    && Array.isArray(assessment.categories)
+    && Array.isArray(assessment.reasons)
+    && Array.isArray(assessment.evidence));
+}
+
+function cloneLocalSnapshot(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+
+function serializeReportProductGroups(groups = []) {
+  return groups.map((group) => ({
+    name: group.name,
+    category: group.category,
+    reason: group.reason,
+    amount: group.amount,
+    count: group.count,
+    impulseScore: group.impulseScore,
+    evidence: [...group.evidence],
+    latestAt: group.latestAt,
+    latestOrder: cloneLocalSnapshot(group.latestOrder),
+    demoCount: group.demoCount,
+  }));
+}
+
+function restoreReportProductGroups(groups = []) {
+  if (!Array.isArray(groups)) return [];
+  return groups.filter((group) => group
+    && typeof group.name === 'string'
+    && Number.isFinite(Number(group.amount))
+    && group.latestOrder)
+    .slice(0, 3)
+    .map((group) => ({
+      ...group,
+      amount: Number(group.amount) || 0,
+      count: Math.max(1, Number(group.count) || 1),
+      impulseScore: Math.max(0, Number(group.impulseScore) || 0),
+      evidence: new Set(Array.isArray(group.evidence) ? group.evidence.map(String).slice(0, 8) : []),
+      latestAt: Number(group.latestAt) || 0,
+      demoCount: Math.max(0, Number(group.demoCount) || 0),
+    }));
+}
+
+function historicalReportContextFor(assessment = currentAssessment) {
+  if (!restoredTestHistory || !restorableHistoryAssessment(assessment)) return null;
+  return assessmentReportFingerprint(restoredTestHistory.assessment) === assessmentReportFingerprint(assessment)
+    ? restoredTestHistory
+    : null;
+}
+
 function saveTestHistory() {
   try {
     localStorage.setItem(TEST_HISTORY_STORAGE_KEY, JSON.stringify(testHistory.slice(0, 12)));
@@ -971,6 +1113,12 @@ function rememberTestResult(assessment, presentation, source) {
   const confidence = presentation.inference
     ? Math.round(presentation.inference.confidence * 100)
     : assessment.confidence.score;
+  const periodOrders = clinicPeriodOrders(assessment.period, assessment.source);
+  const diagnosisSteps = diagnosisIsFreshFor(assessment)
+    ? (state.diagnosis?.result?.action?.steps || []).map(String).slice(0, 3)
+    : [];
+  const assessmentSnapshot = cloneLocalSnapshot(assessment);
+  if (!restorableHistoryAssessment(assessmentSnapshot)) return false;
   testHistory.unshift({
     id: createLocalId('test'),
     generatedAt: new Date().toISOString(),
@@ -981,10 +1129,38 @@ function rememberTestResult(assessment, presentation, source) {
     confidence,
     dataMode: assessment.dataMode,
     source: source === 'local' ? 'local' : 'hybrid',
+    assessment: assessmentSnapshot,
+    presentationInference: cloneLocalSnapshot(presentation.inference),
+    productGroups: serializeReportProductGroups(reportProductGroups(periodOrders)),
+    adviceSteps: diagnosisSteps,
+    goal: cloneLocalSnapshot(goalForAssessment(assessment)),
   });
   testHistory = testHistory.slice(0, 12);
   saveTestHistory();
   renderTestHistory();
+  return true;
+}
+
+function restoreTestHistoryResult(historyId) {
+  const entry = testHistory.find((item) => item.id === historyId);
+  if (!entry || !restorableHistoryAssessment(entry.assessment)) {
+    showToast('这条旧记录只有摘要，完成一次新测试后即可重新打开完整报告。');
+    return false;
+  }
+  cancelAiRequest('history-report-opened');
+  closeGachaponResult({ restoreFocus: false, flushPending: false });
+  clearPoster();
+  activeClinicPeriod = Number(entry.assessment.period) === 7 ? 7 : 30;
+  restoredTestHistory = entry;
+  currentAssessment = cloneLocalSnapshot(entry.assessment);
+  personalityProfileRenderSignature = '';
+  aiUiState = { status: 'idle', message: '' };
+  renderClinic(currentAssessment);
+  pushClinicView('report', {
+    replaceCurrent: activePanel === 'clinic' && clinicView === 'report',
+  });
+  showToast('已打开当次保存的消费报告。');
+  return true;
 }
 
 function renderTestHistory() {
@@ -998,11 +1174,12 @@ function renderTestHistory() {
     const time = Number.isFinite(generatedAt.getTime())
       ? new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(generatedAt)
       : '时间未知';
-    return `<article>
+    const canRestore = restorableHistoryAssessment(item.assessment);
+    return `<button type="button" class="test-history-item" data-history-id="${escapeHtml(item.id)}" ${canRestore ? '' : 'aria-disabled="true"'} aria-label="${canRestore ? '打开' : '查看摘要：'}${escapeHtml(item.personaName)}，${escapeHtml(time)}">
       <time datetime="${escapeHtml(item.generatedAt)}">${escapeHtml(time)}</time>
       <div><h4>${escapeHtml(item.personaName)}</h4><p>规则底座 ${escapeHtml(item.canonicalName)} · 近 ${Number(item.period) || 30} 天 · ${Number(item.orderCount) || 0} 笔</p></div>
-      <span><b>${Math.max(0, Math.min(100, Number(item.confidence) || 0))}%</b><small>${item.dataMode === 'demo' ? '演示' : item.source === 'hybrid' ? '综合' : '本地'}</small></span>
-    </article>`;
+      <span><b>${Math.max(0, Math.min(100, Number(item.confidence) || 0))}%</b><small>${canRestore ? '打开报告' : '旧版摘要'}</small></span>
+    </button>`;
   }).join('');
 }
 
@@ -1017,43 +1194,75 @@ function setMascotSpeech(message) {
   mascotBubble.textContent = message;
 }
 
+const CONTROLLER_BUDGET_MIN = 500;
+const CONTROLLER_BUDGET_MAX = 10000;
+const CONTROLLER_BUDGET_DEFAULT = 600;
+
+// The four Figma frames are representative states on one continuous slider.
+// Midpoints between their anchor amounts keep every state reachable without
+// turning the temporary preview into a second goal or order data source.
 const CONTROLLER_BUDGET_TIERS = Object.freeze([
   Object.freeze({
-    max: 3000,
+    anchor: 600,
+    max: 1800,
     name: 'calm',
-    imageSrc: './assets/phone-raccoon.webp',
-    imageAlt: '小浣熊正在从容记录预算',
-    badge: '尊贵模式',
-    quote: '预算还从容，决定也可以慢一点。',
-    verdict: '经济状态：从容观察',
-    advice: '把想买的先记下来，明天再看一次。',
+    imageSrc: './assets/figma-controller-20260901/controller-elegant.webp',
+    imageAlt: '穿西装的小浣熊坐在扶手椅上举着酒杯',
+    badge: '优雅有钱人',
+    quote: '预算可以很自由，钱包不行。',
+    verdict: '钱包状态：容光焕发',
+    advice: '不错不错，保持下去，小目标不是梦！',
   }),
   Object.freeze({
-    max: 6500,
+    anchor: 3000,
+    max: 5000,
     name: 'steady',
-    imageSrc: './assets/controller-steady.png',
-    imageAlt: '小浣熊正在桌前整理预算',
-    badge: '努力上班',
-    quote: '预算能装下欲望，也要给下个月留白。',
-    verdict: '经济状态：开始加班',
-    advice: '先挑一件最重要的，其余放进冷静单。',
+    imageSrc: './assets/figma-controller-20260901/controller-worker.webp',
+    imageAlt: '小浣熊坐在电脑前努力工作',
+    badge: '努力打工人',
+    quote: '花钱之前，先把班上了。',
+    verdict: '钱包状态：轻微颤抖',
+    advice: '已经够花了，再往右拖，浣熊要开始加班了。',
   }),
   Object.freeze({
+    anchor: 7000,
+    max: 8500,
+    name: 'alert',
+    imageSrc: './assets/figma-controller-20260901/controller-side-hustle.webp',
+    imageAlt: '小浣熊骑着外卖电动车努力送单',
+    badge: '深夜副业党',
+    quote: '节不了流就学着开源，少走弯路',
+    verdict: '钱包状态：勉强保命',
+    advice: '拉的大大胆胆，单子肥肥嘟嘟，钱包岌岌可危',
+  }),
+  Object.freeze({
+    anchor: 10000,
     max: Infinity,
     name: 'pause',
-    imageSrc: './assets/controller-pause.png',
-    imageAlt: '小浣熊准备搞副业跑饭',
-    badge: '副业跑起来',
-    quote: '再往上加，浣熊就要去搞副业跑饭了。',
-    verdict: '经济状态：先停一晚',
-    advice: '先保留记录、不付款；明天只处理最重要的一笔。',
+    imageSrc: './assets/figma-controller-20260901/controller-beggar.webp',
+    imageAlt: '穿着破旧衣服的小浣熊拿着木碗和行囊',
+    badge: '落魄讨饭人',
+    quote: '预算可以很自由，钱包不行。',
+    verdict: '钱包状态：命悬一线',
+    advice: '就只活一天，明天后天大后天都不想活了吗？',
   }),
 ]);
 
+function controllerBudgetTierFor(rawAmount) {
+  const parsedAmount = Number(rawAmount);
+  const amount = Number.isFinite(parsedAmount)
+    ? Math.max(CONTROLLER_BUDGET_MIN, Math.min(CONTROLLER_BUDGET_MAX, parsedAmount))
+    : CONTROLLER_BUDGET_DEFAULT;
+  return CONTROLLER_BUDGET_TIERS.find((item) => amount <= item.max) || CONTROLLER_BUDGET_TIERS.at(-1);
+}
+
 function renderControllerBudget() {
-  const amount = Math.max(500, Math.min(10000, Number(desireBudgetRange?.value) || 600));
-  const tier = CONTROLLER_BUDGET_TIERS.find((item) => amount <= item.max) || CONTROLLER_BUDGET_TIERS.at(-1);
-  const progress = ((amount - 500) / 9500) * 100;
+  const parsedAmount = Number(desireBudgetRange?.value);
+  const amount = Number.isFinite(parsedAmount)
+    ? Math.max(CONTROLLER_BUDGET_MIN, Math.min(CONTROLLER_BUDGET_MAX, parsedAmount))
+    : CONTROLLER_BUDGET_DEFAULT;
+  const tier = controllerBudgetTierFor(amount);
+  const progress = ((amount - CONTROLLER_BUDGET_MIN) / (CONTROLLER_BUDGET_MAX - CONTROLLER_BUDGET_MIN)) * 100;
   controllerBudgetAmount.textContent = money(amount);
   controllerStateBadge.textContent = tier.badge;
   controllerQuote.textContent = tier.quote;
@@ -1282,8 +1491,15 @@ function openPanel(panel, trigger = null) {
     ? { panel, phoneView: 'intro', openedByApp: true }
     : panel === 'goals'
       ? { panel, goalsView: activeGoalsView, openedByApp: true }
+      : panel === 'clinic'
+        ? { panel, clinicView: 'start', openedByApp: true }
       : { panel, openedByApp: true };
-  history[updateHistory](panelState, '', panel === 'goals' ? goalsHash(activeGoalsView) : `#${panel}`);
+  const panelHash = panel === 'goals'
+    ? goalsHash(activeGoalsView)
+    : panel === 'clinic'
+      ? buildClinicHash({ clinicView: 'start' })
+      : `#${panel}`;
+  history[updateHistory](panelState, '', panelHash);
   applyPanel(panel, trigger);
   return true;
 }
@@ -1314,10 +1530,10 @@ function panelFromHash() {
 function routeSnapshot(historyState = history.state || {}) {
   const panel = panelFromHash();
   const goalsView = panel === 'goals' ? goalsViewFromHash() : 'goal';
+  const clinicView = panel === 'clinic' ? parseClinicHashState(location.hash).clinicView : 'start';
   const newRoute = parseNewHashState(location.hash, historyState);
-  const requestedCatalog = commerceCatalog(newRoute.commerceType);
   const productBelongsToCatalog = newRoute.productId
-    ? requestedCatalog.products.some((product) => product.id === newRoute.productId)
+    ? Boolean(commerceProduct(newRoute.productId, newRoute.commerceType))
     : false;
   const phoneView = panel === 'new'
     ? (newRoute.phoneView === 'detail' && !productBelongsToCatalog ? 'catalog' : newRoute.phoneView)
@@ -1325,6 +1541,7 @@ function routeSnapshot(historyState = history.state || {}) {
   return {
     panel,
     goalsView,
+    clinicView,
     phoneView,
     commerceType: panel === 'new' ? newRoute.commerceType : 'shop',
     productId: phoneView === 'detail' ? newRoute.productId : null,
@@ -1335,6 +1552,7 @@ function currentRouteSnapshot() {
   return {
     panel: activePanel,
     goalsView: activePanel === 'goals' ? activeGoalsView : 'goal',
+    clinicView: activePanel === 'clinic' ? clinicView : 'start',
     phoneView: activePanel === 'new' ? phoneView : 'intro',
     commerceType: activePanel === 'new' ? activeCommerceType : 'shop',
     productId: activePanel === 'new' && phoneView === 'detail' ? activeCommerceProductId : null,
@@ -1373,6 +1591,7 @@ function syncRouteFromLocation(route) {
   }
 
   applyPanel(route.panel);
+  if (route.panel === 'clinic') setClinicView(route.clinicView, { focus: !panelChanged });
 }
 
 const routeSyncCoordinator = createRouteSyncScheduler({
@@ -1495,40 +1714,44 @@ function commerceCatalog(type = activeCommerceType) {
   return COMMERCE_CATALOGS[type] || COMMERCE_CATALOGS.shop;
 }
 
-function commerceProduct(productId = activeCommerceProductId) {
-  return Object.values(COMMERCE_CATALOGS)
-    .flatMap((catalog) => catalog.products)
-    .find((product) => product.id === productId) || null;
+function commerceProduct(productId = activeCommerceProductId, type = activeCommerceType) {
+  return staticCommerceProduct(productId)
+    || derivedCommerceProducts(type, state.orders).find((product) => product.id === productId)
+    || null;
 }
 
 function orderThumbnailFor(order) {
   const catalogProducts = Object.values(COMMERCE_CATALOGS).flatMap((catalog) => catalog.products);
   const exactProduct = catalogProducts.find((product) => product.name === order.name);
-  const fallbackProduct = commerceProduct(ORDER_FALLBACK_PRODUCT_BY_CATEGORY[order.category]);
+  const fallbackProduct = staticCommerceProduct(ORDER_FALLBACK_PRODUCT_BY_CATEGORY[order.category]);
   return exactProduct?.image || fallbackProduct?.image || './assets/phone-raccoon.webp';
 }
 
 function renderCommerceShell() {
   const selectedCatalog = commerceCatalog(commerceTypeForSelectedCard());
   openMallButtonLabel.textContent = `逛${selectedCatalog.label}模拟商城`;
-  const coolingCount = totals().cooling;
-  commerceCoolingBadge.hidden = coolingCount === 0;
-  commerceCoolingBadge.textContent = String(coolingCount);
+  const orderCount = state.orders.length;
+  commerceCoolingBadge.hidden = orderCount === 0;
+  commerceCoolingBadge.textContent = String(orderCount);
   if (phoneView === 'catalog') renderCommerceCatalog();
   if (phoneView === 'detail') renderCommerceDetail();
 }
 
 function renderCommerceCatalog() {
   const catalog = commerceCatalog();
+  const ownedProducts = derivedCommerceProducts(activeCommerceType, state.orders);
+  const availableFilters = ownedProducts.length ? ['我的商品', ...catalog.filters] : catalog.filters;
+  if (!availableFilters.includes(activeCommerceFilter)) activeCommerceFilter = catalog.filters[0];
   const query = commerceSearchInput.value.trim().toLocaleLowerCase('zh-CN');
   const firstFilter = catalog.filters[0];
   commerceTitle.textContent = catalog.title;
   commerceSearchInput.placeholder = catalog.searchPlaceholder;
-  commerceFilters.innerHTML = catalog.filters.map((filter) => `
+  commerceFilters.innerHTML = availableFilters.map((filter) => `
     <button type="button" class="${filter === activeCommerceFilter ? 'is-active' : ''}" data-commerce-filter="${escapeHtml(filter)}" aria-pressed="${filter === activeCommerceFilter}">${escapeHtml(filter)}</button>
   `).join('');
 
-  const products = catalog.products.filter((product) => {
+  const sourceProducts = activeCommerceFilter === '我的商品' ? ownedProducts : catalog.products;
+  const products = sourceProducts.filter((product) => {
     const matchesFilter = activeCommerceFilter === firstFilter || product.filter === activeCommerceFilter;
     const searchable = `${product.name} ${product.badge || ''} ${product.detail}`.toLocaleLowerCase('zh-CN');
     return matchesFilter && (!query || searchable.includes(query));
@@ -1603,7 +1826,9 @@ function showPhoneView(view, { type = activeCommerceType, productId = activeComm
   if (phoneView !== 'home' && editingOrderId) resetOrderComposer();
   const nextCommerceType = COMMERCE_CATALOGS[type] ? type : commerceTypeForSelectedCard();
   const nextCatalog = commerceCatalog(nextCommerceType);
-  if (activeCommerceType !== nextCommerceType || !nextCatalog.filters.includes(activeCommerceFilter)) {
+  const filterRemainsValid = nextCatalog.filters.includes(activeCommerceFilter)
+    || activeCommerceFilter === '我的商品';
+  if (activeCommerceType !== nextCommerceType || !filterRemainsValid) {
     activeCommerceFilter = nextCatalog.filters[0];
   }
   activeCommerceType = nextCommerceType;
@@ -1676,6 +1901,32 @@ function restorePhoneView(historyState = {}, { focus = true } = {}) {
   });
 }
 
+function pushClinicView(view = 'start', { apply = true, replaceCurrent = false } = {}) {
+  const nextView = view === 'report' ? 'report' : 'start';
+  const historyMethod = replaceCurrent ? 'replaceState' : 'pushState';
+  history[historyMethod]({
+    panel: 'clinic',
+    clinicView: nextView,
+    openedByApp: replaceCurrent ? Boolean(history.state?.openedByApp) : true,
+  }, '', buildClinicHash({ clinicView: nextView }));
+  if (apply) setClinicView(nextView, { focus: true });
+}
+
+function navigateBackWithinClinic() {
+  if (clinicView !== 'report') return false;
+  if (history.state?.panel === 'clinic' && history.state?.openedByApp) {
+    history.back();
+    return true;
+  }
+  history.replaceState({
+    panel: 'clinic',
+    clinicView: 'start',
+    openedByApp: false,
+  }, '', buildClinicHash({ clinicView: 'start' }));
+  setClinicView('start', { focus: true });
+  return true;
+}
+
 function orderComposerFocusableElements() {
   return [...orderComposerModal.querySelectorAll('button, input, select, summary, [tabindex]:not([tabindex="-1"])')]
     .filter((element) => !element.disabled && !element.closest('[hidden]'));
@@ -1695,7 +1946,7 @@ function syncTransientModalIsolation() {
   setHiddenAndInert(panelInner, composerOpen);
   setHiddenAndInert(newPhoneScreen, successOpen);
   setHiddenAndInert(newDeviceTabs, successOpen);
-  setHiddenAndInert(panelClose, successOpen);
+  setHiddenAndInert(panelClose, composerOpen || successOpen);
   setHiddenAndInert(mobileDock, composerOpen || successOpen);
   app.classList.toggle('has-transient-modal', composerOpen || successOpen);
 }
@@ -1743,6 +1994,28 @@ function restartMallGif(image, path) {
   window.requestAnimationFrame(() => { image.src = `${path}?play=${Date.now()}`; });
 }
 
+function mallSuccessAdviceItems(product, order, assessment = null) {
+  if (!product || !order) return [];
+  const localAdvice = [];
+  if (order.reason === '限时优惠') localAdvice.push('先记下真正需要它的场景，明天再看优惠是不是仍然重要。');
+  else if (order.reason === '情绪不好' || order.reason === '嘴馋') localAdvice.push('先照顾当下的感受，十分钟后再回订单页做决定。');
+  else if (order.category === '学习成长') localAdvice.push('先写下未来七天第一次使用它的具体时间，再决定是否购买。');
+  else localAdvice.push('先让它在订单里冷静一晚，明天仍然想要再做最终决定。');
+
+  if (Number(order.amount) >= 1000) localAdvice.push('金额较高，可以先比较一次替代品和二手价格，不用现在付款。');
+  else if (Number(order.amount) >= 300) localAdvice.push('把价格换算成使用次数，看看每一次使用是否真的值得。');
+  else localAdvice.push('小额也会累积，先确认它不是因为“顺手”才被加入。');
+  localAdvice.push('它已经同步到“我的商品”和订单页，状态变化会从同一笔记录重新计算。');
+
+  const effectiveAssessment = assessment?.eligible
+    ? assessment
+    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+  const onlineAdvice = aiConsentIsCurrent() && diagnosisIsFreshFor(effectiveAssessment)
+    ? (state.diagnosis?.result?.action?.steps || []).map(String).filter(Boolean).slice(0, 2)
+    : [];
+  return [...new Set([...onlineAdvice, ...localAdvice])].slice(0, onlineAdvice.length ? 4 : 3);
+}
+
 function showMallSuccess(product, order) {
   if (!product || !order) return;
   lastCommerceProduct = product;
@@ -1753,6 +2026,11 @@ function showMallSuccess(product, order) {
   }
   document.querySelector('#mallSuccessAmount').textContent = money(order.amount);
   document.querySelector('#mallSuccessTotal').textContent = money(totals().recordedToday);
+  const adviceItems = mallSuccessAdviceItems(product, order);
+  if (mallSuccessAdviceTitle) mallSuccessAdviceTitle.textContent = adviceItems.length > 3 ? '结合最新报告，先做这几步' : '先冷静一下，可以这样做';
+  if (mallSuccessAdviceList) {
+    mallSuccessAdviceList.innerHTML = adviceItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+  }
   mallSuccessModal.hidden = false;
   syncTransientModalIsolation();
   restartMallGif(mallConfettiGif, './assets/mall-confetti.gif');
@@ -1775,7 +2053,7 @@ function simulateCommerceOrder(product) {
   formData.set('amount', String(product.price));
   formData.set('category', product.category);
   formData.set('reason', product.reason);
-  const order = createOrder(formData);
+  const order = createOrder(formData, { showReceipt: false });
   showMallSuccess(product, order);
 }
 
@@ -2019,8 +2297,12 @@ function assessmentReportFingerprint(assessment) {
 }
 
 function personalityProfileSignature({ assessment, presentation, dataRevision }) {
+  const historyContext = typeof historicalReportContextFor === 'function'
+    ? historicalReportContextFor(assessment)
+    : null;
   return [
     dataRevision,
+    historyContext?.id || 'current',
     assessmentReportFingerprint(assessment),
     presentation.canonical.id,
     presentation.card.id,
@@ -2063,12 +2345,17 @@ function renderPersonalityProfile(assessment) {
   const secondary = assessment.secondaryPersona;
   const motivationEntries = Object.entries(assessment.motivations).sort((a, b) => b[1].share - a[1].share);
   const outcome = assessment.outcomes;
-  const periodOrders = clinicPeriodOrders(assessment.period, assessment.source);
+  const historyContext = historicalReportContextFor(assessment);
+  const periodOrders = historyContext ? [] : clinicPeriodOrders(assessment.period, assessment.source);
   const atlas = assessment.categories.slice(0, 4);
-  const productGroups = reportProductGroups(periodOrders);
-  const diagnosisSteps = diagnosisIsFreshFor(assessment)
-    ? (state.diagnosis?.result?.action?.steps || [])
-    : [];
+  const productGroups = historyContext
+    ? restoreReportProductGroups(historyContext.productGroups)
+    : reportProductGroups(periodOrders);
+  const diagnosisSteps = historyContext
+    ? (Array.isArray(historyContext.adviceSteps) ? historyContext.adviceSteps.map(String).slice(0, 3) : [])
+    : diagnosisIsFreshFor(assessment)
+      ? (state.diagnosis?.result?.action?.steps || [])
+      : [];
   const topReason = assessment.reasons[0]?.reason || '当前诱因';
   const stageLabel = assessment.confidence.level === 'stable' ? '相对稳定的近期画像' : '初步倾向';
   const presentationConfidence = inference ? Math.round(inference.confidence * 100) : assessment.confidence.score;
@@ -2243,9 +2530,13 @@ function diagnosisIsFresh() {
 }
 
 function personaPresentationFor(assessment = currentAssessment) {
-  const inference = diagnosisIsFreshFor(assessment) && aiUiState.status !== 'error'
-    ? { candidates: state.diagnosis.result.persona.candidates }
-    : null;
+  const historyContext = historicalReportContextFor(assessment);
+  const historicalInference = historyContext?.presentationInference;
+  const inference = historicalInference
+    ? { candidates: [historicalInference] }
+    : diagnosisIsFreshFor(assessment) && aiUiState.status !== 'error'
+      ? { candidates: state.diagnosis.result.persona.candidates }
+      : null;
   return resolvePersonaPresentation(assessment, inference);
 }
 
@@ -2453,14 +2744,20 @@ function renderClinic(assessment = null) {
     : `还差 ${Math.max(0, 3 - shareAssessment.orderCount)} 笔记录`;
 }
 
-function currentPosterFingerprint(assessment = null) {
-  const effectiveAssessment = assessment?.period === activeClinicPeriod
-    ? assessment
-    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+function currentPosterFingerprint(assessment = currentAssessment) {
+  const requestedAssessment = assessment || currentAssessment;
+  const historyContext = typeof historicalReportContextFor === 'function'
+    ? historicalReportContextFor(requestedAssessment)
+    : null;
+  const effectiveAssessment = historyContext
+    ? requestedAssessment
+    : requestedAssessment?.period === activeClinicPeriod
+      ? requestedAssessment
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   const presentation = personaPresentationFor(effectiveAssessment);
   return [
-    state.dataRevision,
-    localDateKey(new Date()),
+    historyContext?.id || state.dataRevision,
+    historyContext?.generatedAt ? localDateKey(historyContext.generatedAt) : localDateKey(new Date()),
     assessmentReportFingerprint(effectiveAssessment),
     presentation.canonical.id,
     presentation.card.id,
@@ -2616,14 +2913,19 @@ function clearPoster() {
 }
 
 function posterModel(assessment = currentAssessment) {
-  const effectiveAssessment = assessment?.period === activeClinicPeriod
+  const historyContext = historicalReportContextFor(assessment);
+  const effectiveAssessment = historyContext
     ? assessment
-    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
-  return buildSharePosterModel({
+    : assessment?.period === activeClinicPeriod
+      ? assessment
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+  const modelInput = {
     assessment: effectiveAssessment,
     presentation: personaPresentationFor(effectiveAssessment),
     goal: goalForAssessment(effectiveAssessment),
-  });
+  };
+  if (historyContext?.goal) modelInput.goal = historyContext.goal;
+  return buildSharePosterModel(modelInput);
 }
 
 function posterAltText(model) {
@@ -2634,7 +2936,10 @@ function posterAltText(model) {
 }
 
 async function generatePoster() {
-  const shareAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+  const historyContext = historicalReportContextFor(currentAssessment);
+  const shareAssessment = historyContext
+    ? currentAssessment
+    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   if (posterGenerating || !shareAssessment.eligible) return;
   const fingerprint = currentPosterFingerprint(shareAssessment);
   if (posterBlob && posterFingerprint === fingerprint) {
@@ -2670,7 +2975,10 @@ async function generatePoster() {
     posterShareStatus.textContent = error?.message || '海报生成失败，请稍后重试。';
   } finally {
     posterGenerating = false;
-    const latestShareAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+    const latestHistoryContext = historicalReportContextFor(currentAssessment);
+    const latestShareAssessment = latestHistoryContext
+      ? currentAssessment
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
     posterButton.disabled = !latestShareAssessment.eligible;
     posterButton.textContent = latestShareAssessment.eligible
       ? '分享报告'
@@ -2788,10 +3096,10 @@ function renderGoal() {
   document.querySelector('#goalSummary').textContent = goal
     ? `当前目标${goal.demo ? '（演示）' : ''}：${goal.name}，还差 ${money(Math.max(0, amount - saved))}。`
     : '还没有设定目标。';
-  const items = state.goals.map((item) => {
+  const items = goal ? [goal].map((item) => {
     const itemProgress = calculateGoalProgress(state.orders, item);
     return { goal: item, saved: itemProgress?.progress || 0, percent: Math.min(100, Math.round((itemProgress?.progressRate || 0) * 100)) };
-  });
+  }) : [];
   sceneWhiteboard.render({ items, activeGoalId: state.activeGoalId, selectedGoalId, active: activePanel === 'goals' });
   renderGoalList();
   renderGoalEditor();
@@ -2808,7 +3116,7 @@ function renderAll() {
   renderTestHistory();
 }
 
-function createOrder(formData) {
+function createOrder(formData, { showReceipt = true } = {}) {
   const amount = Number(formData.get('amount'));
   const now = new Date().toISOString();
   const values = {
@@ -2855,13 +3163,20 @@ function createOrder(formData) {
   const phone = panorama.getTriggerForPanel('new');
   phone?.classList.add('is-pulsing');
   showToast('模拟订单已创建，进入“冷静中”。');
-  document.querySelector('#receiptProductName').textContent = order.name;
-  document.querySelector('#receiptAmount').textContent = money(order.amount);
-  orderForm.hidden = true;
-  document.querySelector('.order-form-heading').hidden = true;
-  orderReceipt.hidden = false;
-  document.querySelector('#receiptProductName').focus({ preventScroll: true });
-  orderReceipt.scrollIntoView({ behavior: document.body.classList.contains('reduce-motion') ? 'auto' : 'smooth', block: 'center' });
+  if (showReceipt) {
+    document.querySelector('#receiptProductName').textContent = order.name;
+    document.querySelector('#receiptAmount').textContent = money(order.amount);
+    orderForm.hidden = true;
+    document.querySelector('.order-form-heading').hidden = true;
+    orderReceipt.hidden = false;
+    document.querySelector('#receiptProductName').focus({ preventScroll: true });
+    orderReceipt.scrollIntoView({ behavior: document.body.classList.contains('reduce-motion') ? 'auto' : 'smooth', block: 'center' });
+  } else {
+    orderForm.hidden = false;
+    document.querySelector('.order-form-heading').hidden = false;
+    orderReceipt.hidden = true;
+    renderOrderEditor();
+  }
   window.setTimeout(() => phone?.classList.remove('is-pulsing'), document.body.classList.contains('reduce-motion') ? 30 : 820);
   return order;
 }
@@ -3208,6 +3523,22 @@ function startAiDiagnosis() {
   requestAiDiagnosis();
 }
 
+function replaceGoalForScope(draft, savedGoal) {
+  const isDemoGoal = Boolean(savedGoal.demo);
+  const replacedGoalIds = new Set(draft.goals
+    .filter((goal) => Boolean(goal.demo) === isDemoGoal && goal.id !== savedGoal.id)
+    .map((goal) => goal.id));
+  const preservedGoals = draft.goals.filter((goal) => Boolean(goal.demo) !== isDemoGoal);
+  draft.goals.splice(0, draft.goals.length, ...preservedGoals, savedGoal);
+  if (replacedGoalIds.size) {
+    draft.orders.forEach((order) => {
+      if (replacedGoalIds.has(order.goalId)) delete order.goalId;
+    });
+  }
+  draft.activeGoalId = savedGoal.id;
+  return replacedGoalIds;
+}
+
 function setGoal(formData) {
   const name = String(formData.get('goalName')).trim();
   const amountValidation = validateBudgetGoalAmount(formData.get('goalAmount'), selectedGoalAmountForValidation());
@@ -3242,16 +3573,14 @@ function setGoal(formData) {
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     }, savedGoalId);
-    if (existing) Object.assign(existing, savedGoal);
-    else draft.goals.push(savedGoal);
-    if (!draft.activeGoalId || isNew) draft.activeGoalId = savedGoalId;
+    replaceGoalForScope(draft, savedGoal);
   });
   selectedGoalId = savedGoalId;
   goalFormMode = 'edit';
   renderedGoalId = null;
   renderGoal();
-  setMascotSpeech(isNew ? `新目标“${name}”保存好了，它现在是当前目标。` : `目标“${name}”的内容已经更新。`);
-  showToast(isNew ? '目标已保存，进度卡已更新。' : '目标已更新。');
+  setMascotSpeech(isNew ? `当前目标已替换为“${name}”，进度会从这次设置之后重新计算。` : `目标“${name}”的内容已经更新。`);
+  showToast(isNew ? '当前目标已替换，进度卡已更新。' : '目标已更新。');
   panorama.focusHotspot('whiteboard');
   window.setTimeout(() => {
     sceneWhiteboard.flashPinned(savedGoalId);
@@ -3286,9 +3615,7 @@ function setMonthlyGoalPreset(rawAmount) {
       createdAt: existing?.createdAt || timestamp,
       updatedAt: timestamp,
     }, goalId);
-    if (existing) Object.assign(existing, savedGoal);
-    else draft.goals.push(savedGoal);
-    draft.activeGoalId = goalId;
+    replaceGoalForScope(draft, savedGoal);
   });
   selectedGoalId = goalId;
   goalFormMode = 'edit';
@@ -3396,6 +3723,7 @@ function minutesAgoToday(minutes) {
 
 function loadDemo() {
   if ((state.orders.length || state.goals.length) && !window.confirm('载入演示数据会替换当前浏览器中的原型数据，继续吗？')) return;
+  restoredTestHistory = null;
   const demoGoalId = 'goal-demo-seaside';
   state = {
     ...defaultState(),
@@ -3621,6 +3949,7 @@ document.querySelectorAll('[data-scene-group]').forEach((trigger) => {
 
 panelClose.addEventListener('click', () => {
   if (activePanel === 'new' && phoneView !== 'intro' && navigateBackWithinPhone({ focus: true })) return;
+  if (activePanel === 'clinic' && clinicView === 'report' && navigateBackWithinClinic()) return;
   closePanel();
 });
 
@@ -3677,6 +4006,10 @@ document.addEventListener('keydown', (event) => {
   }
   if (activePanel === 'new' && phoneView !== 'intro') {
     navigateBackWithinPhone({ focus: true });
+    return;
+  }
+  if (activePanel === 'clinic' && clinicView === 'report') {
+    navigateBackWithinClinic();
     return;
   }
   closePanel();
@@ -3752,10 +4085,10 @@ orderComposerModal.addEventListener('click', (event) => {
 
 mallSuccessBackButton.addEventListener('click', () => {
   closeMallSuccess();
+  resetOrderComposer();
   history.replaceState({ panel: 'new', phoneView: 'home', openedByApp: false }, '', buildNewHash({ phoneView: 'home' }));
   showPhoneView('home');
-  orderReceipt.scrollIntoView({ behavior: document.body.classList.contains('reduce-motion') ? 'auto' : 'smooth', block: 'center' });
-  window.setTimeout(() => viewOrdersButton.focus({ preventScroll: true }), document.body.classList.contains('reduce-motion') ? 20 : 280);
+  window.setTimeout(() => openMallButton.focus({ preventScroll: true }), document.body.classList.contains('reduce-motion') ? 20 : 280);
 });
 
 mallSuccessContinueButton.addEventListener('click', () => {
@@ -3871,6 +4204,16 @@ categoryCarousel?.addEventListener('pointercancel', () => {
 renderCategoryCarousel();
 activateCategoryShortcut(categoryCards[activeCategoryCardIndex], { revealForm: false, moveToForm: false });
 
+testHistoryList?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-history-id]');
+  if (!button) return;
+  if (button.getAttribute('aria-disabled') === 'true') {
+    showToast('这条旧记录只有摘要，完成一次新测试后即可重新打开完整报告。');
+    return;
+  }
+  restoreTestHistoryResult(button.dataset.historyId);
+});
+
 goalForm.addEventListener('submit', (event) => {
   event.preventDefault();
   setGoal(new FormData(goalForm));
@@ -3970,6 +4313,7 @@ document.querySelectorAll('[data-clinic-period]').forEach((button) => {
     const nextPeriod = Number(button.dataset.clinicPeriod) === 7 ? 7 : 30;
     if (nextPeriod === activeClinicPeriod) return;
     cancelAiRequest('period-changed');
+    restoredTestHistory = null;
     activeClinicPeriod = nextPeriod;
     aiUiState = { status: 'idle', message: '' };
     renderClinic();
@@ -4037,9 +4381,13 @@ gachaponResultRetryButton.addEventListener('click', () => {
 });
 gachaponResultOpenButton.addEventListener('click', () => {
   closeGachaponResult({ restoreFocus: false });
+  restoredTestHistory = null;
+  pushClinicView('report', { apply: false });
   setClinicView('report', { focus: true });
 });
-clinicReportBackButton.addEventListener('click', () => setClinicView('start', { focus: true }));
+clinicReportBackButton.addEventListener('click', () => {
+  if (!navigateBackWithinClinic()) setClinicView('start', { focus: true });
+});
 downloadPosterButton.addEventListener('click', () => {
   if (!posterBlob) return;
   const download = downloadSharePoster(posterBlob, `让你花个爽-钱包人格-${localDateStamp()}.png`);
@@ -4151,6 +4499,7 @@ if (returnToRoomOnLoad) history.replaceState({ panel: null, openedByApp: false }
 const initialRoute = routeSnapshot(history.state || {});
 const initialPanel = initialRoute.panel;
 const initialGoalsView = initialRoute.goalsView;
+const initialClinicView = initialRoute.clinicView;
 pendingPanel = initialPanel;
 history.replaceState({
   panel: initialPanel,
@@ -4160,13 +4509,17 @@ history.replaceState({
     productId: initialRoute.productId,
   } : {}),
   ...(initialPanel === 'goals' ? { goalsView: initialGoalsView } : {}),
+  ...(initialPanel === 'clinic' ? { clinicView: initialClinicView } : {}),
   openedByApp: false,
 }, '', initialPanel === 'new'
   ? buildNewHash(initialRoute)
   : initialPanel === 'goals'
     ? goalsHash(initialGoalsView)
-    : initialPanel ? `#${initialPanel}` : '#room');
-roomIntro.start();
+    : initialPanel === 'clinic'
+      ? buildClinicHash({ clinicView: initialClinicView })
+      : initialPanel ? `#${initialPanel}` : '#room');
+if (returnToRoomOnLoad && typeof roomIntro.skipToRoom === 'function') roomIntro.skipToRoom();
+else roomIntro.start();
 panorama.whenReady().then((result) => {
   if (result.fallback) sceneStatus.textContent = result.message;
 });

@@ -7,8 +7,8 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！｜钱包全景房间</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260901-visual-anchor-6" />
-  <script type="module" src="./app.js?v=20260901-visual-anchor-4"></script>
+  <link rel="stylesheet" href="./styles.css?v=20260901-controller-four-state-1" />
+  <script type="module" src="./app.js?v=20260901-controller-four-state-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -88,7 +88,7 @@
         <p class="room-footnote sr-only">这里只记录消费欲望，不会发生真实支付。</p>
       </section>
 
-      <nav class="mobile-dock room-entry-cluster" aria-label="主要功能">
+      <nav class="mobile-dock room-entry-cluster room-primary-nav" aria-label="房间顶部主要功能">
         <button type="button" data-scene-target="gym-screen"><b>01</b><span>消费测试</span></button>
         <button type="button" data-scene-target="sofa-phone"><b>02</b><span>开始买吧</span></button>
         <button type="button" data-scene-target="whiteboard"><b>03</b><span>回血计划</span></button>
@@ -97,7 +97,7 @@
       <aside class="focus-panel" id="focusPanel" aria-hidden="true" aria-label="功能内容">
         <div class="panel-rail" aria-hidden="true"><span id="panelIndex">00</span></div>
         <div class="panel-inner">
-          <button class="panel-close app-back app-back-floating" id="panelClose" type="button" aria-label="回房间"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span class="panel-close-label">回房间</span><kbd>ESC</kbd></button>
+          <button class="panel-close app-back app-back-floating" id="panelClose" type="button" aria-label="返回房间"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span class="panel-close-label">返回房间</span><kbd>ESC</kbd></button>
 
           <section class="panel-view phone-device" data-panel="new" aria-label="开始买吧">
             <div class="phone-status-bar" aria-hidden="true">
@@ -210,7 +210,7 @@
                   <strong id="receiptAmount">¥0</strong>
                   <dl><div><dt>当前状态</dt><dd>冷静中</dd></div><div><dt>计入省下</dt><dd>暂不计入</dd></div></dl>
                   <p class="receipt-note">这是一张模拟小票，不会发货、不代表付款。等你自己决定“幸好没买”或“最终购买”。</p>
-                  <div class="receipt-actions"><button id="continueOrderButton" type="button">再记一笔</button><button id="viewOrdersButton" type="button">查看冷静单 →</button></div>
+                  <div class="receipt-actions"><button id="continueOrderButton" type="button">再记一笔</button><button id="viewOrdersButton" type="button">查看订单 →</button></div>
                 </section>
               </div>
             </section>
@@ -219,7 +219,7 @@
               <header class="commerce-header">
                 <button class="commerce-round-button app-back app-back-header" id="commerceBackButton" type="button" aria-label="返回上一页"><span class="app-back-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span></button>
                 <h2 id="commerceTitle" tabindex="-1">商 城</h2>
-                <button class="commerce-round-button commerce-orders-button" id="commerceOrdersButton" type="button" aria-label="查看冷静单"><img src="./assets/phone-tab-cart.svg" alt="" /><b id="commerceCoolingBadge" hidden>0</b></button>
+                <button class="commerce-round-button commerce-orders-button" id="commerceOrdersButton" type="button" aria-label="查看已下单的订单"><img src="./assets/phone-tab-cart.svg" alt="" /><b id="commerceCoolingBadge" hidden>0</b></button>
               </header>
               <div class="commerce-catalog-view" id="commerceCatalogView">
                 <label class="commerce-search"><span aria-hidden="true">⌕</span><span class="sr-only">搜索模拟商品</span><input id="commerceSearchInput" type="search" autocomplete="off" placeholder="搜索想放进冷静单的东西" /></label>
@@ -252,8 +252,14 @@
                 <h2 id="mallSuccessTitle" tabindex="-1">记录好了，先冷静一下</h2>
                 <p>本次记录 <strong id="mallSuccessAmount">¥0</strong></p>
                 <div class="mall-success-total"><small>今日累计</small><b id="mallSuccessTotal">¥0</b></div>
-                <div class="mall-success-actions"><button id="mallSuccessBackButton" type="button">返 回</button><button id="mallSuccessContinueButton" type="button">再看看</button></div>
-                <small class="mall-success-note">已进入冷静单 · 没有支付和发货</small>
+                <section class="mall-success-advice" aria-labelledby="mallSuccessAdviceTitle">
+                  <h3 id="mallSuccessAdviceTitle">给钱包一点缓冲</h3>
+                  <ul id="mallSuccessAdviceList" aria-live="polite">
+                    <li>先把它留在订单里，明天再回来决定。</li>
+                  </ul>
+                </section>
+                <div class="mall-success-actions"><button class="app-back-action" id="mallSuccessBackButton" type="button"><span class="app-back-action-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span>返回</span></button><button id="mallSuccessContinueButton" type="button">再看看</button></div>
+                <small class="mall-success-note">已加入订单 · 当前状态为欲望冷却中 · 没有支付和发货</small>
               </div>
             </section>
           </section>
@@ -398,7 +404,7 @@
                   </div>
                 </div>
                 <div class="poster-share-actions">
-                  <button id="posterReturnButton" type="button">返回</button>
+                  <button class="app-back-action" id="posterReturnButton" type="button"><span class="app-back-action-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span>返回</span></button>
                   <button id="downloadPosterButton" type="button">保存到相册</button>
                 </div>
                 <p class="sr-only" id="posterShareStatus" role="status" aria-live="polite">海报只在当前浏览器中生成。</p>
@@ -440,8 +446,8 @@
               <div class="goals-tab-view is-active" id="goalPlannerView" data-goals-panel="goal" role="tabpanel" aria-labelledby="recoveryGoalTabGoals">
               <div class="goals-intro">
                 <small>RECOVERY GOAL</small>
-                <h2 id="goalsPanelTitle" tabindex="-1">消费小目标</h2>
-                <p>给钱包定个小目标，一颗珠子 ¥1,000。</p>
+                <h2 id="goalsPanelTitle" tabindex="-1">本月消费小目标</h2>
+                <p>只保留一个当前月度目标，一颗珠子 ¥1,000。</p>
               </div>
               <div class="monthly-goal-presets" role="group" aria-label="快速设定本月额度">
                 <span><small>MONTHLY QUICK SET</small><b>快速设定本月额度</b></span>
@@ -451,11 +457,11 @@
               </div>
               <div class="goals-main-grid">
                 <form class="goal-form goal-note-editor" id="goalForm">
-                  <div class="goal-form-heading"><span id="goalFormTitle">新建目标</span><small>只记录目标，不连接账户</small></div>
-                  <label><span>目标名称</span><input name="goalName" maxlength="20" required placeholder="例如：换台新相机" /></label>
+                  <div class="goal-form-heading"><span class="goal-form-heading-visible">设定当前月度目标</span><span id="goalFormTitle" hidden>设定当前月度目标</span><small>只记录当前目标，不连接账户</small></div>
+                  <label><span>本月目标名称</span><input name="goalName" maxlength="20" required placeholder="例如：换台新相机" /></label>
                   <div class="goal-form-row">
                     <label><span>目标金额</span><span class="money-input"><b>¥</b><input id="goalAmountInput" name="goalAmount" type="number" min="1" max="10000" step="1" required placeholder="8000" aria-describedby="goalAmountHint goalAmountError" /></span><small class="goal-field-hint" id="goalAmountHint">最高 ¥10,000；也可以点击右侧珠子快速选择</small><small class="goal-field-error" id="goalAmountError" role="alert" hidden>目标金额最多为 ¥10,000</small></label>
-                    <label><span>当前已存</span><output class="goal-current-saved" id="goalCurrentSaved">¥0</output></label>
+                    <label><span>已确认回血</span><output class="goal-current-saved" id="goalCurrentSaved">¥0</output></label>
                   </div>
                   <div class="goal-form-row">
                     <div class="goal-date-field" id="goalDateField">
@@ -480,7 +486,7 @@
                     </div>
                     <label><span>每周建议减少支出</span><input name="goalNoteText" maxlength="36" placeholder="例如：380" inputmode="decimal" /></label>
                   </div>
-                  <fieldset class="goal-note-color-picker">
+                  <fieldset class="goal-note-color-picker goal-single-compat" hidden aria-hidden="true">
                     <legend>目标便签颜色</legend>
                     <label><input type="radio" name="goalNoteColor" value="yellow" checked /><span class="is-yellow">奶油黄</span></label>
                     <label><input type="radio" name="goalNoteColor" value="cyan" /><span class="is-cyan">湖水蓝</span></label>
@@ -488,14 +494,14 @@
                     <label><input type="radio" name="goalNoteColor" value="acid" /><span class="is-acid">荧光绿</span></label>
                   </fieldset>
                   <div class="goal-note-form-actions">
-                    <button class="primary-action" type="submit"><span id="goalSubmitLabel">保存目标</span><b aria-hidden="true">▣</b></button>
-                    <button class="goal-note-current" id="setActiveGoalButton" type="button" hidden>设为当前目标</button>
-                    <button class="goal-note-remove" id="deleteGoalButton" type="button" hidden>删除目标</button>
+                    <button class="primary-action" type="submit" aria-label="设定或更新当前月度目标"><span class="goal-submit-visible">设定 / 更新当前目标</span><span id="goalSubmitLabel" hidden>设定或更新当前目标</span><b aria-hidden="true">▣</b></button>
+                    <button class="goal-note-current goal-single-compat" id="setActiveGoalButton" type="button" tabindex="-1" hidden aria-hidden="true">设为当前目标</button>
+                    <button class="goal-note-remove goal-single-compat" id="deleteGoalButton" type="button" tabindex="-1" hidden aria-hidden="true">删除目标</button>
                   </div>
                 </form>
                 <aside class="goal-progress-column" aria-label="当前目标进度">
                   <section class="goal-target-card">
-                    <small>目标金额</small>
+                    <small>本月目标金额</small>
                     <strong id="goalTargetAmount">¥0</strong>
                     <fieldset class="goal-amount-beads">
                       <legend>快速选择目标金额，每颗珠子代表一千元</legend>
@@ -505,11 +511,11 @@
                   </section>
                   <div class="goal-visual">
                     <div class="goal-ring" id="goalRing"><span id="goalPercent">0%</span></div>
-                    <div><small>当前目标</small><b id="goalCurrentName">等待设置</b><strong id="goalSaved">¥0</strong><p id="goalSummary">还没有设定目标。</p></div>
+                    <div><small>当前月度目标</small><b id="goalCurrentName">等待设置</b><strong id="goalSaved">¥0</strong><p id="goalSummary">还没有设定本月目标。</p></div>
                   </div>
                 </aside>
               </div>
-              <details class="goal-library">
+              <details class="goal-library goal-single-compat" hidden aria-hidden="true">
                 <summary>管理更多目标与白板便签</summary>
                 <div class="goal-board-toolbar">
                   <div><b id="goalCount">0 个目标</b><small>新增的“幸好没买”只计入当前目标</small></div>
@@ -519,7 +525,7 @@
                 <p class="scene-whiteboard-help">桌面端可在房间白板上拖动目标便签；键盘用户可聚焦便签后用方向键移动，按 Enter 返回编辑。</p>
               </details>
               <p class="sr-only" id="sceneWhiteboardStatus" aria-live="polite"></p>
-              <p class="goal-disclaimer">进度来自你的自我记录，不代表钱已经进入真实账户。</p>
+              <p class="goal-disclaimer">当前月度目标的进度来自你的自我记录，不代表钱已经进入真实账户。</p>
               </div>
 
               <section class="goals-tab-view goal-controller-view" id="goalController" data-goals-panel="controller" role="tabpanel" aria-labelledby="recoveryControllerTabGoals" hidden>
@@ -529,20 +535,20 @@
                   <p>拖动预算刻度，看看钱包会给出哪一种冷静提醒。</p>
                 </div>
                 <div class="controller-budget">
-                  <span>当前情境预算</span>
+                  <span>当前每月预算</span>
                   <output id="controllerBudgetAmount" for="desireBudgetRange">¥600</output>
                 </div>
                 <figure class="controller-raccoon">
-                  <img id="controllerRaccoonImage" src="./assets/phone-raccoon.webp" alt="小浣熊正在从容记录预算" width="384" height="384" loading="lazy" decoding="async" />
-                  <figcaption><b id="controllerStateBadge">轻松观察</b><q id="controllerQuote">先记下想买，再决定值不值。</q></figcaption>
+                  <img id="controllerRaccoonImage" src="./assets/figma-controller-20260901/controller-elegant.webp" alt="穿西装的小浣熊坐在扶手椅上举着酒杯" width="1024" height="1024" loading="lazy" decoding="async" />
+                  <figcaption><b id="controllerStateBadge">优雅有钱人</b><q id="controllerQuote">预算可以很自由，钱包不行。</q></figcaption>
                 </figure>
                 <div class="controller-range-wrap">
                   <input id="desireBudgetRange" type="range" min="500" max="10000" step="100" value="600" aria-label="情境预算" />
-                  <div class="controller-tier-scale" aria-hidden="true"><span><b>尊贵模式</b><small>¥500</small></span><span><b>努力上班</b><small>¥3,500</small></span><span><b>副业跑起来</b><small>¥10,000</small></span></div>
+                  <div class="controller-range-limits" aria-hidden="true"><span>¥500</span><span>¥10,000</span></div>
                 </div>
                 <div class="controller-verdicts">
-                  <div><small>本地判断</small><strong id="controllerVerdict">钱包状态：从容观察</strong></div>
-                  <p id="controllerAdvice">把想买的先记下来，明天再看一次。</p>
+                  <div><small>本地判断</small><strong id="controllerVerdict">钱包状态：容光焕发</strong></div>
+                  <p id="controllerAdvice">不错不错，保持下去，小目标不是梦！</p>
                 </div>
                 <p class="goal-controller-boundary">这只是本地情境预览，不会保存预算、修改订单、改变目标或操作任何真实资金。</p>
               </section>

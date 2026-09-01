@@ -231,6 +231,27 @@ export class RoomIntro {
     }
   }
 
+  skipToRoom() {
+    if (this.app.dataset.roomPhase === 'room') return;
+    this.started = true;
+    this.finished = true;
+    if (this.frame !== null) cancelAnimationFrame(this.frame);
+    if (this.finishTimer !== null) window.clearTimeout(this.finishTimer);
+    this.frame = null;
+    this.finishTimer = null;
+    this.stopVideo();
+    this.draw(1);
+    this.enterButton.disabled = true;
+    this.lockup.inert = true;
+    this.lockup.setAttribute('aria-hidden', 'true');
+    this.gate.classList.add('is-entry-ready', 'is-complete');
+    this.gate.setAttribute('aria-busy', 'false');
+    this.gate.setAttribute('aria-hidden', 'true');
+    this.app.dataset.roomPhase = 'room';
+    this.setStatus('已返回房间。');
+    this.onComplete?.();
+  }
+
   tick(time) {
     if (this.finished) return;
     const progress = introProgress({ startedAt: this.startedAt, now: time, duration: this.duration });

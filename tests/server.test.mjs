@@ -166,6 +166,24 @@ test('开屏逻辑与高清房间素材可由静态白名单访问', async () =>
   });
 });
 
+test('欲望控制器四张 Figma 高清 IP 可由静态白名单访问', async () => {
+  await withServer({}, async (baseUrl) => {
+    const assets = await Promise.all([
+      'controller-elegant.webp',
+      'controller-worker.webp',
+      'controller-side-hustle.webp',
+      'controller-beggar.webp',
+    ].map((name) => fetch(`${baseUrl}/assets/figma-controller-20260901/${name}`, { method: 'HEAD' })));
+
+    assets.forEach((asset) => {
+      assert.equal(asset.status, 200);
+      assert.equal(asset.headers.get('content-type'), 'image/webp');
+      assert.equal(asset.headers.get('cache-control'), 'public, max-age=3600');
+      assert.ok(Number(asset.headers.get('content-length')) > 50_000);
+    });
+  });
+});
+
 test('复诊四阶段控制器可由静态白名单访问', async () => {
   await withServer({}, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/analysis-stages.js`);

@@ -5,6 +5,7 @@ import {
   canManipulatePanorama,
   computeFlatProjectionFrame,
   projectFlatPoint,
+  projectedHotspotFitsViewport,
   unprojectFlatPoint,
 } from '../panorama.js';
 
@@ -137,4 +138,25 @@ test('减少动态时禁用连续旋转与缩放，但不禁用三个文字入�
   assert.equal(canManipulatePanorama({ interactionEnabled: true, reducedMotion: false }), true);
   assert.equal(canManipulatePanorama({ interactionEnabled: true, reducedMotion: true }), false);
   assert.equal(canManipulatePanorama({ interactionEnabled: false, reducedMotion: false }), false);
+});
+
+test('房间功能标签完整进入可视区后才显示，避免平板端露出半截', () => {
+  const frame = { width: 768, height: 900 };
+  const hotspot = {
+    kind: 'feature',
+    asset: { src: './hotspot.png', width: 190, height: 79 },
+  };
+
+  assert.equal(
+    projectedHotspotFitsViewport({ visible: true, x: 40, y: 450 }, frame, hotspot),
+    false,
+  );
+  assert.equal(
+    projectedHotspotFitsViewport({ visible: true, x: 110, y: 450 }, frame, hotspot),
+    true,
+  );
+  assert.equal(
+    projectedHotspotFitsViewport({ visible: true, x: 20, y: 450 }, frame, { kind: 'thought' }),
+    true,
+  );
 });

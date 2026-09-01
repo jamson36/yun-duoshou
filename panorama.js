@@ -71,6 +71,23 @@ export function renderFeatureHotspotMarkup(hotspot) {
     ${hotspot.badgeId ? `<b class="hotspot-badge" id="${hotspot.badgeId}" hidden>0</b>` : ''}`;
 }
 
+export function projectedHotspotFitsViewport(point, frame, hotspot) {
+  if (!point?.visible) return false;
+  const asset = hotspot?.kind === 'feature' ? normalizeHotspotAsset(hotspot.asset) : null;
+  if (!asset) return true;
+
+  // Feature labels are centered on their authored point. Keep the complete
+  // label inside the stage instead of exposing a clipped half-label at the
+  // edge while the user pans the room. The top text navigation remains the
+  // always-available equivalent entry while a spatial label is off-screen.
+  const horizontalMargin = Math.min(asset.width / 2, frame.width / 4);
+  const verticalMargin = Math.min(asset.height / 2, frame.height / 4);
+  return point.x >= horizontalMargin
+    && point.x <= frame.width - horizontalMargin
+    && point.y >= verticalMargin
+    && point.y <= frame.height - verticalMargin;
+}
+
 function cross(a, b) {
   return {
     x: a.y * b.z - a.z * b.y,
@@ -776,8 +793,9 @@ export class PanoramaRoom {
     for (const hotspot of this.hotspots) {
       const element = this.hotspotElements.get(hotspot.id);
       const point = this.projectPoint(hotspot.yaw, hotspot.pitch, frame);
-      element.hidden = !point.visible;
-      if (!point.visible) continue;
+      const visible = projectedHotspotFitsViewport(point, frame, hotspot);
+      element.hidden = !visible;
+      if (!visible) continue;
       element.style.left = `${point.x}px`;
       element.style.top = `${point.y}px`;
       element.style.setProperty('--depth-scale', point.depthScale.toFixed(3));

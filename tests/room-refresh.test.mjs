@@ -9,7 +9,7 @@ const [html, appSource, css] = await Promise.all([
 ]);
 
 test('主房间只保留三个功能入口、测试数据与问号说明', () => {
-  const cluster = html.match(/class="mobile-dock room-entry-cluster"[\s\S]*?<\/div>/)?.[0] || '';
+  const cluster = html.match(/<nav\b[^>]*class="[^"]*\broom-primary-nav\b[^"]*"[^>]*>[\s\S]*?<\/nav>/)?.[0] || '';
   assert.equal((cluster.match(/<button\b/g) || []).length, 3);
   assert.match(cluster, /消费测试/);
   assert.match(cluster, /开始买吧/);
@@ -72,26 +72,28 @@ test('进入后使用带红凳坐姿浣熊的高清球形全景并保留非一�
   assert.match(appSource.split('\n').slice(0, 6).join('\n'), /createPackageHotspots/);
 });
 
-test('移动端新增界面无额外背景，桌面端保留场景背景框', () => {
+test('移动端新增界面无额外背景，桌面端保留场景背景框且顶部入口不会浮在业务页', () => {
   assert.match(css, /@media \(min-width: 821px\)[\s\S]*?\.order-composer-modal\s*\{[\s\S]*?figma-entry-background\.webp/);
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.order-composer-modal\s*\{[\s\S]*?background:\s*transparent;[\s\S]*?backdrop-filter:\s*none;/);
   assert.match(css, /\.order-composer-card\s*\{[\s\S]*?min-height:\s*100dvh;[\s\S]*?border-radius:\s*0;/);
-  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.app\.is-focused \.room-entry-cluster\s*\{[\s\S]*?pointer-events:\s*auto\s*!important;/);
+  const navigationOverride = css.slice(css.indexOf('/* 2026-09-01 confirmed navigation hierarchy'));
+  assert.match(navigationOverride, /\.app\.is-focused \.room-entry-cluster\.room-primary-nav\s*\{[\s\S]*?visibility:\s*hidden;[\s\S]*?pointer-events:\s*none\s*!important;/);
   assert.match(css, /@media \(max-height: 620px\)[\s\S]*?\.room-entry-lockup \.enter-room-button\s*\{[\s\S]*?bottom:\s*14px;/);
   assert.match(css, /\.room-help-dialog\s*\{[\s\S]*?overflow:\s*auto;[\s\S]*?overscroll-behavior:\s*contain;/);
 });
 
-test('月度额度、三档控制器与测试历史形成浏览器本地闭环', () => {
+test('月度额度、四态控制器与测试历史形成浏览器本地闭环', () => {
   assert.equal((html.match(/data-monthly-goal=/g) || []).length, 3);
   assert.match(appSource, /function setMonthlyGoalPreset\(/);
   const tiers = appSource.slice(
     appSource.indexOf('const CONTROLLER_BUDGET_TIERS'),
     appSource.indexOf('function renderControllerBudget'),
   );
-  assert.equal((tiers.match(/Object\.freeze\(\{/g) || []).length, 3);
-  assert.match(tiers, /尊贵模式/);
-  assert.match(tiers, /努力上班/);
-  assert.match(tiers, /副业跑起来/);
+  assert.equal((tiers.match(/Object\.freeze\(\{/g) || []).length, 4);
+  assert.match(tiers, /优雅有钱人/);
+  assert.match(tiers, /努力打工人/);
+  assert.match(tiers, /深夜副业党/);
+  assert.match(tiers, /落魄讨饭人/);
   assert.match(html, /id="testHistoryList"/);
   assert.match(appSource, /TEST_HISTORY_STORAGE_KEY/);
   assert.match(appSource, /RETURN_TO_ROOM_ON_LOAD_KEY/);

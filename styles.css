@@ -1967,10 +1967,19 @@ body.reduce-motion *::after {
   inset: 0;
   z-index: 2;
   overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+  transition: none;
 }
 
 .entry-loop-stage .enter-room-button { pointer-events: auto; }
+
+.panorama-app[data-room-phase="entry"] .entry-loop-stage,
+.panorama-app[data-room-phase="entering"] .entry-loop-stage {
+  opacity: 1;
+  visibility: visible;
+}
 
 .intro-background-video,
 .entry-background-video {
@@ -1984,7 +1993,9 @@ body.reduce-motion *::after {
   object-position: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 180ms ease;
+  /* The two videos use matching poster crops. A hard opacity cut prevents the
+     outgoing and incoming frames from becoming a visibly layered composite. */
+  transition: none;
 }
 
 .room-intro-gate.is-video-playing .intro-background-video { opacity: 1; }
@@ -2143,7 +2154,7 @@ body.reduce-motion *::after {
   opacity: 1;
   visibility: visible;
   transform: translate(0, -50%) rotate(.4deg);
-  transition-delay: 120ms, 120ms, 0s;
+  transition: none;
 }
 
 .panorama-app[data-room-phase="entering"] .room-entry-lockup {
@@ -5393,6 +5404,7 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
   color: var(--figma-ink);
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transition: opacity 280ms ease, transform 420ms var(--ease-out), visibility 0s linear 420ms;
 }
 
@@ -5400,6 +5412,7 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
   transform: none;
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transition: opacity 280ms ease, transform 420ms var(--ease-out), visibility 0s;
 }
 
@@ -6253,16 +6266,17 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
 
 .goal-controller-view {
   --controller-accent: #ff9d3d;
-  --controller-wash: #f8f7f3;
+  --controller-wash: #f8f8f8;
   min-height: 784px;
   padding: 10px 34px 18px;
   border-radius: 24px;
-  background: var(--controller-wash);
+  background: linear-gradient(180deg, #f8f7f3 0%, var(--controller-wash) 100%);
   text-align: center;
+  transition: background 260ms ease;
 }
-.goal-controller-view[data-tier="steady"] { --controller-accent: #ff9a32; --controller-wash: #fff9e8; }
-.goal-controller-view[data-tier="alert"] { --controller-accent: #f28434; --controller-wash: #fff0d9; }
-.goal-controller-view[data-tier="pause"] { --controller-accent: #f06145; --controller-wash: #ffe5dc; }
+.goal-controller-view[data-tier="steady"] { --controller-wash: #fff4d2; }
+.goal-controller-view[data-tier="alert"] { --controller-wash: #ffce92; }
+.goal-controller-view[data-tier="pause"] { --controller-wash: #ffab80; }
 .controller-heading { padding-top: 4px; }
 .controller-heading small {
   color: #9a8170;
@@ -6293,8 +6307,8 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
 .controller-raccoon { margin: 8px 0 0; }
 .controller-raccoon img {
   display: block;
-  width: 236px;
-  height: 236px;
+  width: 269px;
+  height: 269px;
   margin: -8px auto -3px;
   object-fit: contain;
   filter: drop-shadow(0 12px 16px rgba(111, 68, 34, .11));
@@ -6339,7 +6353,7 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
 .controller-range-wrap input::-moz-range-track { height: 9px; border-radius: 999px; background: #ece8df; }
 .controller-range-wrap input::-moz-range-progress { height: 9px; border-radius: 999px; background: var(--controller-accent); }
 .controller-range-wrap input::-moz-range-thumb { width: 18px; height: 18px; border: 4px solid var(--controller-accent); border-radius: 50%; background: #fff; }
-.controller-range-wrap > div { display: flex; justify-content: space-between; margin-top: -5px; color: #9b928a; font-size: 8px; }
+.controller-range-limits { display: flex; justify-content: space-between; margin-top: -5px; color: #9b928a; font-size: 8px; }
 .controller-verdicts {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -7733,7 +7747,7 @@ body.reduce-motion .gachapon-machine[data-gachapon-motion="spinning"] {
     radial-gradient(circle at 46% 42%, #fff0e4 0%, #fffaf7 66%, #fffaf7 100%);
 }
 
-/* Four safe same-IP controller poses replace the repeated source image. */
+/* Four exact Figma IP poses share one continuous local-preview slider. */
 .controller-raccoon img {
   transition: opacity 180ms ease, transform 260ms var(--ease-out), filter 260ms ease;
 }
@@ -7742,9 +7756,6 @@ body.reduce-motion .gachapon-machine[data-gachapon-motion="spinning"] {
   transform: translateY(5px) scale(.97);
   filter: blur(1px) drop-shadow(0 8px 12px rgba(111, 68, 34, .08));
 }
-.goal-controller-view[data-tier="steady"] { --controller-accent: #287582; }
-.goal-controller-view[data-tier="alert"] { --controller-accent: #d56d21; }
-.goal-controller-view[data-tier="pause"] { --controller-accent: #a53c2d; }
 
 /* Figma-shaped report: hero, local totals, desire atlas, recorded top three,
    first-aid steps, with the full scoring method kept in a disclosure. */
@@ -8743,10 +8754,11 @@ body.reduce-motion .hotspot-asset { transition: none; }
   .hotspot-asset { transition: none; }
 }
 
-/* Exact Figma entry composition (node 4:5) and room label sizing. */
-.panorama-app[data-room-phase="entry"] .room-intro-gate,
-.panorama-app[data-room-phase="entering"] .room-intro-gate {
-  background-image: url("./assets/room-entry-poster-hq.webp");
+/* Exact Figma entry composition (node 4:5) and room label sizing. The
+   fallback poster shares the loop video's transformed stage and crop. */
+.panorama-app[data-room-phase="entry"] .entry-loop-stage,
+.panorama-app[data-room-phase="entering"] .entry-loop-stage {
+  background: #f5e9dc url("./assets/room-entry-poster-hq.webp") center / cover no-repeat;
 }
 
 .room-entry-lockup {
@@ -9334,13 +9346,6 @@ body.reduce-motion .hotspot-asset { transition: none; }
 .monthly-goal-presets button { min-width: 88px; min-height: 44px; border: 1px solid #e5c7a5; border-radius: 999px; background: #fff; color: #75401f; cursor: pointer; font-size: 10px; font-weight: 950; }
 .monthly-goal-presets button:hover,
 .monthly-goal-presets button:focus-visible { border-color: #ec8c38; background: #ffead0; outline: 0; }
-
-.controller-tier-scale { display: grid !important; grid-template-columns: repeat(3, 1fr); align-items: start; margin-top: 8px; }
-.controller-tier-scale span { display: grid; gap: 2px; color: #74655a; font-size: 8px; }
-.controller-tier-scale span:nth-child(2) { text-align: center; }
-.controller-tier-scale span:last-child { text-align: right; }
-.controller-tier-scale b { font-size: 8px; }
-.controller-tier-scale small { font-size: 7px; }
 
 @media (max-width: 620px) {
   .room-help-card { padding: 20px; }
@@ -10985,5 +10990,486 @@ body.reduce-motion .shopping-intro-enter i { transition: none; }
 
   .app[data-focus="new"] .category-shortcuts button[data-card-state="next"] {
     transform: translate3d(12%, 8px, 0) rotate(5deg) scale(.92);
+  }
+}
+
+/* 2026-09-01 confirmed navigation hierarchy and cross-page control language.
+   The room keeps three semantic alternatives to its panorama hotspots, but
+   presents them as a compact top control instead of a second bottom dock. */
+.panorama-app:not([data-room-phase="room"]) .room-utilities {
+  display: none;
+}
+
+.room-entry-cluster.room-primary-nav {
+  top: max(18px, env(safe-area-inset-top));
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: auto;
+  max-width: calc(100vw - 360px);
+  min-width: 408px;
+  transform: translateX(-50%);
+}
+
+.room-primary-nav button {
+  min-width: 128px;
+  min-height: 44px;
+  padding-block: 6px;
+  box-shadow: 0 7px 20px rgba(74, 42, 22, .13);
+}
+
+.panorama-app:not([data-room-phase="room"]) .room-entry-cluster.room-primary-nav,
+.app.is-focused .room-entry-cluster.room-primary-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none !important;
+  transform: translate(-50%, -18px);
+}
+
+.panorama-app[data-room-phase="room"] .room-utilities {
+  top: max(18px, env(safe-area-inset-top));
+}
+
+/* Every directional return uses the same 44px target, surface and chevron.
+   Placement remains contextual: module exit floats at the viewport edge,
+   while nested returns stay inside their page or dialog header. */
+.app-back {
+  --app-back-size: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: var(--app-back-size);
+  min-height: var(--app-back-size);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #302923;
+}
+
+.app-back-icon,
+.clinic-report-back.app-back-text > .app-back-icon,
+.commerce-round-button.app-back-header > .app-back-icon,
+.focus-panel .panel-close.app-back > .app-back-icon {
+  --app-back-size: 44px;
+  width: var(--app-back-size);
+  height: var(--app-back-size);
+  flex: 0 0 var(--app-back-size);
+  border: 1px solid rgba(52, 38, 28, .12);
+  background: rgba(255, 253, 248, .94);
+  box-shadow: 0 8px 22px rgba(92, 55, 29, .16);
+}
+
+.app .focus-panel .panel-close.app-back-floating {
+  position: fixed;
+  z-index: 320;
+  top: clamp(18px, 3vw, 58px);
+  right: auto;
+  left: clamp(18px, 3vw, 58px);
+  width: 44px;
+  height: 44px;
+  margin: 0;
+}
+
+.app.has-transient-modal .focus-panel .panel-close.app-back-floating {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.clinic-report-back.app-back-text {
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 10px 0 0;
+  border-radius: 999px;
+}
+
+.app-back-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid #d9cabb;
+  border-radius: 999px;
+  background: #fff;
+  color: #3d342e;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+}
+
+.app-back-action-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f5ede3;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.app-back-action-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#posterReturnButton.app-back-action,
+#mallSuccessBackButton.app-back-action {
+  border-color: #d9cabb;
+  background: #fff;
+  color: #3d342e;
+}
+
+.app-back-action:hover,
+.app-back-action:focus-visible {
+  border-color: #ee8b35;
+  background: #fff5e8;
+  outline: 0;
+}
+
+.app-back-action:focus-visible {
+  box-shadow: 0 0 0 3px rgba(238, 139, 53, .24);
+}
+
+/* The successful simulated order can grow with locally generated advice.
+   Scroll is kept inside the phone/modal rather than expanding the viewport. */
+.mall-success-modal {
+  --mall-success-offset: min(29.8%, 252px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mall-success-card {
+  align-content: start;
+  width: min(82.2%, 348px);
+  min-height: min(314px, calc(100% - var(--mall-success-offset) - 22px));
+  max-height: calc(100% - var(--mall-success-offset) - 22px);
+  margin-top: var(--mall-success-offset);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mall-success-advice {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid #f0dfc8;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fffaf1, #fff4e2);
+  text-align: left;
+}
+
+.mall-success-advice h3 {
+  margin: 0;
+  color: #58483b;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.mall-success-advice ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mall-success-advice li {
+  position: relative;
+  margin: 0;
+  padding-left: 14px;
+  color: #75675c;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.mall-success-advice li::before {
+  content: "";
+  position: absolute;
+  top: .55em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9d3d;
+}
+
+.mall-success-actions {
+  flex: 0 0 auto;
+}
+
+.mall-success-note {
+  line-height: 1.45;
+}
+
+/* Past reports are real controls. Keep their card appearance while exposing
+   hover/focus feedback and a full-row 44px interaction target. */
+.test-history-list :is(article, .test-history-item) {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(69, 45, 29, .06);
+  color: inherit;
+  text-align: left;
+}
+
+.test-history-list button.test-history-item {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.test-history-list button.test-history-item:hover,
+.test-history-list button.test-history-item:focus-visible {
+  transform: translateY(-1px);
+  border-color: #efac65;
+  outline: 0;
+  box-shadow: 0 10px 24px rgba(110, 68, 36, .12);
+}
+
+.test-history-list button.test-history-item[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .68;
+}
+
+.test-history-list .test-history-item > span {
+  display: grid;
+  min-width: 48px;
+  text-align: right;
+}
+
+.test-history-list .test-history-item > span b {
+  color: #b85b21;
+  font-family: var(--display);
+  font-size: 18px;
+}
+
+.test-history-list .test-history-item > span small {
+  color: #8d8178;
+  font-size: 7px;
+}
+
+/* Keep all target fields on a shared column and height rhythm. */
+.panel-view[data-panel="goals"] .goal-form-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 12px;
+}
+
+.panel-view[data-panel="goals"] .goal-form-row > :is(label, .goal-date-field) {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  grid-template-rows: minmax(16px, auto) auto;
+}
+
+.panel-view[data-panel="goals"] :is(
+  .goal-form-row > label > input,
+  .goal-current-saved,
+  .goal-date-trigger,
+  .money-input
+) {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.panel-view[data-panel="goals"] .money-input input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 820px) {
+  .room-intro-gate { background-position: 30% center; }
+
+  .panorama-app[data-room-phase="entry"] .entry-loop-stage,
+  .panorama-app[data-room-phase="entering"] .entry-loop-stage {
+    background-position: left center;
+  }
+
+  .room-entry-cluster.room-primary-nav {
+    top: max(10px, env(safe-area-inset-top));
+    right: 10px;
+    bottom: auto;
+    left: 10px;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    gap: 5px;
+    transform: none;
+  }
+
+  .room-primary-nav button {
+    grid-template-columns: auto 1fr;
+    gap: 5px;
+    min-width: 0;
+    min-height: 44px;
+    flex: 1 1 0;
+    padding: 6px 8px;
+  }
+
+  .room-primary-nav button b { font-size: 7px; }
+  .room-primary-nav button span { font-size: clamp(9px, 2.7vw, 11px); white-space: nowrap; }
+
+  .panorama-app:not([data-room-phase="room"]) .room-entry-cluster.room-primary-nav,
+  .app.is-focused .room-entry-cluster.room-primary-nav {
+    transform: translateY(-18px);
+  }
+
+  .panorama-app[data-room-phase="room"] .room-utilities {
+    top: calc(max(10px, env(safe-area-inset-top)) + 54px);
+    right: 10px;
+  }
+
+  .panorama-app[data-room-phase="room"] .room-utilities .topbar-actions {
+    gap: 6px;
+  }
+
+  .panorama-app[data-room-phase="room"] .room-utilities .topbar-actions button {
+    min-height: 44px;
+  }
+
+  .app .focus-panel .panel-close.app-back-floating {
+    top: max(16px, env(safe-area-inset-top));
+    right: auto;
+    left: 16px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .app.is-focused {
+    --mobile-dock-clearance: calc(32px + env(safe-area-inset-bottom));
+  }
+
+  .app[data-focus="new"] .phone-screen-scroll {
+    padding-bottom: calc(82px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .app[data-focus="clinic"] .panel-inner,
+  .app[data-focus="goals"] .panel-inner {
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  }
+
+  .mall-success-modal {
+    --mall-success-offset: min(24%, 190px);
+    border-radius: 0;
+  }
+
+  .mall-success-card {
+    width: min(86%, 348px);
+    padding-inline: 18px;
+  }
+}
+
+@media (max-width: 620px) {
+  .panel-view[data-panel="goals"] .goal-form-row {
+    grid-template-columns: 1fr;
+    row-gap: 12px;
+  }
+
+  .test-history-list :is(article, .test-history-item) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .test-history-list :is(article, .test-history-item) time {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 390px) {
+  .room-primary-nav button {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding-inline: 4px;
+  }
+
+  .room-primary-nav button b { display: none; }
+
+  .panorama-app[data-room-phase="room"] .room-utilities #loadDemoButton {
+    padding-inline: 11px;
+    font-size: 8px;
+  }
+}
+
+body.reduce-motion :is(
+  .room-primary-nav,
+  .room-primary-nav button,
+  .app-back-icon,
+  .app-back-action,
+  .test-history-item
+) {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .room-primary-nav,
+    .room-primary-nav button,
+    .app-back-icon,
+    .app-back-action,
+    .test-history-item
+  ) {
+    transition: none !important;
+  }
+}
+
+/* The confirmed goal surface exposes one current monthly goal. Legacy nodes
+   stay mounted only because the local state controller still queries them. */
+.panel-view[data-panel="goals"] .goal-single-compat {
+  display: none !important;
+}
+
+.panel-view[data-panel="goals"] .goal-form-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.panel-view[data-panel="goals"] .goal-form-heading-visible {
+  min-width: 0;
+  font-family: var(--body);
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.panel-view[data-panel="goals"] .goal-note-form-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel-view[data-panel="goals"] .goal-note-form-actions .primary-action {
+  width: 100%;
+}
+
+.panel-view[data-panel="goals"] .goal-submit-visible {
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+@media (max-width: 620px) {
+  .panel-view[data-panel="goals"] .goal-form-heading {
+    grid-template-columns: 1fr;
   }
 }

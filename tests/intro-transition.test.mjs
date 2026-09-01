@@ -33,7 +33,12 @@ function createVideoMock({ playResult = Promise.resolve() } = {}) {
   };
 }
 
-function createIntroHarness({ video = null, entryVideo = null, reducedMotion = false } = {}) {
+function createIntroHarness({
+  video = null,
+  entryVideo = null,
+  reducedMotion = false,
+  onComplete = null,
+} = {}) {
   const originalWindow = globalThis.window;
   const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
   const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
@@ -60,6 +65,8 @@ function createIntroHarness({ video = null, entryVideo = null, reducedMotion = f
   globalThis.cancelAnimationFrame = (id) => frames.delete(id);
 
   const classNames = new Set();
+  const gateAttributes = new Map();
+  const lockupAttributes = new Map();
   const context = {
     clearRect() {},
     fillRect() {},
@@ -68,34 +75,46 @@ function createIntroHarness({ video = null, entryVideo = null, reducedMotion = f
   };
   const gate = {
     classList: {
-      add: (name) => classNames.add(name),
-      remove: (name) => classNames.delete(name),
+      add: (...names) => names.forEach((name) => classNames.add(name)),
+      remove: (...names) => names.forEach((name) => classNames.delete(name)),
     },
     getBoundingClientRect: () => ({ width: 390, height: 844 }),
-    setAttribute() {},
+    setAttribute(name, value) { gateAttributes.set(name, value); },
+  };
+  const app = { dataset: {} };
+  const status = { textContent: '' };
+  const lockup = {
+    inert: true,
+    setAttribute(name, value) { lockupAttributes.set(name, value); },
   };
   const enterButton = {
     disabled: true,
     addEventListener() {},
   };
   const intro = new RoomIntro({
-    app: { dataset: {} },
+    app,
     gate,
     canvas: { getContext: () => context, style: {} },
-    status: { textContent: '' },
-    lockup: { inert: true, setAttribute() {} },
+    status,
+    lockup,
     enterButton,
     video,
     entryVideo,
     duration: INTRO_DURATION_MS,
     reducedMotion,
+    onComplete,
   });
 
   return {
+    app,
     classNames,
     enterButton,
     frames,
+    gateAttributes,
     intro,
+    lockup,
+    lockupAttributes,
+    status,
     timers,
     restore() {
       globalThis.window = originalWindow;
@@ -127,6 +146,41 @@ test('开屏固定为 3 秒，进房过渡保持在 300–500ms', () => {
   assert.ok(ENTRY_TRANSITION_MS <= 500);
   assert.equal(introProgress({ startedAt: 100, now: 1600 }), 0.5);
   assert.equal(introProgress({ startedAt: 100, now: 3100 }), 1);
+});
+
+test('报告结果刷新可一次性跳过开屏并直接恢复房间', () => {
+  const openingVideo = createVideoMock();
+  const entryVideo = createVideoMock();
+  let completed = 0;
+  const harness = createIntroHarness({
+    video: openingVideo,
+    entryVideo,
+    onComplete: () => { completed += 1; },
+  });
+
+  try {
+    harness.intro.skipToRoom();
+
+    assert.equal(harness.app.dataset.roomPhase, 'room');
+    assert.equal(harness.intro.started, true);
+    assert.equal(harness.intro.finished, true);
+    assert.equal(harness.gateAttributes.get('aria-hidden'), 'true');
+    assert.equal(harness.gateAttributes.get('aria-busy'), 'false');
+    assert.equal(harness.lockup.inert, true);
+    assert.equal(harness.lockupAttributes.get('aria-hidden'), 'true');
+    assert.equal(harness.enterButton.disabled, true);
+    assert.equal(harness.classNames.has('is-complete'), true);
+    assert.equal(openingVideo.playCalls, 0);
+    assert.equal(entryVideo.playCalls, 0);
+    assert.equal(harness.frames.size, 0);
+    assert.equal(harness.timers.size, 0);
+    assert.equal(completed, 1);
+
+    harness.intro.skipToRoom();
+    assert.equal(completed, 1, '重复调用不能再次触发完成回调');
+  } finally {
+    harness.restore();
+  }
 });
 
 test('开屏不再渲染金额装饰', () => {

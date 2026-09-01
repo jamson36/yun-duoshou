@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import {
+  buildClinicHash,
   buildNewHash,
   createRouteSyncScheduler,
   panelNameFromHash,
+  parseClinicHashState,
   parseNewHashState,
   routeSignature,
 } from '../route-sync.js';
@@ -204,6 +206,18 @@ test('开始买吧先进入 5:25 介绍页，再进入可刷新的模拟手机�
   assert.deepEqual(parseNewHashState('#new?view=home'), {
     phoneView: 'home', commerceType: 'shop', productId: null,
   });
+});
+
+test('消费测试起始页与历史报告可由 clinic hash 往返恢复', () => {
+  assert.equal(buildClinicHash({ clinicView: 'start' }), '#clinic');
+  assert.equal(buildClinicHash({ clinicView: 'report' }), '#clinic?view=report');
+  assert.deepEqual(parseClinicHashState('#clinic'), { clinicView: 'start' });
+  assert.deepEqual(parseClinicHashState('#clinic?view=report'), { clinicView: 'report' });
+  assert.deepEqual(parseClinicHashState('#clinic?view=unknown'), { clinicView: 'start' });
+  assert.notEqual(
+    routeSignature({ panel: 'clinic', clinicView: 'start' }),
+    routeSignature({ panel: 'clinic', clinicView: 'report' }),
+  );
 });
 
 test('显式商城 hash 优先于旧历史状态，非法参数安全回退', () => {
@@ -446,7 +460,7 @@ test('自然跨出七天窗口会改变复诊请求指纹，即使数据修订�
 
   const fingerprintSource = functionSource('assessmentReportFingerprint', 'personalityProfileSignature');
   const signatureSource = functionSource('personalityProfileSignature', 'shouldRenderPersonalityProfile');
-  const signatureContext = {};
+  const signatureContext = { historicalReportContextFor: () => null };
   vm.runInNewContext(`${fingerprintSource}\n${signatureSource}\nthis.personalityProfileSignature = personalityProfileSignature;`, signatureContext);
   const unchangedPresentation = {
     canonical: { id: 'same-canonical' },
@@ -617,7 +631,7 @@ test('诊疗大报告按数据画像签名缓存，AI 局部状态变化不重�
   const signatureSource = functionSource('personalityProfileSignature', 'shouldRenderPersonalityProfile');
   const cacheSource = functionSource('shouldRenderPersonalityProfile', 'renderPersonalityProfile');
   const renderSource = functionSource('renderPersonalityProfile', 'diagnosisIsFresh');
-  const context = {};
+  const context = { historicalReportContextFor: () => null };
   vm.runInNewContext(`
     let personalityProfileRenderSignature = '';
     ${fingerprintSource}
