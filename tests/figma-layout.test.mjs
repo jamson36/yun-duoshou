@@ -8,6 +8,10 @@ const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
 const appSource = await readFile(new URL('../app.js', import.meta.url), 'utf8');
 const overhaulCss = css.slice(css.indexOf('/* Figma route-scale overhaul'));
 
+test('浏览器标签栏使用最新确认的展示标题', () => {
+  assert.match(html, /<title>让你花个够爽！<\/title>/);
+});
+
 test('Figma 开屏使用正式标题、状态点和可见开始文案，房间热点采用资源尺寸', () => {
   assert.match(html, /<img class="room-entry-dots" src="\.\/assets\/figma-entry-dots\.svg"[^>]*aria-hidden="true"\s*\/>/);
   assert.match(html, /<img class="room-entry-title-art" src="\.\/assets\/figma-entry-title\.webp" alt="让你花个爽！"[^>]*\/>/);
