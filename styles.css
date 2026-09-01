@@ -11473,3 +11473,625 @@ body.reduce-motion :is(
     grid-template-columns: 1fr;
   }
 }
+
+/* Mobile device-orientation control. It replaces the camera gesture button on
+   supported touch devices while leaving drag and semantic navigation intact. */
+.orientation-control { display: none; }
+.has-orientation-control .orientation-control:not([hidden]) { display: block; }
+.has-orientation-control .gesture-control { display: none; }
+
+.orientation-control-button {
+  position: relative;
+  display: inline-flex;
+  min-width: 92px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--paper);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.orientation-control-icon {
+  position: relative;
+  display: inline-block;
+  width: 13px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  transform: rotate(-7deg);
+}
+
+.orientation-control-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 3px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.orientation-control-label { white-space: nowrap; }
+.orientation-control-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a99f95;
+  box-shadow: 0 0 0 3px rgba(169, 159, 149, .16);
+}
+
+.orientation-control[data-state="requesting"] .orientation-control-dot,
+.orientation-control[data-state="calibrating"] .orientation-control-dot {
+  background: #ef842f;
+  box-shadow: 0 0 0 4px rgba(239, 132, 47, .18);
+  animation: status-pulse 1.15s ease-in-out infinite;
+}
+
+.orientation-control[data-state="active"] .orientation-control-button {
+  border-color: rgba(94, 143, 42, .4) !important;
+  background: rgba(229, 255, 196, .92) !important;
+  color: #28401c !important;
+}
+
+.orientation-control[data-state="active"] .orientation-control-dot {
+  background: #6da83c;
+  box-shadow: 0 0 0 4px rgba(109, 168, 60, .2), 0 0 12px rgba(109, 168, 60, .5);
+}
+
+.orientation-control[data-state="error"] .orientation-control-dot {
+  background: #d9523d;
+  box-shadow: 0 0 0 4px rgba(217, 82, 61, .16);
+}
+
+.orientation-control-button:focus-visible {
+  outline: 3px solid #ff9a3d;
+  outline-offset: 3px;
+}
+
+.orientation-dialog {
+  width: min(520px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  color: #2c251f;
+}
+
+.orientation-dialog::backdrop {
+  background: rgba(35, 22, 14, .48);
+  backdrop-filter: blur(8px) saturate(.84);
+}
+
+.orientation-dialog-card {
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 86% 11%, rgba(215, 255, 67, .25), transparent 27%),
+    rgba(255, 252, 246, .985);
+  box-shadow: 0 28px 78px rgba(60, 34, 18, .32);
+}
+
+.orientation-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.orientation-dialog-heading small {
+  color: #d7651b;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .14em;
+}
+
+.orientation-dialog-heading h2 {
+  margin: 5px 0 0;
+  color: #2c251f;
+  font-size: clamp(25px, 7vw, 34px);
+  line-height: 1.05;
+}
+
+.orientation-dialog-heading .modal-close {
+  --modal-close-background: #f5ede3;
+  --modal-close-background-hover: #eadfce;
+  --modal-close-color: #493d34;
+  --modal-close-color-hover: #211a16;
+}
+
+.orientation-demo {
+  position: relative;
+  display: grid;
+  min-height: 168px;
+  margin-top: 18px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(70, 62, 54, .18);
+  border-radius: 21px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(215, 255, 67, .36), transparent 25%),
+    linear-gradient(145deg, #343039, #17171b);
+}
+
+.orientation-phone {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 100px;
+  border: 3px solid rgba(255, 255, 255, .92);
+  border-radius: 13px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .15), rgba(215, 255, 67, .18));
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .28), inset 0 0 0 2px rgba(255, 255, 255, .08);
+  transform: rotate(-8deg);
+}
+
+.orientation-phone i {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 16px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .7);
+}
+
+.orientation-phone b {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 5px;
+  height: 5px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #d7ff43;
+}
+
+.orientation-orbit {
+  position: absolute;
+  top: 48%;
+  color: #d7ff43;
+  font-size: 38px;
+  font-weight: 400;
+  text-shadow: 0 0 16px rgba(215, 255, 67, .52);
+}
+
+.orientation-orbit-left { left: 23%; }
+.orientation-orbit-right { right: 23%; }
+.orientation-demo > small {
+  position: absolute;
+  right: 0;
+  bottom: 12px;
+  left: 0;
+  color: rgba(255, 255, 255, .68);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+.orientation-dialog[data-state="calibrating"] .orientation-phone {
+  animation: orientation-calibrate 1.8s ease-in-out infinite;
+}
+
+@keyframes orientation-calibrate {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.orientation-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.orientation-guide > div {
+  display: grid;
+  min-width: 0;
+  min-height: 82px;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  padding: 9px 5px;
+  border: 1px solid #eadfce;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .72);
+  text-align: center;
+}
+
+.orientation-guide span { color: #dc6c1f; font-size: 24px; line-height: 1; }
+.orientation-guide b { color: #3f352e; font-size: 9px; }
+.orientation-guide small { color: #82756b; font-size: 8px; }
+
+.orientation-privacy {
+  margin: 14px 0 0;
+  color: #77695e;
+  font-size: 9px;
+  line-height: 1.65;
+}
+
+.orientation-status {
+  min-height: 18px;
+  margin: 9px 0 0;
+  color: #4b4037;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.orientation-dialog[data-state="error"] .orientation-status { color: #aa392c; }
+
+.orientation-actions { display: grid; margin-top: 12px; }
+.orientation-active-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.orientation-actions button {
+  min-height: 48px;
+  border: 1px solid #2f302f;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #d7ff43, #b8ef42);
+  color: #20231d;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.orientation-actions .orientation-stop-button {
+  border-color: #decfbe;
+  background: #fff;
+  color: #4a3c32;
+}
+
+.orientation-actions button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .55; }
+.orientation-actions button:focus-visible { outline: 3px solid #ff9a3d; outline-offset: 3px; }
+
+body.reduce-motion .orientation-phone { animation: none !important; }
+
+@media (max-width: 620px) {
+  .orientation-dialog-card { padding: 19px; }
+  .orientation-demo { min-height: 150px; border-radius: 17px; }
+  .orientation-guide { gap: 5px; }
+  .orientation-guide > div { min-height: 76px; padding-inline: 3px; }
+}
+
+@media (max-width: 420px) {
+  .orientation-control-button { width: 44px; min-width: 44px; padding: 0; }
+  .orientation-control-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .orientation-control-dot { position: absolute; top: 7px; right: 6px; width: 6px; height: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orientation-control-dot,
+  .orientation-phone { animation: none !important; }
+}
+
+/* Optional browser-local hand control for the panorama. The camera remains an
+   explicit opt-in enhancement; all existing room controls stay available. */
+.gesture-control-button {
+  position: relative;
+  display: inline-flex;
+  min-width: 92px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--paper);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.gesture-control-icon { font-size: 17px; line-height: 1; }
+.gesture-control-label { white-space: nowrap; }
+.gesture-control-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a99f95;
+  box-shadow: 0 0 0 3px rgba(169, 159, 149, .16);
+}
+
+.gesture-control[data-state="loading"] .gesture-control-dot {
+  background: #ef842f;
+  box-shadow: 0 0 0 4px rgba(239, 132, 47, .18);
+  animation: status-pulse 1.15s ease-in-out infinite;
+}
+
+.gesture-control[data-state="active"] .gesture-control-button {
+  border-color: rgba(94, 143, 42, .4) !important;
+  background: rgba(229, 255, 196, .92) !important;
+  color: #28401c !important;
+}
+
+.gesture-control[data-state="active"] .gesture-control-dot {
+  background: #6da83c;
+  box-shadow: 0 0 0 4px rgba(109, 168, 60, .2), 0 0 12px rgba(109, 168, 60, .5);
+}
+
+.gesture-control[data-state="error"] .gesture-control-dot {
+  background: #d9523d;
+  box-shadow: 0 0 0 4px rgba(217, 82, 61, .16);
+}
+
+.gesture-control-button:focus-visible {
+  outline: 3px solid #ff9a3d;
+  outline-offset: 3px;
+}
+
+.gesture-dialog {
+  width: min(620px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  color: #2c251f;
+}
+
+.gesture-dialog::backdrop {
+  background: rgba(35, 22, 14, .48);
+  backdrop-filter: blur(8px) saturate(.84);
+}
+
+.gesture-dialog-card {
+  padding: 25px;
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(215, 255, 67, .2), transparent 26%),
+    rgba(255, 252, 246, .985);
+  box-shadow: 0 28px 78px rgba(60, 34, 18, .32);
+}
+
+.gesture-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gesture-dialog-heading small {
+  color: #d7651b;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .14em;
+}
+
+.gesture-dialog-heading h2 {
+  margin: 5px 0 0;
+  color: #2c251f;
+  font-size: clamp(25px, 5vw, 34px);
+  line-height: 1.05;
+}
+
+.gesture-dialog-heading .modal-close {
+  --modal-close-background: #f5ede3;
+  --modal-close-background-hover: #eadfce;
+  --modal-close-color: #493d34;
+  --modal-close-color-hover: #211a16;
+}
+
+.gesture-calibration { margin-top: 20px; }
+
+.gesture-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(72, 61, 53, .22);
+  border-radius: 21px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(215, 255, 67, .14), transparent 24%),
+    linear-gradient(145deg, #2a292e, #17171b);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
+.gesture-preview video,
+.gesture-preview canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gesture-preview video {
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.gesture-preview canvas { z-index: 2; object-fit: cover; pointer-events: none; }
+
+.gesture-dialog[data-state="loading"] .gesture-preview video,
+.gesture-dialog[data-state="active"] .gesture-preview video { opacity: .9; }
+
+.gesture-preview-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, .9);
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.gesture-preview-empty span { font-size: 38px; }
+.gesture-preview-empty b { font-size: 12px; }
+.gesture-preview-empty small { color: rgba(255, 255, 255, .62); font-size: 9px; }
+.gesture-dialog[data-state="active"] .gesture-preview-empty { opacity: 0; }
+
+.gesture-local-badge {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  background: rgba(18, 18, 21, .64);
+  color: #efffc9;
+  backdrop-filter: blur(10px);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+
+.gesture-live-mode {
+  min-height: 18px;
+  margin: 9px 0 0;
+  color: #5b5047;
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.gesture-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gesture-guide > div {
+  display: grid;
+  min-width: 0;
+  min-height: 88px;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  padding: 10px 7px;
+  border: 1px solid #eadfce;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .72);
+  text-align: center;
+}
+
+.gesture-guide span { font-size: 23px; }
+.gesture-guide b { color: #3f352e; font-size: 10px; }
+.gesture-guide small { color: #82756b; font-size: 8px; }
+
+.gesture-privacy {
+  margin: 15px 0 0;
+  color: #77695e;
+  font-size: 9px;
+  line-height: 1.65;
+}
+
+.gesture-status {
+  min-height: 18px;
+  margin: 10px 0 0;
+  color: #4b4037;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.gesture-dialog[data-state="error"] .gesture-status { color: #aa392c; }
+
+.gesture-actions { display: grid; margin-top: 13px; }
+.gesture-actions button {
+  min-height: 48px;
+  border: 1px solid #2f302f;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #d7ff43, #b8ef42);
+  color: #20231d;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.gesture-actions .gesture-stop-button {
+  border-color: #decfbe;
+  background: #fff;
+  color: #4a3c32;
+}
+
+.gesture-actions button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .55; }
+.gesture-actions button:focus-visible { outline: 3px solid #ff9a3d; outline-offset: 3px; }
+
+.gesture-cursor {
+  --gesture-progress: 0deg;
+  position: absolute;
+  z-index: 44;
+  width: 38px;
+  height: 38px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: conic-gradient(#d7ff43 var(--gesture-progress), rgba(255, 255, 255, .34) 0);
+  box-shadow: 0 6px 18px rgba(30, 25, 20, .28), 0 0 0 2px rgba(255, 255, 255, .76);
+  pointer-events: none;
+}
+
+.gesture-cursor[hidden] { display: none; }
+.gesture-cursor::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: inherit;
+  background: rgba(34, 31, 29, .78);
+  backdrop-filter: blur(6px);
+}
+.gesture-cursor i {
+  position: absolute;
+  z-index: 1;
+  inset: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(215, 255, 67, .48);
+}
+.gesture-cursor.is-dwelling { transform: translate(-50%, -50%) scale(1.08); }
+
+.scene-hotspot.is-gesture-target .hotspot-asset {
+  transform: translateY(-4px) scale(1.055);
+  filter: drop-shadow(0 0 14px rgba(215, 255, 67, .92));
+}
+.scene-hotspot.is-gesture-target .hotspot-orbit {
+  outline: 4px solid #d7ff43;
+  outline-offset: 7px;
+}
+
+body.reduce-motion .gesture-cursor { display: none !important; }
+
+@media (max-width: 620px) {
+  .gesture-dialog-card { padding: 19px; }
+  .gesture-preview { border-radius: 17px; }
+  .gesture-guide { gap: 6px; }
+  .gesture-guide > div { min-height: 82px; padding-inline: 4px; }
+}
+
+@media (max-width: 420px) {
+  .gesture-control-button { width: 44px; min-width: 44px; padding: 0; }
+  .gesture-control-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .gesture-control-dot { position: absolute; top: 7px; right: 6px; width: 6px; height: 6px; }
+  .gesture-guide > div { min-height: 76px; }
+  .gesture-guide span { font-size: 20px; }
+  .gesture-guide b { font-size: 9px; }
+}
+
+body.reduce-motion :is(
+  .gesture-control-dot,
+  .gesture-preview video,
+  .gesture-preview-empty,
+  .gesture-cursor,
+  .scene-hotspot.is-gesture-target .hotspot-asset
+) {
+  animation: none !important;
+  transition: none !important;
+}

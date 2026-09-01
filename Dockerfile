@@ -13,8 +13,13 @@ COPY --chown=node:node \
   budget-goals.js \
   budget-whiteboard.js \
   gachapon-motion.js \
+  gesture-controls.js \
+  gesture-recognizer.worker.js \
+  gesture-ui.js \
   goal-date-picker.js \
   intro-transition.js \
+  orientation-controls.js \
+  orientation-ui.js \
   panorama.js \
   persona-presentations.js \
   route-sync.js \

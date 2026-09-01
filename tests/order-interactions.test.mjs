@@ -965,6 +965,8 @@ test('减少动态按钮的 aria-pressed 反映站内开关与系统偏好的有
     panorama: { setReducedMotion: (value) => applied.push(['panorama', value]) },
     roomIntro: { setReducedMotion: (value) => applied.push(['intro', value]) },
     gachaponMotion: { setReducedMotion: (value) => applied.push(['gachapon', value]) },
+    gestureController: { handleReducedMotionChange: (value) => applied.push(['gesture', value]) },
+    orientationController: { handleReducedMotionChange: (value) => applied.push(['orientation', value]) },
   };
   vm.runInNewContext(`${trailingFunctionSource('syncReducedMotionPreference', '\nsyncReducedMotionPreference();')}
 syncReducedMotionPreference();`, motionContext);
@@ -974,6 +976,8 @@ syncReducedMotionPreference();`, motionContext);
     ['panorama', true],
     ['intro', true],
     ['gachapon', true],
+    ['gesture', true],
+    ['orientation', true],
     ['aria', 'true'],
   ]);
 });

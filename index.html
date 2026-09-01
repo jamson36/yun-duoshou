@@ -7,8 +7,8 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个够爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260901-controller-four-state-1" />
-  <script type="module" src="./app.js?v=20260901-controller-four-state-1"></script>
+  <link rel="stylesheet" href="./styles.css?v=20260901-device-orientation-1" />
+  <script type="module" src="./app.js?v=20260901-gesture-resume-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -19,6 +19,20 @@
         </div>
         <div class="topbar-actions">
           <button class="text-button" id="loadDemoButton" type="button">导入测试数据</button>
+          <div class="orientation-control" id="orientationControl" data-state="idle" hidden>
+            <button class="orientation-control-button" id="orientationControlButton" type="button" aria-haspopup="dialog" aria-controls="orientationDialog" aria-pressed="false">
+              <span class="orientation-control-icon" aria-hidden="true"><i></i></span>
+              <span class="orientation-control-label">体感</span>
+              <i class="orientation-control-dot" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="gesture-control" id="gestureControl" data-state="idle">
+            <button class="gesture-control-button" id="gestureControlButton" type="button" aria-haspopup="dialog" aria-controls="gestureDialog" aria-pressed="false">
+              <span class="gesture-control-icon" aria-hidden="true">✋</span>
+              <span class="gesture-control-label">手势</span>
+              <i class="gesture-control-dot" aria-hidden="true"></i>
+            </button>
+          </div>
           <button class="icon-button room-help-button" id="roomHelpButton" type="button" aria-haspopup="dialog" aria-controls="roomHelpDialog" aria-label="查看使用说明">?</button>
         </div>
       </header>
@@ -30,13 +44,87 @@
             <button class="modal-close" id="roomHelpCloseButton" type="button" aria-label="关闭使用说明"></button>
           </div>
           <ol>
-            <li><b>左右环视</b><span>拖动房间或使用左右方向键，滚轮与加减键可缩放。</span></li>
+            <li><b>左右环视</b><span>拖动房间或使用左右方向键；手机还可以主动开启体感环视。</span></li>
             <li><b>三个入口</b><span>健身屏做消费测试，茶几手机记录想买，白板设置回血目标。</span></li>
             <li><b>只做模拟</b><span>不会发起真实支付；只有你确认“幸好没买”才计入目标进度。</span></li>
           </ol>
           <div class="room-help-actions">
             <button id="resetRoomViewButton" type="button">回到房间中间</button>
             <button id="motionButton" type="button" aria-pressed="false">减少动态效果</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog class="orientation-dialog" id="orientationDialog" aria-labelledby="orientationDialogTitle" aria-describedby="orientationPrivacy">
+        <div class="orientation-dialog-card">
+          <div class="orientation-dialog-heading modal-header">
+            <div>
+              <small>MOTION VIEW</small>
+              <h2 id="orientationDialogTitle">转动手机看房间</h2>
+            </div>
+            <button class="modal-close" id="orientationDialogCloseButton" type="button" aria-label="关闭体感设置"></button>
+          </div>
+
+          <div class="orientation-demo" aria-hidden="true">
+            <span class="orientation-orbit orientation-orbit-left">‹</span>
+            <span class="orientation-phone"><i></i><b></b></span>
+            <span class="orientation-orbit orientation-orbit-right">›</span>
+            <small>以现在的姿势作为房间正中</small>
+          </div>
+
+          <div class="orientation-guide" aria-label="体感操作说明">
+            <div><span aria-hidden="true">↔</span><b>左右转动</b><small>环视整个房间</small></div>
+            <div><span aria-hidden="true">↕</span><b>轻微倾斜</b><small>调整上下视角</small></div>
+            <div><span aria-hidden="true">⌁</span><b>双指缩放</b><small>拉近或退远</small></div>
+          </div>
+
+          <p class="orientation-privacy" id="orientationPrivacy">体感只读取当前设备的方向变化，不使用摄像头、不保存数据，也不会发送到本站接口。触摸拖拽始终可用。</p>
+          <p class="orientation-status" id="orientationStatus" role="status" aria-live="polite">体感尚未开启。</p>
+          <div class="orientation-actions">
+            <button class="orientation-start-button" id="orientationStartButton" type="button">开启体感环视</button>
+            <div class="orientation-active-actions">
+              <button class="orientation-recalibrate-button" id="orientationRecalibrateButton" type="button" hidden>重新校准</button>
+              <button class="orientation-stop-button" id="orientationStopButton" type="button" hidden>关闭体感</button>
+            </div>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog class="gesture-dialog" id="gestureDialog" aria-labelledby="gestureDialogTitle" aria-describedby="gesturePrivacy">
+        <div class="gesture-dialog-card">
+          <div class="gesture-dialog-heading modal-header">
+            <div>
+              <small>LOCAL HAND CONTROL</small>
+              <h2 id="gestureDialogTitle">用手势逛房间</h2>
+            </div>
+            <button class="modal-close" id="gestureDialogCloseButton" type="button" aria-label="关闭手势设置"></button>
+          </div>
+
+          <div class="gesture-calibration">
+            <div class="gesture-preview" aria-label="镜像摄像头校准画面">
+              <video id="gestureVideo" muted autoplay playsinline aria-hidden="true"></video>
+              <canvas id="gestureOverlay" aria-hidden="true"></canvas>
+              <div class="gesture-preview-empty" aria-hidden="true">
+                <span>✋</span>
+                <b>举起一只手</b>
+                <small>让手掌完整进入画面</small>
+              </div>
+              <span class="gesture-local-badge">仅在浏览器中识别</span>
+            </div>
+            <p class="gesture-live-mode" id="gestureLiveMode">张开手掌，准备控制</p>
+          </div>
+
+          <div class="gesture-guide" aria-label="手势说明">
+            <div><span aria-hidden="true">✊</span><b>握拳移动</b><small>环视房间</small></div>
+            <div><span aria-hidden="true">🤏</span><b>捏合上下</b><small>拉近或退远</small></div>
+            <div><span aria-hidden="true">☝️</span><b>指向停留</b><small>打开房间热点</small></div>
+          </div>
+
+          <p class="gesture-privacy" id="gesturePrivacy">摄像头画面只在当前浏览器中用于识别，不保存、不写入订单或目标，也不会发送到本站接口。进入功能页会暂停摄像头，回到房间会自动恢复；首次开启会载入约 20 MB 的本地识别资源。</p>
+          <p class="gesture-status" id="gestureStatus" role="status" aria-live="polite">摄像头尚未开启。</p>
+          <div class="gesture-actions">
+            <button class="gesture-start-button" id="gestureStartButton" type="button">允许摄像头并开启</button>
+            <button class="gesture-stop-button" id="gestureStopButton" type="button" hidden>停止并关闭摄像头</button>
           </div>
         </div>
       </dialog>
@@ -73,6 +161,7 @@
           <div class="scene-scrim" aria-hidden="true"></div>
           <div class="scene-whiteboard-layer" id="sceneWhiteboardLayer" aria-label="全景白板便签层"></div>
           <div class="hotspot-layer" id="hotspotLayer"></div>
+          <div class="gesture-cursor" id="gestureCursor" hidden aria-hidden="true"><i></i></div>
           <h1 class="sr-only" id="roomTitle">让你花个爽！钱包房间</h1>
 
           <div class="room-metrics-semantic sr-only" aria-label="钱包摘要">

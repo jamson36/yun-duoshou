@@ -9,11 +9,12 @@ import { DEEPSEEK_DEFAULTS, ServiceError, requestDeepSeekDiagnosis } from './ser
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const ASSETS_ROOT = resolve(ROOT, 'assets');
 const MAX_BODY_BYTES = 64 * 1024;
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'analysis-stages.js', 'budget-goals.js', 'budget-whiteboard.js', 'gachapon-motion.js', 'goal-date-picker.js', 'intro-transition.js', 'panorama.js', 'persona-presentations.js', 'route-sync.js', 'scene-config.js', 'personality-scoring.js', 'share-poster.js']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'app.js', 'analysis-stages.js', 'budget-goals.js', 'budget-whiteboard.js', 'gachapon-motion.js', 'gesture-controls.js', 'gesture-recognizer.worker.js', 'gesture-ui.js', 'goal-date-picker.js', 'intro-transition.js', 'orientation-controls.js', 'orientation-ui.js', 'panorama.js', 'persona-presentations.js', 'route-sync.js', 'scene-config.js', 'personality-scoring.js', 'share-poster.js']);
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
   '.webp': 'image/webp',
@@ -22,6 +23,8 @@ const MIME_TYPES = {
   '.gif': 'image/gif',
   '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
+  '.wasm': 'application/wasm',
+  '.task': 'application/octet-stream',
 };
 
 function securityHeaders(contentType = 'application/json; charset=utf-8') {
@@ -29,9 +32,9 @@ function securityHeaders(contentType = 'application/json; charset=utf-8') {
     'Content-Type': contentType,
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    'Permissions-Policy': 'camera=(self), accelerometer=(self), gyroscope=(self), magnetometer=(), microphone=(), geolocation=(), payment=()',
     'Cross-Origin-Resource-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
   };
 }
 

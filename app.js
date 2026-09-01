@@ -10,6 +10,8 @@ import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from '.
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-flow-alignment-3';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
+import { RoomGestureController } from './gesture-ui.js?v=20260901-hand-gesture-5';
+import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -366,6 +368,29 @@ const roomHelpDialog = document.querySelector('#roomHelpDialog');
 const roomHelpButton = document.querySelector('#roomHelpButton');
 const roomHelpCloseButton = document.querySelector('#roomHelpCloseButton');
 const resetRoomViewButton = document.querySelector('#resetRoomViewButton');
+const gestureControlElements = {
+  root: document.querySelector('#gestureControl'),
+  openButton: document.querySelector('#gestureControlButton'),
+  dialog: document.querySelector('#gestureDialog'),
+  closeButton: document.querySelector('#gestureDialogCloseButton'),
+  startButton: document.querySelector('#gestureStartButton'),
+  stopButton: document.querySelector('#gestureStopButton'),
+  video: document.querySelector('#gestureVideo'),
+  canvas: document.querySelector('#gestureOverlay'),
+  status: document.querySelector('#gestureStatus'),
+  mode: document.querySelector('#gestureLiveMode'),
+  pointer: document.querySelector('#gestureCursor'),
+};
+const orientationControlElements = {
+  root: document.querySelector('#orientationControl'),
+  openButton: document.querySelector('#orientationControlButton'),
+  dialog: document.querySelector('#orientationDialog'),
+  closeButton: document.querySelector('#orientationDialogCloseButton'),
+  startButton: document.querySelector('#orientationStartButton'),
+  stopButton: document.querySelector('#orientationStopButton'),
+  recalibrateButton: document.querySelector('#orientationRecalibrateButton'),
+  status: document.querySelector('#orientationStatus'),
+};
 const monthlyGoalButtons = [...document.querySelectorAll('[data-monthly-goal]')];
 const testHistoryList = document.querySelector('#testHistoryList');
 const goalDatePicker = new GoalDatePicker(document.querySelector('#goalDateField'));
@@ -467,6 +492,23 @@ const panorama = new PanoramaRoom({
     openPanel(hotspot.panel, trigger);
   },
   onThought: () => {},
+});
+
+const gestureController = new RoomGestureController({
+  stage: sceneFrame,
+  panorama,
+  elements: gestureControlElements,
+  onToast: showToast,
+  isRoomAvailable: () => roomEntered && !activePanel,
+  isReducedMotion: () => document.body.classList.contains('reduce-motion'),
+});
+const orientationController = new RoomOrientationController({
+  panorama,
+  elements: orientationControlElements,
+  onToast: showToast,
+  onBeforeStart: () => gestureController.stop('user'),
+  isRoomAvailable: () => roomEntered && !activePanel,
+  isReducedMotion: () => document.body.classList.contains('reduce-motion'),
 });
 
 function syncSceneDefaultView() {
@@ -1368,6 +1410,11 @@ function applyPanel(panel, trigger = null) {
   const nextPanel = PANEL_META[panel] ? panel : null;
   const triggerIsPersistent = Boolean(trigger?.closest && !trigger.closest('.panel-view'));
 
+  if (nextPanel) {
+    gestureController.pauseForPanel();
+    orientationController.stop('panel');
+  }
+
   if (nextPanel === previousPanel) {
     if (nextPanel && triggerIsPersistent) activeTrigger = trigger;
     syncMobileDock(nextPanel);
@@ -1430,6 +1477,7 @@ function applyPanel(panel, trigger = null) {
     panorama.resetView();
     if (previousPanel === 'goals') renderGoal();
     setMascotSpeech(idleSpeech());
+    gestureController.resumeFromPanel();
     return true;
   }
 
@@ -4424,6 +4472,8 @@ window.addEventListener('storage', (event) => {
 window.addEventListener('pagehide', () => {
   aiConsentChannel?.close();
   gachaponMotion.destroy();
+  gestureController.destroy();
+  orientationController.destroy();
   sceneViewportMedia.removeEventListener('change', syncSceneDefaultView);
 }, { once: true });
 
@@ -4478,6 +4528,8 @@ function syncReducedMotionPreference() {
   panorama.setReducedMotion(shouldReduceMotion);
   roomIntro.setReducedMotion(shouldReduceMotion);
   gachaponMotion.setReducedMotion(shouldReduceMotion);
+  gestureController.handleReducedMotionChange(shouldReduceMotion);
+  orientationController.handleReducedMotionChange(shouldReduceMotion);
   const motionButton = document.querySelector('#motionButton');
   motionButton.setAttribute('aria-pressed', String(shouldReduceMotion));
   motionButton.textContent = shouldReduceMotion ? '恢复动态效果' : '减少动态效果';

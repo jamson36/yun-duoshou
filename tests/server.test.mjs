@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
 import { createAppServer } from '../server.mjs';
 import { buildDiagnosisRequest, scorePersonality } from '../personality-scoring.js';
@@ -116,6 +117,11 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/budget-whiteboard.js`),
       fetch(`${baseUrl}/goal-date-picker.js`),
       fetch(`${baseUrl}/intro-transition.js`),
+      fetch(`${baseUrl}/gesture-controls.js`),
+      fetch(`${baseUrl}/gesture-ui.js`),
+      fetch(`${baseUrl}/gesture-recognizer.worker.js`),
+      fetch(`${baseUrl}/orientation-controls.js`),
+      fetch(`${baseUrl}/orientation-ui.js`),
       fetch(`${baseUrl}/styles.css`),
       fetch(`${baseUrl}/persona-presentations.js`),
       fetch(`${baseUrl}/route-sync.js`),
@@ -134,7 +140,56 @@ test('同源服务能返回首页和安全响应头', async () => {
     assert.match(html, /让你花个爽/);
     assert.match(response.headers.get('content-security-policy'), /connect-src 'self'/);
     assert.match(response.headers.get('content-security-policy'), /img-src 'self' data: blob:/);
+    assert.match(response.headers.get('content-security-policy'), /script-src 'self' 'wasm-unsafe-eval'/);
+    assert.match(response.headers.get('content-security-policy'), /worker-src 'self'/);
+    assert.equal(
+      response.headers.get('permissions-policy'),
+      'camera=(self), accelerometer=(self), gyroscope=(self), magnetometer=(), microphone=(), geolocation=(), payment=()',
+    );
   });
+});
+
+test('手势与体感控制模块、Worker 与本地模型只通过同源白名单提供', async () => {
+  await withServer({}, async (baseUrl) => {
+    const [controls, ui, worker, orientationControls, orientationUi, runtime, wasm, model] = await Promise.all([
+      fetch(`${baseUrl}/gesture-controls.js`),
+      fetch(`${baseUrl}/gesture-ui.js`),
+      fetch(`${baseUrl}/gesture-recognizer.worker.js`),
+      fetch(`${baseUrl}/orientation-controls.js`),
+      fetch(`${baseUrl}/orientation-ui.js`),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/vision_bundle.mjs`),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/wasm/vision_wasm_module_internal.wasm`, { method: 'HEAD' }),
+      fetch(`${baseUrl}/assets/vendor/gesture-runtime/hand-gesture.task`, { method: 'HEAD' }),
+    ]);
+
+    assert.deepEqual(
+      [controls.status, ui.status, worker.status, orientationControls.status, orientationUi.status, runtime.status, wasm.status, model.status],
+      [200, 200, 200, 200, 200, 200, 200, 200],
+    );
+    assert.match(controls.headers.get('content-type'), /text\/javascript/);
+    assert.match(ui.headers.get('content-type'), /text\/javascript/);
+    assert.match(worker.headers.get('content-type'), /text\/javascript/);
+    assert.match(orientationControls.headers.get('content-type'), /text\/javascript/);
+    assert.match(orientationUi.headers.get('content-type'), /text\/javascript/);
+    assert.match(runtime.headers.get('content-type'), /text\/javascript/);
+    assert.equal(wasm.headers.get('content-type'), 'application/wasm');
+    assert.equal(model.headers.get('content-type'), 'application/octet-stream');
+    assert.ok(Number(wasm.headers.get('content-length')) > 100_000);
+    assert.ok(Number(model.headers.get('content-length')) > 1_000_000);
+  });
+});
+
+test('生产镜像包含手势与体感控制的根级运行模块', async () => {
+  const dockerfile = await readFile(new URL('../Dockerfile', import.meta.url), 'utf8');
+  const modules = [
+    'gesture-controls.js',
+    'gesture-recognizer.worker.js',
+    'gesture-ui.js',
+    'orientation-controls.js',
+    'orientation-ui.js',
+  ];
+
+  modules.forEach((moduleName) => assert.match(dockerfile, new RegExp(`\\b${moduleName.replaceAll('.', '\\.') }\\b`)));
 });
 
 test('开屏逻辑与高清房间素材可由静态白名单访问', async () => {

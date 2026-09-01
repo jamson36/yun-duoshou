@@ -140,6 +140,66 @@ test('减少动态时禁用连续旋转与缩放，但不禁用三个文字入�
   assert.equal(canManipulatePanorama({ interactionEnabled: false, reducedMotion: false }), false);
 });
 
+test('统一相机输入约束环视和缩放，并在交互锁定时拒绝手势增量', () => {
+  let renderCount = 0;
+  const room = {
+    interactionEnabled: true,
+    reducedMotion: false,
+    projection: 'spherical',
+    defaultView: { yaw: 0, pitch: 0, fov: degrees(86) },
+    view: { yaw: 0, pitch: 0, fov: degrees(70) },
+    idleView: null,
+    animation: { resolve() {} },
+    stage: { clientHeight: 800 },
+    requestRender() { renderCount += 1; },
+  };
+
+  const applied = PanoramaRoom.prototype.applyInputDelta.call(room, {
+    panX: 10_000,
+    panY: 10_000,
+    zoomDelta: -10,
+  });
+
+  assert.equal(applied, true);
+  assert.equal(room.view.pitch, 0.4);
+  assert.equal(room.view.fov, 0.55);
+  assert.ok(room.view.yaw >= -Math.PI && room.view.yaw <= Math.PI);
+  assert.deepEqual(room.idleView, room.view);
+  assert.equal(room.animation, null);
+  assert.equal(renderCount, 1);
+
+  room.reducedMotion = true;
+  const before = { ...room.view };
+  assert.equal(PanoramaRoom.prototype.applyInputDelta.call(room, { panX: 20 }), false);
+  assert.deepEqual(room.view, before);
+});
+
+test('体感角度增量复用全景交互锁、动态偏好与视角边界', () => {
+  const calls = [];
+  const room = {
+    interactionEnabled: true,
+    reducedMotion: false,
+    projection: 'spherical',
+    defaultView: { fov: 1.2 },
+    view: { yaw: 0.1, pitch: 0.39, fov: 1 },
+    idleView: {},
+    animation: null,
+    requestRender: () => calls.push('render'),
+  };
+
+  assert.equal(PanoramaRoom.prototype.applyAngularInputDelta.call(room, {
+    yawDelta: 0.2,
+    pitchDelta: 0.2,
+  }), true);
+  assert.ok(Math.abs(room.view.yaw - 0.3) < 1e-9);
+  assert.equal(room.view.pitch, 0.4);
+  assert.deepEqual(calls, ['render']);
+
+  room.reducedMotion = true;
+  assert.equal(PanoramaRoom.prototype.applyAngularInputDelta.call(room, { yawDelta: 0.5 }), false);
+  assert.ok(Math.abs(room.view.yaw - 0.3) < 1e-9);
+});
+
 test('房间功能标签完整进入可视区后才显示，避免平板端露出半截', () => {
   const frame = { width: 768, height: 900 };
   const hotspot = {
@@ -159,4 +219,36 @@ test('房间功能标签完整进入可视区后才显示，避免平板端露�
     projectedHotspotFitsViewport({ visible: true, x: 20, y: 450 }, frame, { kind: 'thought' }),
     true,
   );
+});
+
+test('空气指针只命中可见功能热点，并沿用热点原有点击入口', () => {
+  let clicks = 0;
+  const featureElement = {
+    hidden: false,
+    getBoundingClientRect: () => ({ left: 110, top: 220, right: 250, bottom: 300 }),
+    click: () => { clicks += 1; },
+  };
+  const thoughtElement = {
+    hidden: false,
+    getBoundingClientRect: () => ({ left: 110, top: 220, right: 250, bottom: 300 }),
+    click: () => { clicks += 10; },
+  };
+  const room = {
+    interactionEnabled: true,
+    stage: { getBoundingClientRect: () => ({ left: 10, top: 20 }) },
+    hotspots: [
+      { id: 'sofa-phone', kind: 'feature' },
+      { id: 'package-thought', kind: 'thought' },
+    ],
+    hotspotElements: new Map([
+      ['sofa-phone', featureElement],
+      ['package-thought', thoughtElement],
+    ]),
+  };
+
+  assert.equal(PanoramaRoom.prototype.hotspotAtPoint.call(room, { x: 150, y: 230 }), 'sofa-phone');
+  assert.equal(PanoramaRoom.prototype.hotspotAtPoint.call(room, { x: 20, y: 20 }), null);
+  assert.equal(PanoramaRoom.prototype.activateHotspot.call(room, 'package-thought'), false);
+  assert.equal(PanoramaRoom.prototype.activateHotspot.call(room, 'sofa-phone'), true);
+  assert.equal(clicks, 1);
 });

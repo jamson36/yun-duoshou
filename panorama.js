@@ -502,14 +502,9 @@ export class PanoramaRoom {
       const dx = event.clientX - this.pointer.x;
       const dy = event.clientY - this.pointer.y;
       if (Math.abs(dx) + Math.abs(dy) > 2) this.pointer.moved = true;
-      const radiansPerPixel = this.view.fov / Math.max(300, this.stage.clientHeight);
-      // Direct manipulation: the panorama follows the pointer horizontally.
-      this.view.yaw = wrapAngle(this.view.yaw + dx * radiansPerPixel);
-      this.view.pitch = clamp(this.view.pitch + dy * radiansPerPixel, -0.56, 0.4);
+      this.applyInputDelta({ panX: dx, panY: dy });
       this.pointer.x = event.clientX;
       this.pointer.y = event.clientY;
-      this.idleView = { ...this.view };
-      this.requestRender();
     };
     this.onPointerUp = (event) => {
       if (!this.pointer || this.pointer.id !== event.pointerId) return;
@@ -520,28 +515,27 @@ export class PanoramaRoom {
       if (!canManipulatePanorama(this)) return;
       if (event.target.closest('button, a')) return;
       event.preventDefault();
-      this.animation = null;
-      const maxFov = this.projection === 'flat' ? this.defaultView.fov : SPHERICAL_MAX_FOV;
-      this.view.fov = clamp(this.view.fov + event.deltaY * 0.0008, 0.55, maxFov);
-      this.idleView = { ...this.view };
-      this.requestRender();
+      this.applyInputDelta({ zoomDelta: event.deltaY * 0.0008 });
     };
     this.onKeyDown = (event) => {
       if (!canManipulatePanorama(this)) return;
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', '='].includes(event.key)) return;
       event.preventDefault();
       const turn = 0.12;
-      if (event.key === 'ArrowLeft') this.view.yaw = wrapAngle(this.view.yaw - turn);
-      if (event.key === 'ArrowRight') this.view.yaw = wrapAngle(this.view.yaw + turn);
-      if (event.key === 'ArrowUp') this.view.pitch = clamp(this.view.pitch + turn * 0.6, -0.56, 0.4);
-      if (event.key === 'ArrowDown') this.view.pitch = clamp(this.view.pitch - turn * 0.6, -0.56, 0.4);
-      if (event.key === '+' || event.key === '=') this.view.fov = clamp(this.view.fov - 0.08, 0.55, SPHERICAL_MAX_FOV);
-      if (event.key === '-') {
-        const maxFov = this.projection === 'flat' ? this.defaultView.fov : SPHERICAL_MAX_FOV;
-        this.view.fov = clamp(this.view.fov + 0.08, 0.55, maxFov);
-      }
-      this.idleView = { ...this.view };
-      this.requestRender();
+      const radiansPerPixel = this.view.fov / Math.max(300, this.stage.clientHeight);
+      this.applyInputDelta({
+        panX: event.key === 'ArrowLeft'
+          ? -turn / radiansPerPixel
+          : event.key === 'ArrowRight'
+            ? turn / radiansPerPixel
+            : 0,
+        panY: event.key === 'ArrowUp'
+          ? (turn * 0.6) / radiansPerPixel
+          : event.key === 'ArrowDown'
+            ? (-turn * 0.6) / radiansPerPixel
+            : 0,
+        zoomDelta: event.key === '+' || event.key === '=' ? -0.08 : event.key === '-' ? 0.08 : 0,
+      });
     };
     this.onVisibilityChange = () => {
       if (!document.hidden) this.requestRender();
@@ -556,6 +550,37 @@ export class PanoramaRoom {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.resizeObserver = new ResizeObserver(() => this.requestRender());
     this.resizeObserver.observe(this.stage);
+  }
+
+  applyInputDelta({ panX = 0, panY = 0, zoomDelta = 0 } = {}) {
+    if (!canManipulatePanorama(this)) return false;
+    const safePanX = Number.isFinite(Number(panX)) ? Number(panX) : 0;
+    const safePanY = Number.isFinite(Number(panY)) ? Number(panY) : 0;
+    const safeZoomDelta = Number.isFinite(Number(zoomDelta)) ? Number(zoomDelta) : 0;
+    const radiansPerPixel = this.view.fov / Math.max(300, this.stage.clientHeight);
+    return PanoramaRoom.prototype.applyAngularInputDelta.call(this, {
+      yawDelta: safePanX * radiansPerPixel,
+      pitchDelta: safePanY * radiansPerPixel,
+      zoomDelta: safeZoomDelta,
+    });
+  }
+
+  applyAngularInputDelta({ yawDelta = 0, pitchDelta = 0, zoomDelta = 0 } = {}) {
+    if (!canManipulatePanorama(this)) return false;
+    const safeYawDelta = Number.isFinite(Number(yawDelta)) ? Number(yawDelta) : 0;
+    const safePitchDelta = Number.isFinite(Number(pitchDelta)) ? Number(pitchDelta) : 0;
+    const safeZoomDelta = Number.isFinite(Number(zoomDelta)) ? Number(zoomDelta) : 0;
+    const interruptedAnimation = this.animation;
+    this.animation = null;
+    interruptedAnimation?.resolve?.(false);
+    // Direct manipulation: every controller makes the panorama follow the input.
+    this.view.yaw = wrapAngle(this.view.yaw + safeYawDelta);
+    this.view.pitch = clamp(this.view.pitch + safePitchDelta, -0.56, 0.4);
+    const maxFov = this.projection === 'flat' ? this.defaultView.fov : SPHERICAL_MAX_FOV;
+    this.view.fov = clamp(this.view.fov + safeZoomDelta, 0.55, maxFov);
+    this.idleView = { ...this.view };
+    this.requestRender();
+    return true;
   }
 
   setReducedMotion(value) {
@@ -583,6 +608,36 @@ export class PanoramaRoom {
       this.pointer = null;
       this.stage.classList.remove('is-dragging');
     }
+  }
+
+  hotspotAtPoint(point) {
+    if (!this.interactionEnabled || !point) return null;
+    const localX = Number(point.x);
+    const localY = Number(point.y);
+    if (!Number.isFinite(localX) || !Number.isFinite(localY)) return null;
+    const stageRect = this.stage.getBoundingClientRect();
+    const clientX = stageRect.left + localX;
+    const clientY = stageRect.top + localY;
+
+    for (const hotspot of this.hotspots) {
+      if (hotspot.kind !== 'feature') continue;
+      const element = this.hotspotElements.get(hotspot.id);
+      if (!element || element.hidden || element.disabled) continue;
+      const rect = element.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        return hotspot.id;
+      }
+    }
+    return null;
+  }
+
+  activateHotspot(id) {
+    if (!this.interactionEnabled) return false;
+    const hotspot = this.hotspots.find((item) => item.id === id && item.kind === 'feature');
+    const element = hotspot ? this.hotspotElements.get(hotspot.id) : null;
+    if (!element || element.hidden || element.disabled) return false;
+    element.click();
+    return true;
   }
 
   getTriggerForPanel(panel) {
