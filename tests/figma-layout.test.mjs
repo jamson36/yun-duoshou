@@ -33,6 +33,17 @@ test('开始买吧按 5:25 先展示介绍页，再进入共享的模拟手机�
   assert.match(html, /id="enterShoppingPhoneButton"[^>]*>[\s\S]*?进入模拟手机/);
   assert.match(html, /hand-21-155\/hand-21-155-4x\.png/);
   assert.match(html, /phone-20-3\/phone-home-20-3-4x\.png/);
+  const introStart = html.indexOf('id="shoppingIntroView"');
+  const stageStart = html.indexOf('class="shopping-intro-stage"', introStart);
+  const handStart = html.indexOf('class="shopping-intro-art"', stageStart);
+  const phoneStart = html.indexOf('class="shopping-intro-phone-preview"', stageStart);
+  const stageEnd = html.indexOf('</div>', html.indexOf('</div>', phoneStart) + 6);
+  assert.ok(stageStart > introStart, '手臂和手机应共用同一个视觉舞台');
+  assert.ok(handStart > stageStart && handStart < stageEnd, '手臂应位于共享舞台内');
+  assert.ok(phoneStart > handStart && phoneStart < stageEnd, '手机应位于共享舞台内并叠在手臂上方');
+  const introCss = css.slice(css.indexOf('/* 2026-09-01 Figma 5:25 flow'));
+  assert.match(introCss, /\.shopping-intro-stage\s*\{[\s\S]*?width:\s*min\(64\.908854vw, 115\.393519dvh\);[\s\S]*?aspect-ratio:\s*4985 \/ 4320;/);
+  assert.match(introCss, /\.shopping-intro-phone-preview\s*\{[\s\S]*?top:\s*9\.465162%;[\s\S]*?left:\s*33\.440321%;[\s\S]*?width:\s*31\.534604%;/);
   assert.match(appSource, /let phoneView\s*=\s*'intro'/);
   assert.match(appSource, /enterShoppingPhoneButton\.addEventListener\('click',[\s\S]*?pushPhoneView\('home'/);
   assert.match(appSource, /shoppingIntroView\.hidden = phoneView !== 'intro'/);
@@ -69,6 +80,12 @@ test('人格扭蛋起始态按 Figma 顺序收进桌面和手机首屏', () => {
   assert.match(overhaulCss, /\.ai-card:is\(\[data-gachapon-state="ready"\], \[data-gachapon-state="locked"\]\) \.gachapon-stage\s*\{[\s\S]*?min-height:\s*0;/);
   assert.match(overhaulCss, /\.ai-card:is\(\[data-gachapon-state="ready"\], \[data-gachapon-state="locked"\]\) \.gachapon-machine\s*\{[\s\S]*?width:\s*min\(520px, 48dvh, 55vw\);/);
   assert.match(overhaulCss, /@media \(max-width: 820px\)[\s\S]*?\.gachapon-machine\s*\{[\s\S]*?width:\s*min\(310px, 42dvh, calc\(100vw - 48px\)\);/);
+  const finalClinicCss = css.slice(css.indexOf('/* The current semantic wrapper'));
+  assert.match(finalClinicCss, /width:\s*min\(687px, 63\.61dvh, 68vw\);/);
+  assert.match(finalClinicCss, /\.gachapon-machine\s*\{\s*aspect-ratio:\s*687 \/ 797;/);
+  assert.match(finalClinicCss, /\.gachapon-machine > img\s*\{[\s\S]*?top:\s*-9\.59%;[\s\S]*?height:\s*114\.98%;/);
+  assert.match(finalClinicCss, /font-size:\s*clamp\(30px, 1\.875vw, 36px\);[\s\S]*?white-space:\s*nowrap;/);
+  assert.match(finalClinicCss, /min-height:\s*66px;[\s\S]*?border-radius:\s*18px;[\s\S]*?font-size:\s*24px;/);
 });
 
 test('消费测试默认直达扭蛋起始态，报告是可返回的独立滚动视图', () => {

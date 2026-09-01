@@ -66,6 +66,8 @@ test('人格扭蛋接入真实碰撞控制器并完整处理生命周期', () =>
   assert.match(appSource, /machineState === 'ready' \|\| machineState === 'locked' \|\| machineState === 'spinning'/);
   assert.match(css, /\.gachapon-machine\.is-physics-active \.gachapon-token\s*\{[\s\S]*?will-change:\s*left, top, transform;/);
   assert.doesNotMatch(css, /gachapon-machine\s*>\s*:not\(img\)[\s\S]*?display:\s*none\s*!important/);
-  assert.match(css, /\.gachapon-machine\s*\{\s*aspect-ratio:\s*560\s*\/\s*684;/);
+  assert.match(css, /\.gachapon-machine\s*\{\s*aspect-ratio:\s*687\s*\/\s*797;/);
+  assert.match(css, /\.gachapon-chamber\s*\{\s*top:\s*11\.3%;\s*left:\s*12%;[\s\S]*?width:\s*76%;[\s\S]*?border:\s*0;/);
+  assert.match(css, /\.gachapon-token\s*\{[\s\S]*?width:\s*clamp\(42px, 7vw, 96px\);[\s\S]*?height:\s*clamp\(42px, 7vw, 96px\);/);
   assert.match(css, /\.panel-view\[data-panel="clinic"\]\[data-clinic-view="start"\] \.gachapon-chamber,[\s\S]*?\.gachapon-token\s*\{\s*visibility:\s*visible;/);
 });

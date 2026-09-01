@@ -7,7 +7,7 @@ import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
 import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
-import { createGachaponMotion } from './gachapon-motion.js?v=20260901-figma-motion-2';
+import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-commerce-phone-2';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
 

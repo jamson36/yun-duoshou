@@ -59,7 +59,7 @@ function rafHarness() {
 }
 
 test('固定种子生成相同且全部位于球舱内的六颗球', () => {
-  assert.deepEqual(DEFAULT_GACHAPON_CHAMBER, { cx: 280, cy: 318, rx: 196, ry: 196 });
+  assert.deepEqual(DEFAULT_GACHAPON_CHAMBER, { cx: 280, cy: 301, rx: 213, ry: 224 });
   const first = createInitialGachaponBodies({ count: 6, seed: 'same-seed' });
   const second = createInitialGachaponBodies({ count: 6, seed: 'same-seed' });
   assert.deepEqual(first, second);

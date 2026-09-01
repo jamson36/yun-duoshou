@@ -10,9 +10,9 @@ const AMBIENT_INITIAL_VELOCITY_SCALE = 0.28;
 
 export const DEFAULT_GACHAPON_CHAMBER = Object.freeze({
   cx: 280,
-  cy: 318,
-  rx: 196,
-  ry: 196,
+  cy: 301,
+  rx: 213,
+  ry: 224,
 });
 
 function clamp(value, minimum, maximum) {

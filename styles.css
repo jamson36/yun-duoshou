@@ -10255,8 +10255,8 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-stage {
   display: flex;
   min-height: calc(100dvh - 118px);
-  justify-content: center;
-  padding: 8px 24px 28px;
+  justify-content: flex-start;
+  padding: clamp(32px, 4.61dvh, 50px) 24px 28px;
   overflow: visible;
   border: 0;
   background: transparent;
@@ -10269,33 +10269,51 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-machine {
   width: min(520px, 46dvh, 56vw);
-  margin: -6px auto -24px;
+  margin: 0 auto -34px;
 }
 
-.panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy { min-height: 0; }
+.panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy {
+  width: min(468px, calc(100vw - 48px));
+  min-height: 0;
+}
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy small,
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-prize { display: none; }
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy h3 {
   margin: 0 0 9px;
   color: #3a2700;
-  font-size: clamp(29px, 2.35vw, 40px);
+  font-size: clamp(30px, 1.875vw, 36px);
   font-weight: 950;
+  line-height: 1.1667;
   letter-spacing: -.035em;
+  white-space: nowrap;
 }
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy p {
   color: #796f68;
-  font-size: clamp(10px, .86vw, 13px);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action {
   width: min(214px, 100%);
   min-height: 66px;
   margin-top: 20px;
-  border-radius: 16px;
-  box-shadow: 0 16px 28px rgba(240, 130, 34, .29);
-  font-size: 16px;
+  border-radius: 18px;
+  color: #4a3500;
+  box-shadow: 0 18px 20px rgba(255, 157, 61, .55);
+  font-size: 24px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action:disabled {
+  font-size: 20px;
+}
+
+.panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action > span::before {
+  content: "🎲";
+  margin-right: 7px;
 }
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-caption { margin-top: 12px; }
@@ -10323,22 +10341,33 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   }
 
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-stage {
+    justify-content: center;
     padding: 4px 0 22px;
   }
 
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-machine {
     width: min(340px, 43dvh, calc(100vw - 50px));
-    margin: -4px auto -17px;
+    left: 0;
+    margin: -4px auto -20px;
   }
 
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy h3 {
-    font-size: clamp(24px, 7vw, 31px);
+    font-size: 24px;
+    white-space: nowrap;
+  }
+
+  .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy p {
+    font-size: 11px;
   }
 
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action {
     min-height: 56px;
     margin-top: 14px;
-    font-size: 13px;
+    font-size: 18px;
+  }
+
+  .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action:disabled {
+    font-size: 16px;
   }
 }
 
@@ -10375,9 +10404,11 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 }
 
 .panel-view[data-panel="clinic"][data-clinic-view="start"] .gachapon-machine > img {
+  inset: auto 0 auto;
+  top: -9.59%;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: 114.98%;
+  object-fit: cover;
   object-position: center;
 }
 
@@ -10391,28 +10422,40 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 }
 
 @media (min-width: 821px) and (min-height: 681px) {
+  .app[data-focus="clinic"]:has(.panel-view[data-panel="clinic"][data-clinic-view="start"].is-active) .panel-inner {
+    padding-top: 0;
+  }
+
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-machine {
-    width: min(650px, 60dvh, 68vw);
-    margin: -24px auto -30px;
+    left: -9px;
+    width: min(687px, 63.61dvh, 68vw);
+    margin: 0 auto -38px;
+    overflow: hidden;
+  }
+
+  .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-copy,
+  .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-action {
+    left: 5px;
   }
 }
 
 /* 2026-09-01 Figma refinement: live capsules, one back language, aligned goals. */
 .gachapon-machine {
-  aspect-ratio: 560 / 684;
+  aspect-ratio: 687 / 797;
 }
 
 .gachapon-chamber {
-  top: 17.84%;
-  left: 15%;
+  top: 11.3%;
+  left: 12%;
   display: block;
-  width: 70%;
+  width: 76%;
+  border: 0;
 }
 
 .gachapon-token {
   display: block;
-  width: clamp(42px, 7vw, 84px);
-  height: clamp(42px, 7vw, 84px);
+  width: clamp(42px, 7vw, 96px);
+  height: clamp(42px, 7vw, 96px);
   overflow: hidden;
   border: 0;
   background: transparent;
@@ -10681,45 +10724,64 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 .shopping-intro-enter:hover i { transform: translateX(3px); }
 .shopping-intro-enter:focus-visible { outline: 3px solid #17110e; outline-offset: 4px; }
 
+.shopping-intro-stage {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 0;
+  width: min(64.908854vw, 115.393519dvh);
+  aspect-ratio: 4985 / 4320;
+  pointer-events: none;
+}
+
 .shopping-intro-art {
   position: absolute;
   z-index: 0;
   inset: 0;
   display: block;
   overflow: hidden;
-  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 7%, #000 100%),
+    linear-gradient(to bottom, transparent 0, #000 10%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 7%, #000 100%),
+    linear-gradient(to bottom, transparent 0, #000 10%, #000 100%);
+  mask-composite: intersect;
 }
 
 .shopping-intro-art img {
   position: absolute;
-  top: 0;
-  right: 0;
+  inset: 0;
   display: block;
-  width: auto;
+  width: 100%;
   height: 100%;
   max-width: none;
   object-fit: contain;
-  object-position: right center;
 }
 
 .shopping-intro-phone-preview {
   position: absolute;
   z-index: 2;
-  top: clamp(18px, 2.6vh, 32px);
-  right: clamp(120px, 12.3vw, 236px);
-  width: min(30vw, 513px);
-  max-height: 94dvh;
+  top: 9.465162%;
+  left: 33.440321%;
+  width: 31.534604%;
+  aspect-ratio: 393 / 844;
+  overflow: hidden;
+  border-radius: 13.75%;
   filter: drop-shadow(0 24px 32px rgba(79, 47, 31, .16));
-  pointer-events: none;
 }
 
 .shopping-intro-phone-preview img {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
-  width: 100%;
+  width: 130.534%;
   height: auto;
-  max-height: 94dvh;
-  clip-path: inset(2.1% 11.5% 10.2% 11.5% round 54px);
-  object-fit: contain;
+  max-width: none;
+  max-height: none;
+  transform: translate(-11.696%, -2.075%);
 }
 
 .app[data-focus="new"][data-phone-view="intro"] .phone-device {
@@ -10847,7 +10909,17 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   }
 
   .shopping-intro-view { min-height: 100dvh; }
-  .shopping-intro-art { inset: 0; }
+  .shopping-intro-stage {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .shopping-intro-art {
+    inset: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
   .shopping-intro-art img {
     top: 8%;
     right: -42%;
