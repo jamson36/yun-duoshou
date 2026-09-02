@@ -30,6 +30,13 @@ function finitePoint(point) {
     && Number.isFinite(Number(point.y));
 }
 
+export function mirroredLandmarkPoint(landmark) {
+  return {
+    x: 1 - Number(landmark.x),
+    y: Number(landmark.y),
+  };
+}
+
 function idleCommand() {
   return {
     mode: 'idle',
@@ -209,9 +216,10 @@ export class GestureCommandMapper {
 
     if (nextMode !== 'point' || !finitePoint(frame.landmarks?.[8])) return command;
 
+    const mirroredPoint = mirroredLandmarkPoint(frame.landmarks[8]);
     const pointer = this.smoothPointer({
-      x: clamp((1 - Number(frame.landmarks[8].x)) * safeWidth, 0, safeWidth),
-      y: clamp(Number(frame.landmarks[8].y) * safeHeight, 0, safeHeight),
+      x: clamp(mirroredPoint.x * safeWidth, 0, safeWidth),
+      y: clamp(mirroredPoint.y * safeHeight, 0, safeHeight),
     });
     const hotspotId = typeof hitTest === 'function' ? hitTest(pointer) : null;
     let progress = 0;

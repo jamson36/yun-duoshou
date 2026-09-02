@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   GestureCommandMapper,
   handCenter,
+  mirroredLandmarkPoint,
   normalizedPinchDistance,
 } from '../gesture-controls.js';
 
@@ -30,6 +31,10 @@ test('手掌中心和捏合距离使用掌宽归一化，避免远近变化改�
   assert.ok(Math.abs(center.x - 0.42) < 0.03);
   assert.ok(Math.abs(center.y - 0.50) < 0.04);
   assert.ok(Math.abs(normalizedPinchDistance(landmarks) - 0.25) < 1e-9);
+});
+
+test('共享镜像坐标保持房间空气指针的左右方向', () => {
+  assert.deepEqual(mirroredLandmarkPoint({ x: 0.2, y: 0.4 }), { x: 0.8, y: 0.4 });
 });
 
 test('低置信度和缺手帧回到空闲，不输出相机命令', () => {
