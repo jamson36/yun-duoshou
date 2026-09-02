@@ -21,6 +21,10 @@ COPY --chown=node:node \
   orientation-controls.js \
   orientation-ui.js \
   panorama.js \
+  peel-copy-catalog.js \
+  peel-game.js \
+  peel-game-ui.js \
+  peel-gesture-controls.js \
   persona-presentations.js \
   route-sync.js \
   scene-config.js \

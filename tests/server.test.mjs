@@ -120,6 +120,10 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/gesture-controls.js`),
       fetch(`${baseUrl}/gesture-ui.js`),
       fetch(`${baseUrl}/gesture-recognizer.worker.js`),
+      fetch(`${baseUrl}/peel-copy-catalog.js`),
+      fetch(`${baseUrl}/peel-game.js`),
+      fetch(`${baseUrl}/peel-game-ui.js`),
+      fetch(`${baseUrl}/peel-gesture-controls.js`),
       fetch(`${baseUrl}/orientation-controls.js`),
       fetch(`${baseUrl}/orientation-ui.js`),
       fetch(`${baseUrl}/styles.css`),
@@ -179,6 +183,22 @@ test('手势与体感控制模块、Worker 与本地模型只通过同源白名�
   });
 });
 
+test('欲望剥壳机运行模块只通过同源白名单提供', async () => {
+  await withServer({}, async (baseUrl) => {
+    const moduleNames = [
+      'peel-copy-catalog.js',
+      'peel-game.js',
+      'peel-game-ui.js',
+      'peel-gesture-controls.js',
+    ];
+    const responses = await Promise.all(moduleNames.map((name) => fetch(`${baseUrl}/${name}`)));
+
+    assert.deepEqual(responses.map((response) => response.status), moduleNames.map(() => 200));
+    assert.ok(responses.every((response) => /text\/javascript/.test(response.headers.get('content-type') || '')));
+    assert.ok(responses.every((response) => response.headers.get('cache-control') === 'public, max-age=3600'));
+  });
+});
+
 test('手势 Worker 使用经典同源运行文件，避免模块版 WASM 初始化长时间阻塞', async () => {
   const [workerSource, uiSource] = await Promise.all([
     readFile(new URL('../gesture-recognizer.worker.js', import.meta.url), 'utf8'),
@@ -204,6 +224,10 @@ test('生产镜像包含手势与体感控制的根级运行模块', async () =>
     'gesture-controls.js',
     'gesture-recognizer.worker.js',
     'gesture-ui.js',
+    'peel-copy-catalog.js',
+    'peel-game.js',
+    'peel-game-ui.js',
+    'peel-gesture-controls.js',
     'orientation-controls.js',
     'orientation-ui.js',
   ];
