@@ -5,10 +5,12 @@ import vm from 'node:vm';
 import {
   buildClinicHash,
   buildNewHash,
+  buildRoomHash,
   createRouteSyncScheduler,
   panelNameFromHash,
   parseClinicHashState,
   parseNewHashState,
+  parseRoomHashState,
   routeSignature,
 } from '../route-sync.js';
 import { buildDiagnosisRequest, scorePersonality } from '../personality-scoring.js';
@@ -174,6 +176,33 @@ test('路由签名只包含当前页面真正可见的子状态', () => {
   assert.notEqual(
     routeSignature({ panel: 'new', phoneView: 'catalog', commerceType: 'food' }),
     routeSignature({ panel: 'new', phoneView: 'detail', commerceType: 'food', productId: 'coffee' }),
+  );
+});
+
+test('房间 activity 可由 hash 往返，但不把局中状态写入地址', () => {
+  assert.equal(buildRoomHash(), '#room');
+  assert.equal(buildRoomHash({ activity: 'peel' }), '#room?activity=peel');
+  assert.equal(buildRoomHash({ activity: 'unknown' }), '#room');
+  assert.deepEqual(parseRoomHashState('#room'), { activity: null });
+  assert.deepEqual(parseRoomHashState('#room?activity=peel'), { activity: 'peel' });
+  assert.deepEqual(
+    parseRoomHashState('#room?activity=peel&phase=playing&elapsed=32000'),
+    { activity: 'peel' },
+    '刷新只恢复游戏准备页，不恢复半局',
+  );
+  assert.deepEqual(parseRoomHashState('#room?activity=unknown'), { activity: null });
+});
+
+test('activity 仍属于房间且进入、退出会产生不同路由签名', () => {
+  assert.equal(panelNameFromHash('#room?activity=peel'), 'room');
+  assert.notEqual(
+    routeSignature({ panel: 'room', activity: 'peel' }),
+    routeSignature({ panel: 'room', activity: null }),
+  );
+  assert.equal(
+    routeSignature({ panel: 'orders', activity: 'peel' }),
+    routeSignature({ panel: 'orders' }),
+    '业务面板不应携带房间小游戏状态',
   );
 });
 

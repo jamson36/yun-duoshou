@@ -1,6 +1,7 @@
 const NEW_PHONE_VIEWS = new Set(['intro', 'home', 'catalog', 'detail']);
 const COMMERCE_TYPES = new Set(['shop', 'food', 'interest']);
 const CLINIC_VIEWS = new Set(['start', 'report']);
+const ROOM_ACTIVITIES = new Set(['peel']);
 
 export function panelNameFromHash(hash = '') {
   return String(hash).replace(/^#/, '').split('?')[0];
@@ -53,14 +54,26 @@ export function buildClinicHash({ clinicView = 'start' } = {}) {
   return clinicView === 'report' ? '#clinic?view=report' : '#clinic';
 }
 
+export function parseRoomHashState(hash = '') {
+  if (panelNameFromHash(hash) !== 'room') return { activity: null };
+  const query = String(hash).replace(/^#room\??/, '');
+  const requestedActivity = new URLSearchParams(query).get('activity');
+  return { activity: ROOM_ACTIVITIES.has(requestedActivity) ? requestedActivity : null };
+}
+
+export function buildRoomHash({ activity = null } = {}) {
+  return ROOM_ACTIVITIES.has(activity) ? `#room?activity=${encodeURIComponent(activity)}` : '#room';
+}
+
 export function routeSignature(route = {}) {
   const panel = route.panel || 'room';
+  const activity = panel === 'room' && ROOM_ACTIVITIES.has(route.activity) ? route.activity : '-';
   const goalsView = panel === 'goals' ? (route.goalsView || 'goal') : '-';
   const clinicView = panel === 'clinic' ? (route.clinicView || 'start') : '-';
   const phoneView = panel === 'new' ? (route.phoneView || 'intro') : '-';
   const commerceType = panel === 'new' && !['intro', 'home'].includes(phoneView) ? (route.commerceType || 'shop') : '-';
   const productId = panel === 'new' && phoneView === 'detail' ? (route.productId || '-') : '-';
-  return [panel, goalsView, clinicView, phoneView, commerceType, productId].map(encodeURIComponent).join('|');
+  return [panel, activity, goalsView, clinicView, phoneView, commerceType, productId].map(encodeURIComponent).join('|');
 }
 
 export function createRouteSyncScheduler({
