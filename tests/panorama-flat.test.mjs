@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PanoramaRoom,
   canManipulatePanorama,
+  canActivateHotspotKind,
   computeFlatProjectionFrame,
   projectFlatPoint,
   projectedHotspotFitsViewport,
@@ -221,7 +222,7 @@ test('房间功能标签完整进入可视区后才显示，避免平板端露�
   );
 });
 
-test('空气指针只命中可见功能热点，并沿用热点原有点击入口', () => {
+test('空气指针只命中可见功能或活动热点，并沿用热点原有点击入口', () => {
   let clicks = 0;
   const featureElement = {
     hidden: false,
@@ -233,22 +234,34 @@ test('空气指针只命中可见功能热点，并沿用热点原有点击入�
     getBoundingClientRect: () => ({ left: 110, top: 220, right: 250, bottom: 300 }),
     click: () => { clicks += 10; },
   };
+  const activityElement = {
+    hidden: false,
+    getBoundingClientRect: () => ({ left: 270, top: 220, right: 370, bottom: 320 }),
+    click: () => { clicks += 2; },
+  };
   const room = {
     interactionEnabled: true,
     stage: { getBoundingClientRect: () => ({ left: 10, top: 20 }) },
     hotspots: [
       { id: 'sofa-phone', kind: 'feature' },
+      { id: 'desire-peel', kind: 'activity' },
       { id: 'package-thought', kind: 'thought' },
     ],
     hotspotElements: new Map([
       ['sofa-phone', featureElement],
+      ['desire-peel', activityElement],
       ['package-thought', thoughtElement],
     ]),
   };
 
+  assert.equal(canActivateHotspotKind('feature'), true);
+  assert.equal(canActivateHotspotKind('activity'), true);
+  assert.equal(canActivateHotspotKind('thought'), false);
   assert.equal(PanoramaRoom.prototype.hotspotAtPoint.call(room, { x: 150, y: 230 }), 'sofa-phone');
+  assert.equal(PanoramaRoom.prototype.hotspotAtPoint.call(room, { x: 300, y: 250 }), 'desire-peel');
   assert.equal(PanoramaRoom.prototype.hotspotAtPoint.call(room, { x: 20, y: 20 }), null);
   assert.equal(PanoramaRoom.prototype.activateHotspot.call(room, 'package-thought'), false);
   assert.equal(PanoramaRoom.prototype.activateHotspot.call(room, 'sofa-phone'), true);
-  assert.equal(clicks, 1);
+  assert.equal(PanoramaRoom.prototype.activateHotspot.call(room, 'desire-peel'), true);
+  assert.equal(clicks, 3);
 });

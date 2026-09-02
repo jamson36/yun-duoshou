@@ -12095,3 +12095,142 @@ body.reduce-motion :is(
   animation: none !important;
   transition: none !important;
 }
+
+/* 欲望剥壳机是房间里的可选掌机彩蛋，不进入三个核心功能入口。 */
+.scene-hotspot.is-activity {
+  z-index: 9;
+  width: 112px;
+  min-width: 44px;
+  height: 82px;
+  min-height: 44px;
+}
+
+.activity-hotspot-device {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 82px;
+  height: 48px;
+  transform: translate(-50%, -50%) rotate(-4deg);
+  border: 3px solid #2f2925;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #ff9b42, #ff684a);
+  box-shadow: 0 8px 0 rgba(53, 39, 31, .22), 0 13px 20px rgba(53, 39, 31, .2);
+  animation: activity-device-float 3.2s ease-in-out infinite;
+  transition: transform 180ms var(--ease-out), filter 180ms ease;
+}
+
+.activity-hotspot-screen {
+  position: absolute;
+  inset: 7px 22px;
+  overflow: hidden;
+  border: 2px solid #2f2925;
+  border-radius: 7px;
+  background: #d7ff43;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .48);
+}
+
+.activity-hotspot-screen i,
+.activity-hotspot-screen b {
+  position: absolute;
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #2f2925;
+  background: #fff9e9;
+  transform: rotate(45deg);
+}
+
+.activity-hotspot-screen i { left: 5px; bottom: -5px; }
+.activity-hotspot-screen b { right: 5px; top: -5px; }
+
+.activity-hotspot-controls {
+  position: absolute;
+  top: 18px;
+  display: block;
+}
+
+.activity-hotspot-controls.is-left { left: 8px; width: 10px; height: 10px; }
+.activity-hotspot-controls.is-left::before,
+.activity-hotspot-controls.is-left::after {
+  content: "";
+  position: absolute;
+  background: #2f2925;
+  border-radius: 2px;
+}
+.activity-hotspot-controls.is-left::before { left: 3px; width: 4px; height: 10px; }
+.activity-hotspot-controls.is-left::after { top: 3px; width: 10px; height: 4px; }
+.activity-hotspot-controls.is-right { right: 7px; width: 13px; height: 13px; }
+.activity-hotspot-controls.is-right i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2f2925;
+}
+.activity-hotspot-controls.is-right i:first-child { left: 0; bottom: 0; }
+.activity-hotspot-controls.is-right i:last-child { right: 0; top: 0; }
+
+.activity-hotspot-copy {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+  max-width: 154px;
+  padding: 5px 9px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(47, 41, 37, .18);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, .94);
+  box-shadow: 0 6px 14px rgba(53, 39, 31, .16);
+  color: #2f2925;
+  font-family: var(--body);
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+
+.activity-hotspot-copy small {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #d7ff43;
+  font-size: 8px;
+  font-weight: 950;
+}
+
+.activity-hotspot-copy strong { font-size: 11px; font-weight: 950; }
+
+.scene-hotspot.is-activity:hover .activity-hotspot-device,
+.scene-hotspot.is-activity:focus-visible .activity-hotspot-device,
+.scene-hotspot.is-activity.is-active .activity-hotspot-device,
+.scene-hotspot.is-activity.is-gesture-target .activity-hotspot-device {
+  transform: translate(-50%, calc(-50% - 4px)) rotate(2deg) scale(1.06);
+  filter: drop-shadow(0 0 10px rgba(215, 255, 67, .88));
+}
+
+.scene-hotspot.is-activity:focus-visible .activity-hotspot-device {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px #2f2925, 0 12px 20px rgba(53, 39, 31, .24);
+}
+
+@keyframes activity-device-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -3px; }
+}
+
+body.reduce-motion .activity-hotspot-device { animation: none; transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-hotspot-device { animation: none; transition: none; }
+}
+
+@media (max-width: 620px) {
+  .scene-hotspot.is-activity { width: 92px; height: 72px; }
+  .activity-hotspot-device { transform: translate(-50%, -50%) scale(.82) rotate(-4deg); }
+  .activity-hotspot-copy { bottom: calc(100% - 2px); padding: 4px 7px; }
+  .activity-hotspot-copy small { display: none; }
+  .activity-hotspot-copy strong { font-size: 10px; }
+}

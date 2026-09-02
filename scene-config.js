@@ -97,6 +97,23 @@ export const FEATURE_HOTSPOTS = Object.freeze([
   },
 ]);
 
+export const ACTIVITY_HOTSPOTS = Object.freeze([
+  Object.freeze({
+    id: 'desire-peel',
+    kind: 'activity',
+    activity: 'peel',
+    label: '欲望剥壳机',
+    eyebrow: '陈列架 · 掌机',
+    description: '剥开催你下单的话术，看看商品本身',
+    yaw: degrees(-35.5),
+    pitch: degrees(17),
+    focus: Object.freeze({ yaw: degrees(-35.5), pitch: degrees(14), fov: degrees(34) }),
+    bounds: Object.freeze({ width: 154, height: 104 }),
+    accent: '#d7ff43',
+    index: 'GAME',
+  }),
+]);
+
 const PACKAGE_SLOTS = [
   { yaw: degrees(56), pitch: degrees(-14) },
   { yaw: degrees(59), pitch: degrees(-21) },

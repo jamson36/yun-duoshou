@@ -30,6 +30,10 @@ export function canManipulatePanorama({ interactionEnabled, reducedMotion }) {
   return Boolean(interactionEnabled) && !Boolean(reducedMotion);
 }
 
+export function canActivateHotspotKind(kind) {
+  return kind === 'feature' || kind === 'activity';
+}
+
 function easeOutCubic(value) {
   return 1 - ((1 - value) ** 3);
 }
@@ -69,6 +73,19 @@ export function renderFeatureHotspotMarkup(hotspot) {
       </span>
     </span>
     ${hotspot.badgeId ? `<b class="hotspot-badge" id="${hotspot.badgeId}" hidden>0</b>` : ''}`;
+}
+
+export function renderActivityHotspotMarkup(hotspot) {
+  return `
+    <span class="activity-hotspot-device" aria-hidden="true">
+      <span class="activity-hotspot-screen"><i></i><b></b></span>
+      <span class="activity-hotspot-controls is-left"><i></i></span>
+      <span class="activity-hotspot-controls is-right"><i></i><i></i></span>
+    </span>
+    <span class="activity-hotspot-copy" aria-hidden="true">
+      <small>小游戏</small>
+      <strong>${hotspot.label}</strong>
+    </span>`;
 }
 
 export function projectedHotspotFitsViewport(point, frame, hotspot) {
@@ -458,6 +475,10 @@ export class PanoramaRoom {
             else markAssetFailed();
           }
         }
+      } else if (hotspot.kind === 'activity') {
+        button.dataset.activity = hotspot.activity;
+        button.setAttribute('aria-label', `${hotspot.label}：${hotspot.description}`);
+        button.innerHTML = renderActivityHotspotMarkup(hotspot);
       } else {
         button.setAttribute('aria-label', `${hotspot.label}：${hotspot.thought}`);
         button.innerHTML = `
@@ -620,7 +641,7 @@ export class PanoramaRoom {
     const clientY = stageRect.top + localY;
 
     for (const hotspot of this.hotspots) {
-      if (hotspot.kind !== 'feature') continue;
+      if (!canActivateHotspotKind(hotspot.kind)) continue;
       const element = this.hotspotElements.get(hotspot.id);
       if (!element || element.hidden || element.disabled) continue;
       const rect = element.getBoundingClientRect();
@@ -633,7 +654,7 @@ export class PanoramaRoom {
 
   activateHotspot(id) {
     if (!this.interactionEnabled) return false;
-    const hotspot = this.hotspots.find((item) => item.id === id && item.kind === 'feature');
+    const hotspot = this.hotspots.find((item) => item.id === id && canActivateHotspotKind(item.kind));
     const element = hotspot ? this.hotspotElements.get(hotspot.id) : null;
     if (!element || element.hidden || element.disabled) return false;
     element.click();
