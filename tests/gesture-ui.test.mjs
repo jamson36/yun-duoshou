@@ -128,6 +128,172 @@ test('退出功能页后只消费一次恢复资格，未开启或减少动态�
   assert.deepEqual(calls, [{ resume: true }]);
 });
 
+test('房间手势进入剥壳机时复用当前摄像头与 Worker，并切换输入域', () => {
+  const calls = [];
+  const consumer = () => {};
+  const controller = {
+    active: true,
+    starting: false,
+    stream: {},
+    worker: {},
+    workerReady: true,
+    inputContext: 'room',
+    activityFrameConsumer: null,
+    activityReturnToRoom: false,
+    resumePolicy: 'manual',
+    mapper: { reset: () => calls.push('mapper-reset') },
+    updatePointer: (pointer) => calls.push(['pointer', pointer]),
+    setState: (state, copy) => calls.push(['state', state, copy]),
+    stop: () => assert.fail('切换输入域不应停止媒体流'),
+  };
+  controller.canContinueIntoActivity = RoomGestureController.prototype.canContinueIntoActivity;
+
+  assert.equal(RoomGestureController.prototype.canContinueIntoActivity.call(controller), true);
+  assert.equal(RoomGestureController.prototype.continueIntoActivity.call(controller, consumer), true);
+  assert.equal(controller.inputContext, 'activity');
+  assert.equal(controller.activityFrameConsumer, consumer);
+  assert.equal(controller.activityReturnToRoom, true);
+  assert.equal(controller.resumePolicy, 'automatic');
+  assert.deepEqual(calls.slice(0, 2), ['mapper-reset', ['pointer', null]]);
+
+  assert.equal(RoomGestureController.prototype.continueIntoActivity.call(controller, consumer), true);
+  assert.equal(controller.activityReturnToRoom, true);
+  assert.equal(controller.resumePolicy, 'automatic');
+});
+
+test('剥壳机输入域只转发识别帧，不再驱动房间镜头或热点', () => {
+  const calls = [];
+  const controller = {
+    inputContext: 'activity',
+    consecutiveFrameErrors: 2,
+    activityFrameConsumer: (frame) => calls.push(['activity', frame]),
+    frameGate: { release: () => calls.push(['release']) },
+    drawLandmarks: () => calls.push(['draw']),
+    updateCalibration: () => assert.fail('游戏内不应触发房间校准提示'),
+    stage: { getBoundingClientRect: () => assert.fail('游戏内不应读取房间舞台') },
+    panorama: { applyInputDelta: () => assert.fail('游戏内不应驱动房间') },
+    elements: { mode: { textContent: '' } },
+  };
+  const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5 }));
+
+  RoomGestureController.prototype.handleWorkerMessage.call(controller, {
+    type: 'result',
+    gesture: 'Pointing_Up',
+    confidence: 0.91,
+    landmarks,
+  });
+
+  assert.deepEqual(calls.slice(0, 2), [['release'], ['draw']]);
+  assert.equal(calls[2][0], 'activity');
+  assert.equal(calls[2][1].gesture, 'Pointing_Up');
+  assert.equal(calls[2][1].score, 0.91);
+  assert.equal(controller.consecutiveFrameErrors, 0);
+  assert.match(controller.elements.mode.textContent, /食指/);
+});
+
+test('游戏内单独开启体感只请求游戏上下文，不获得返回房间自动恢复资格', async () => {
+  const calls = [];
+  const consumer = () => {};
+  const controller = {
+    active: false,
+    starting: false,
+    inputContext: 'none',
+    activityFrameConsumer: null,
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    start: async (options) => {
+      calls.push(options);
+      controller.active = true;
+      controller.inputContext = options.context;
+    },
+  };
+  controller.canContinueIntoActivity = RoomGestureController.prototype.canContinueIntoActivity;
+
+  assert.equal(await RoomGestureController.prototype.startForActivity.call(controller, consumer), true);
+  assert.equal(controller.inputContext, 'activity');
+  assert.equal(controller.activityFrameConsumer, consumer);
+  assert.equal(controller.activityReturnToRoom, false);
+  assert.equal(controller.resumePolicy, 'manual');
+  assert.deepEqual(calls, [{ context: 'activity' }]);
+});
+
+test('游戏改用触摸时关闭摄像头但保留原房间手势的恢复资格', () => {
+  const calls = [];
+  const controller = {
+    active: true,
+    starting: false,
+    stream: {},
+    worker: {},
+    inputContext: 'activity',
+    activityFrameConsumer: () => {},
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    stop: (reason) => calls.push(reason) && true,
+  };
+
+  assert.equal(RoomGestureController.prototype.pauseActivityForPointer.call(controller), true);
+  assert.equal(controller.inputContext, 'none');
+  assert.equal(controller.activityFrameConsumer, null);
+  assert.equal(controller.activityReturnToRoom, true);
+  assert.equal(controller.resumePolicy, 'automatic');
+  assert.deepEqual(calls, ['activity-pointer']);
+});
+
+test('结算关闭摄像头，退出游戏后只为原本已开启的房间手势恢复一次', () => {
+  const calls = [];
+  const controller = {
+    active: true,
+    starting: false,
+    stream: {},
+    worker: {},
+    inputContext: 'activity',
+    activityFrameConsumer: () => {},
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    isRoomAvailable: () => true,
+    isReducedMotion: () => false,
+    stop: (reason) => {
+      calls.push(['stop', reason]);
+      controller.active = false;
+      controller.starting = false;
+      controller.stream = null;
+      return true;
+    },
+    start: (options) => calls.push(['start', options]),
+  };
+
+  assert.equal(RoomGestureController.prototype.finishActivityForSummary.call(controller), true);
+  assert.equal(controller.inputContext, 'none');
+  assert.deepEqual(calls, [['stop', 'activity-summary']]);
+
+  assert.equal(RoomGestureController.prototype.returnToRoomFromActivity.call(controller), true);
+  assert.equal(controller.activityReturnToRoom, false);
+  assert.equal(controller.resumePolicy, 'manual');
+  assert.deepEqual(calls, [
+    ['stop', 'activity-summary'],
+    ['start', { resume: true, context: 'room' }],
+  ]);
+  assert.equal(RoomGestureController.prototype.returnToRoomFromActivity.call(controller), false);
+});
+
+test('用户在游戏内主动停用体感会取消全部自动恢复资格', () => {
+  const calls = [];
+  const controller = {
+    inputContext: 'activity',
+    activityFrameConsumer: () => {},
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    stop: (reason) => calls.push(reason) && true,
+  };
+
+  assert.equal(RoomGestureController.prototype.stopActivityByUser.call(controller), true);
+  assert.equal(controller.inputContext, 'none');
+  assert.equal(controller.activityFrameConsumer, null);
+  assert.equal(controller.activityReturnToRoom, false);
+  assert.equal(controller.resumePolicy, 'manual');
+  assert.deepEqual(calls, ['user']);
+});
+
 test('主动停止或页面转入后台会取消尚未消费的自动恢复', () => {
   for (const reason of ['user', 'hidden', 'reduced-motion', 'destroy']) {
     const controller = {

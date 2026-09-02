@@ -13,6 +13,7 @@ const MODE_COPY = Object.freeze({
   pan: '握拳移动 · 环视房间',
   zoom: '捏合上下移动 · 缩放房间',
   point: '食指指向 · 停留打开热点',
+  activity: '食指移动 · 切开话术外壳',
 });
 
 function clamp(value, min, max) {
@@ -126,6 +127,7 @@ export class RoomGestureController {
     elements,
     onToast = () => {},
     isRoomAvailable = () => true,
+    isActivityAvailable = () => false,
     isReducedMotion = () => false,
   }) {
     this.stage = stage;
@@ -133,6 +135,7 @@ export class RoomGestureController {
     this.elements = elements;
     this.onToast = onToast;
     this.isRoomAvailable = isRoomAvailable;
+    this.isActivityAvailable = isActivityAvailable;
     this.isReducedMotion = isReducedMotion;
     this.mapper = new GestureCommandMapper();
     this.frameGate = new GestureFrameGate(gestureFrameInterval({
@@ -151,6 +154,10 @@ export class RoomGestureController {
     this.consecutiveFrameErrors = 0;
     this.currentTarget = null;
     this.panelResumePending = false;
+    this.inputContext = 'none';
+    this.activityFrameConsumer = null;
+    this.activityReturnToRoom = false;
+    this.resumePolicy = 'manual';
 
     this.onOpen = () => this.openDialog();
     this.onClose = () => this.closeDialog();
@@ -223,10 +230,16 @@ export class RoomGestureController {
     if (!this.active && !this.starting) this.setState('idle', '摄像头尚未开启。');
   }
 
-  async start({ resume = false } = {}) {
+  async start({ resume = false, context = 'room' } = {}) {
     if (this.active || this.starting) return;
-    if (!this.isRoomAvailable()) {
-      this.setState('error', '进入房间后才能开启手势控制。');
+    const requestedContext = context === 'activity' ? 'activity' : 'room';
+    const contextAvailable = requestedContext === 'activity'
+      ? this.isActivityAvailable()
+      : this.isRoomAvailable();
+    if (!contextAvailable) {
+      this.setState('error', requestedContext === 'activity'
+        ? '打开欲望剥壳机后才能为游戏开启体感。'
+        : '进入房间后才能开启手势控制。');
       return;
     }
     if (this.isReducedMotion()) {
@@ -311,13 +324,17 @@ export class RoomGestureController {
 
       this.starting = false;
       this.active = true;
+      this.inputContext = requestedContext;
       this.frameGate.reset();
       this.mapper.reset();
-      this.setState('active', '举起一只手，保持在预览框中。');
+      this.setState('active', requestedContext === 'activity'
+        ? '体感已开启：伸出食指，在空中划过商品外壳。'
+        : '举起一只手，保持在预览框中。');
       this.frameRequest = window.requestAnimationFrame((now) => this.captureLoop(now, session));
     } catch (error) {
       if (!sessionIsCurrent()) return;
       this.starting = false;
+      this.inputContext = 'none';
       this.releaseResources();
       this.setState('error', cameraErrorMessage(error));
     }
@@ -358,6 +375,18 @@ export class RoomGestureController {
     const landmarks = Array.isArray(data.landmarks) ? data.landmarks : [];
     const score = Number(data.confidence) || 0;
     this.drawLandmarks(landmarks, score);
+
+    if (this.inputContext === 'activity') {
+      this.elements.mode.textContent = MODE_COPY.activity;
+      this.activityFrameConsumer?.({
+        gesture: data.gesture,
+        score,
+        landmarks,
+        at: performance.now(),
+      });
+      return;
+    }
+
     this.updateCalibration(landmarks, score);
 
     const rect = this.stage.getBoundingClientRect();
@@ -478,14 +507,102 @@ export class RoomGestureController {
     return true;
   }
 
+  canContinueIntoActivity() {
+    return Boolean(this.active && this.stream && this.worker && this.workerReady);
+  }
+
+  continueIntoActivity(frameConsumer) {
+    if (!this.canContinueIntoActivity()) return false;
+    this.activityReturnToRoom = this.activityReturnToRoom || this.inputContext === 'room';
+    this.resumePolicy = this.activityReturnToRoom ? 'automatic' : 'manual';
+    this.activityFrameConsumer = typeof frameConsumer === 'function' ? frameConsumer : null;
+    this.inputContext = 'activity';
+    this.mapper.reset();
+    this.updatePointer(null);
+    this.setState('active', '体感已接入欲望剥壳机：伸出食指划过商品外壳。');
+    return true;
+  }
+
+  async startForActivity(frameConsumer) {
+    if (this.canContinueIntoActivity()) return this.continueIntoActivity(frameConsumer);
+    if (this.active || this.starting) return false;
+    this.activityFrameConsumer = typeof frameConsumer === 'function' ? frameConsumer : null;
+    this.activityReturnToRoom = false;
+    this.resumePolicy = 'manual';
+    this.inputContext = 'activity';
+    await this.start({ context: 'activity' });
+    const started = this.active && this.inputContext === 'activity';
+    if (!started) {
+      this.activityFrameConsumer = null;
+      this.inputContext = 'none';
+    }
+    return started;
+  }
+
+  pauseActivityForPointer() {
+    const wasRunning = this.active || this.starting || Boolean(this.stream) || Boolean(this.worker);
+    if (!wasRunning) {
+      this.activityFrameConsumer = null;
+      this.inputContext = 'none';
+      return false;
+    }
+    if (this.inputContext === 'room') {
+      this.activityReturnToRoom = true;
+      this.resumePolicy = 'automatic';
+    }
+    this.activityFrameConsumer = null;
+    this.inputContext = 'none';
+    return this.stop('activity-pointer');
+  }
+
+  finishActivityForSummary() {
+    const wasRunning = this.active || this.starting || Boolean(this.stream);
+    this.activityFrameConsumer = null;
+    this.inputContext = 'none';
+    if (!wasRunning) return false;
+    return this.stop('activity-summary');
+  }
+
+  returnToRoomFromActivity() {
+    const shouldResume = this.activityReturnToRoom && this.resumePolicy === 'automatic';
+    const activityIsRunning = this.active || this.starting || Boolean(this.stream);
+    this.activityFrameConsumer = null;
+    this.activityReturnToRoom = false;
+    this.resumePolicy = 'manual';
+    this.inputContext = 'none';
+    if (activityIsRunning) this.stop('activity-return');
+    if (!shouldResume) return activityIsRunning;
+    const canResume = this.isRoomAvailable()
+      && !this.isReducedMotion()
+      && (typeof document === 'undefined' || !document.hidden);
+    if (!canResume) return false;
+    void this.start({ resume: true, context: 'room' });
+    return true;
+  }
+
+  stopActivityByUser() {
+    this.activityFrameConsumer = null;
+    this.activityReturnToRoom = false;
+    this.resumePolicy = 'manual';
+    this.inputContext = 'none';
+    return this.stop('user');
+  }
+
   stop(reason = 'user') {
     const wasRunning = this.active || this.starting || Boolean(this.stream) || Boolean(this.worker);
-    const keepWorker = reason === 'panel' && this.active && this.workerReady;
+    const keepsWarmWorker = ['panel', 'activity-pointer', 'activity-summary', 'activity-return'].includes(reason);
+    const keepWorker = keepsWarmWorker && this.active && this.workerReady;
     if (reason !== 'panel') this.panelResumePending = false;
+    if (['user', 'hidden', 'reduced-motion', 'destroy'].includes(reason)) {
+      this.activityFrameConsumer = null;
+      this.activityReturnToRoom = false;
+      this.resumePolicy = 'manual';
+    }
     if (!wasRunning) return false;
     this.session += 1;
     this.active = false;
     this.starting = false;
+    this.inputContext = 'none';
     this.releaseResources({ keepWorker });
     this.mapper.reset();
     this.updatePointer(null);
@@ -494,6 +611,9 @@ export class RoomGestureController {
     const copy = {
       user: '手势控制已停止。',
       panel: '已暂停手势控制，回到房间将自动恢复。',
+      'activity-pointer': '已切换为触摸、鼠标或键盘，摄像头已关闭。',
+      'activity-summary': '本局已结算，摄像头已关闭。',
+      'activity-return': '已退出欲望剥壳机。',
       hidden: '页面离开前台，摄像头已自动关闭。',
       'reduced-motion': '已开启减少动态效果，手势控制已自动关闭。',
       'stream-ended': '摄像头已停止，请重新开启手势控制。',
