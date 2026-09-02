@@ -12457,8 +12457,8 @@ body.reduce-motion .activity-hotspot-device { animation: none; transition: none;
 .peel-game-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .peel-game-blade {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: var(--blade-x, 50%);
+  top: var(--blade-y, 50%);
   z-index: 5;
   width: 24px;
   height: 24px;

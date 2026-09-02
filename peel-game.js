@@ -87,6 +87,7 @@ export function selectFocusItem({ orders = [], seed = 'peel-focus' } = {}) {
     .sort((left, right) => orderTimestamp(right) - orderTimestamp(left));
   const order = coolingOrders[0];
   if (order) {
+    const amount = Number(order.amount);
     return Object.freeze({
       id: `order-${String(order.id)}`,
       orderId: String(order.id),
@@ -95,6 +96,7 @@ export function selectFocusItem({ orders = [], seed = 'peel-focus' } = {}) {
       glyph: '📦',
       source: 'order',
       structuredTriggers: Object.freeze(structuredTriggersFromOrder(order)),
+      ...(Number.isFinite(amount) && amount > 0 ? { amount } : {}),
     });
   }
 
@@ -121,6 +123,7 @@ export function createPeelGame({
   seed = 'peel-round',
   tutorialCompleted = false,
   orders = [],
+  reducedMotion = false,
 } = {}) {
   return {
     version: PEEL_GAME_VERSION,
@@ -129,6 +132,7 @@ export function createPeelGame({
     durationMs: GAME_DURATION_MS,
     elapsedMs: 0,
     tutorialCompleted: Boolean(tutorialCompleted),
+    reducedMotion: Boolean(reducedMotion),
     entities: [],
     reveals: [],
     copyHistory: [],
@@ -171,17 +175,18 @@ function createEntity(state, { item, phase, tutorial = false }) {
     });
   const x = tutorial ? 0.5 : 0.18 + unitFromSeed(`${entitySeed}:x`) * 0.64;
   const horizontalDirection = unitFromSeed(`${entitySeed}:direction`) > 0.5 ? 1 : -1;
+  const reducedMotion = state.reducedMotion && !tutorial;
 
   return {
     id: `peel-entity-${ordinal}`,
     item,
     x,
-    y: tutorial ? 0.46 : 1.08,
-    vx: tutorial ? 0 : horizontalDirection * (0.04 + unitFromSeed(`${entitySeed}:vx`) * 0.13),
-    vy: tutorial ? 0 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28),
-    gravity: tutorial ? 0 : GRAVITY,
+    y: tutorial ? 0.46 : reducedMotion ? 1.02 : 1.08,
+    vx: tutorial || reducedMotion ? 0 : horizontalDirection * (0.04 + unitFromSeed(`${entitySeed}:vx`) * 0.13),
+    vy: tutorial ? 0 : reducedMotion ? -0.42 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28),
+    gravity: tutorial ? 0 : reducedMotion ? 0.36 : GRAVITY,
     rotation: unitFromSeed(`${entitySeed}:rotation`) * Math.PI * 2,
-    rotationVelocity: tutorial ? 0 : (unitFromSeed(`${entitySeed}:spin`) - 0.5) * 2.2,
+    rotationVelocity: tutorial || reducedMotion ? 0 : (unitFromSeed(`${entitySeed}:spin`) - 0.5) * 2.2,
     radius: tutorial ? 0.12 : phase === 'focus' ? 0.115 : 0.082,
     shells: makeShells(copies),
     coreRevealed: false,
@@ -192,9 +197,11 @@ function createEntity(state, { item, phase, tutorial = false }) {
 
 function appendEntity(state, item, phase, { tutorial = false } = {}) {
   const entity = createEntity(state, { item, phase, tutorial });
+  const overflow = state.entities.length >= 8 ? state.entities[0] : null;
+  const entities = overflow ? state.entities.slice(1) : state.entities;
   return {
     ...state,
-    entities: [...state.entities, entity],
+    entities: [...entities, entity],
     copyHistory: tutorial
       ? state.copyHistory
       : [...state.copyHistory, ...entity.shells.map((shell) => shell.copy.id)],
@@ -202,6 +209,9 @@ function appendEntity(state, item, phase, { tutorial = false } = {}) {
       ? state.productHistory
       : [...state.productHistory, item.id],
     nextEntityOrdinal: state.nextEntityOrdinal + 1,
+    score: overflow && !overflow.coreRevealed
+      ? { ...state.score, missedProducts: state.score.missedProducts + 1 }
+      : state.score,
   };
 }
 
@@ -249,15 +259,18 @@ function validPoint(point) {
   return Number.isFinite(Number(point?.x)) && Number.isFinite(Number(point?.y));
 }
 
-export function applyPeelSegment(state, { from, to } = {}) {
+export function applyPeelSegment(state, { from, to, at } = {}) {
   if (![PEEL_GAME_STATUS.TUTORIAL, PEEL_GAME_STATUS.PLAYING].includes(state?.status)) return state;
   if (!validPoint(from) || !validPoint(to)) return state;
 
   let peeledShells = 0;
   let revealedProducts = 0;
   const reveals = [];
+  const segmentAt = Number(at);
+  const hasSegmentTime = Number.isFinite(segmentAt);
   const entities = state.entities.map((entity) => {
     if (entity.coreRevealed || pointToSegmentDistance(entity, from, to) > entity.radius) return entity;
+    if (hasSegmentTime && Number.isFinite(entity.lastHitAt) && segmentAt - entity.lastHitAt < 120) return entity;
     const shellIndex = entity.shells.findIndex((shell) => !shell.peeled);
     if (shellIndex < 0) return entity;
 
@@ -270,11 +283,12 @@ export function applyPeelSegment(state, { from, to } = {}) {
     reveals.push({
       entityId: entity.id,
       copyId: shells[shellIndex].copy.id,
+      lure: shells[shellIndex].copy.lure,
       text: shells[shellIndex].copy.reveal,
       family: shells[shellIndex].copy.family,
       atMs: state.elapsedMs,
     });
-    return { ...entity, shells, coreRevealed };
+    return { ...entity, shells, coreRevealed, ...(hasSegmentTime ? { lastHitAt: segmentAt } : {}) };
   });
 
   if (!peeledShells) return state;
@@ -285,7 +299,7 @@ export function applyPeelSegment(state, { from, to } = {}) {
       status: PEEL_GAME_STATUS.PLAYING,
       tutorialCompleted: true,
       entities: [],
-      reveals,
+      reveals: [],
       copyHistory: [],
       productHistory: [],
       nextEntityOrdinal: 0,
@@ -303,6 +317,23 @@ export function applyPeelSegment(state, { from, to } = {}) {
       peeledShells: state.score.peeledShells + peeledShells,
       revealedProducts: state.score.revealedProducts + revealedProducts,
     },
+  };
+}
+
+export function skipTutorial(state) {
+  if (!state || state.status !== PEEL_GAME_STATUS.TUTORIAL) return state;
+  return {
+    ...state,
+    status: PEEL_GAME_STATUS.PLAYING,
+    tutorialCompleted: true,
+    elapsedMs: 0,
+    entities: [],
+    reveals: [],
+    copyHistory: [],
+    productHistory: [],
+    nextEntityOrdinal: 0,
+    spawnAccumulatorMs: 0,
+    score: baseScore(),
   };
 }
 

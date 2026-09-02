@@ -10,6 +10,7 @@ import {
   phaseForElapsed,
   resumeRound,
   selectFocusItem,
+  skipTutorial,
   startRound,
   pauseRound,
 } from '../peel-game.js';
@@ -49,6 +50,17 @@ test('第一次进入是无计时奶茶教学，切开后才开始正式 45 秒'
   assert.equal(peeled.tutorialCompleted, true);
   assert.deepEqual(peeled.entities, []);
   assert.equal(peeled.score.peeledShells, 0, '教学不计入正式成绩');
+});
+
+test('直接开始会跳过教学且不计分', () => {
+  const tutorial = startRound(createPeelGame({ seed: 'skip', tutorialCompleted: false }));
+  const skipped = skipTutorial(tutorial);
+
+  assert.equal(skipped.status, PEEL_GAME_STATUS.PLAYING);
+  assert.equal(skipped.elapsedMs, 0);
+  assert.equal(skipped.tutorialCompleted, true);
+  assert.deepEqual(skipped.entities, []);
+  assert.deepEqual(skipped.score, { peeledShells: 0, revealedProducts: 0, missedProducts: 0 });
 });
 
 test('正式商品从底部向上抛出并按抛物线受重力下落', () => {
@@ -95,6 +107,20 @@ test('暂停期间物理和计时冻结，恢复后从原状态继续', () => {
   assert.equal(waited.elapsedMs, paused.elapsedMs);
   assert.deepEqual(waited.entities, paused.entities);
   assert.equal(resumeRound(waited).status, PEEL_GAME_STATUS.PLAYING);
+});
+
+test('局内实体始终不超过 8 个，减少动态时取消高速和旋转', () => {
+  let game = startRound(createPeelGame({ seed: 'cap', tutorialCompleted: true }));
+  for (let index = 0; index < 20; index += 1) game = advanceRound(game, 1_150);
+  assert.ok(game.entities.length <= 8);
+
+  const reduced = startRound(createPeelGame({
+    seed: 'reduced',
+    tutorialCompleted: true,
+    reducedMotion: true,
+  }));
+  assert.equal(reduced.entities[0].rotationVelocity, 0);
+  assert.ok(Math.abs(reduced.entities[0].vy) < 0.6);
 });
 
 test('回合阶段固定为单层、混合和聚焦商品三个时段', () => {
