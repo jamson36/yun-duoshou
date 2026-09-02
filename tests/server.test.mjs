@@ -123,10 +123,12 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/peel-copy-catalog.js`),
       fetch(`${baseUrl}/peel-game.js`),
       fetch(`${baseUrl}/peel-game-ui.js`),
+      fetch(`${baseUrl}/peel-product-visuals.js`),
       fetch(`${baseUrl}/peel-gesture-controls.js`),
       fetch(`${baseUrl}/orientation-controls.js`),
       fetch(`${baseUrl}/orientation-ui.js`),
       fetch(`${baseUrl}/styles.css`),
+      fetch(`${baseUrl}/peel-game-refined.css`),
       fetch(`${baseUrl}/persona-presentations.js`),
       fetch(`${baseUrl}/route-sync.js`),
       fetch(`${baseUrl}/share-poster.js`),
@@ -189,6 +191,7 @@ test('欲望剥壳机运行模块只通过同源白名单提供', async () => {
       'peel-copy-catalog.js',
       'peel-game.js',
       'peel-game-ui.js',
+      'peel-product-visuals.js',
       'peel-gesture-controls.js',
     ];
     const responses = await Promise.all(moduleNames.map((name) => fetch(`${baseUrl}/${name}`)));
@@ -196,6 +199,16 @@ test('欲望剥壳机运行模块只通过同源白名单提供', async () => {
     assert.deepEqual(responses.map((response) => response.status), moduleNames.map(() => 200));
     assert.ok(responses.every((response) => /text\/javascript/.test(response.headers.get('content-type') || '')));
     assert.ok(responses.every((response) => response.headers.get('cache-control') === 'public, max-age=3600'));
+  });
+});
+
+test('精品解构舱样式只通过同源白名单提供', async () => {
+  await withServer({}, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/peel-game-refined.css`);
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') || '', /text\/css/);
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=3600');
   });
 });
 
@@ -227,7 +240,9 @@ test('生产镜像包含手势与体感控制的根级运行模块', async () =>
     'peel-copy-catalog.js',
     'peel-game.js',
     'peel-game-ui.js',
+    'peel-product-visuals.js',
     'peel-gesture-controls.js',
+    'peel-game-refined.css',
     'orientation-controls.js',
     'orientation-ui.js',
   ];

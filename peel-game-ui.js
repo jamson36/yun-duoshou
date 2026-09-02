@@ -9,6 +9,7 @@ import {
   skipTutorial,
   startRound,
 } from './peel-game.js';
+import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260902-gallery-glass-1';
 
 export const MAX_PEEL_DPR = 2;
 export const MAX_PEEL_ENTITIES = 8;
@@ -18,9 +19,9 @@ export const MAX_PEEL_REVEAL_CARDS = 8;
 
 const CONTROLLERS = new WeakMap();
 const PHASE_LABELS = Object.freeze({
-  single: '先看一层',
-  mixed: '双层推动出现',
-  focus: '看看这一件',
+  single: '单信号',
+  mixed: '双信号',
+  focus: '焦点商品',
   complete: '本局结束',
 });
 const REMINDERS = Object.freeze({
@@ -126,6 +127,52 @@ function drawRoundedRect(context, x, y, width, height, radius) {
   context.lineTo(x, y + safeRadius);
   context.quadraticCurveTo(x, y, x + safeRadius, y);
   context.closePath?.();
+}
+
+const SIGNAL_FILM_COLORS = Object.freeze([
+  Object.freeze({ line: 'rgba(215, 255, 67, .78)', fill: 'rgba(215, 255, 67, .12)' }),
+  Object.freeze({ line: 'rgba(112, 231, 218, .72)', fill: 'rgba(112, 231, 218, .11)' }),
+]);
+
+function drawSignalFilm(context, shell, shellIndex, scale, {
+  front = false,
+  showLabel = false,
+} = {}) {
+  const palette = SIGNAL_FILM_COLORS[shellIndex % SIGNAL_FILM_COLORS.length];
+  const angle = (shellIndex % 2 === 0 ? -0.19 : 0.22) + shellIndex * 0.025;
+  const radiusX = (72 + shellIndex * 7) * scale;
+  const radiusY = (27 + shellIndex * 3) * scale;
+  context.save();
+  context.rotate(angle);
+  context.lineCap = 'round';
+  context.strokeStyle = palette.line;
+  context.lineWidth = (front ? 2 : 1.2) * scale;
+  context.shadowColor = palette.line;
+  context.shadowBlur = front ? 12 * scale : 5 * scale;
+  context.beginPath();
+  context.ellipse?.(0, 0, radiusX, radiusY, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2);
+  context.stroke();
+
+  if (front && showLabel) {
+    const lure = String(shell?.copy?.lure || '先等等');
+    const labelWidth = clamp(40 + lure.length * 11, 82, 128) * scale;
+    const labelHeight = 25 * scale;
+    const labelX = radiusX * 0.3 - labelWidth / 2;
+    const labelY = -radiusY - labelHeight * 0.18;
+    drawRoundedRect(context, labelX, labelY, labelWidth, labelHeight, labelHeight / 2);
+    context.fillStyle = palette.fill;
+    context.fill();
+    context.strokeStyle = palette.line;
+    context.lineWidth = 0.8 * scale;
+    context.stroke();
+    context.shadowBlur = 8 * scale;
+    context.fillStyle = '#f4f0e7';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.font = `600 ${10 * scale}px "PingFang SC", sans-serif`;
+    context.fillText(lure, labelX + labelWidth / 2, labelY + labelHeight / 2);
+  }
+  context.restore();
 }
 
 function uniqueReveals(reveals) {
@@ -246,7 +293,7 @@ export function createPeelGameController({
     const children = targets.map((entity) => {
       const shell = entity.shells.find((entry) => !entry.peeled);
       return createTextButton(
-        `${entity.item.name}：“${shell?.copy?.lure || '等待剥壳'}”`,
+        `${entity.item.name}：“${shell?.copy?.lure || '等待信号'}”`,
         () => peelTarget(entity),
       );
     });
@@ -258,7 +305,7 @@ export function createPeelGameController({
     const shell = target?.shells.find((entry) => !entry.peeled);
     if (elements.currentTarget) {
       elements.currentTarget.textContent = target
-        ? `当前空中目标：${target.item.name}的“${shell?.copy?.lure}”外壳`
+        ? `当前空中目标：${target.item.name} · “${shell?.copy?.lure}”`
         : '当前空中目标：等待商品';
     }
     for (const button of [
@@ -297,94 +344,107 @@ export function createPeelGameController({
     const y = entity.y * height;
     const scale = clamp(entity.radius / 0.082, 0.82, 1.42) * appliedDpr;
     const price = entity.coreRevealed ? formatCny(entity.item.amount) : '';
+    const unpeeledShells = entity.shells
+      .map((shell, index) => ({ shell, index }))
+      .filter(({ shell }) => !shell.peeled);
     context.save();
     context.translate(x, y);
-    if (!motionIsReduced()) context.rotate(entity.rotation);
+    if (!motionIsReduced()) context.rotate(Math.sin(entity.rotation) * 0.16);
 
-    if (entity.coreRevealed) {
-      context.beginPath();
-      context.fillStyle = 'rgba(215, 255, 67, .42)';
-      context.arc?.(0, 0, 55 * scale, 0, Math.PI * 2);
-      context.fill();
-    }
+    unpeeledShells.forEach(({ shell, index }) => {
+      drawSignalFilm(context, shell, index, scale, { front: false });
+    });
 
-    drawRoundedRect(context, -42 * scale, -42 * scale, 84 * scale, 84 * scale, 22 * scale);
-    context.fillStyle = '#fffaf0';
+    context.beginPath();
+    context.fillStyle = entity.coreRevealed
+      ? 'rgba(215, 255, 67, .16)'
+      : 'rgba(244, 240, 231, .055)';
+    context.shadowColor = entity.coreRevealed ? 'rgba(215, 255, 67, .72)' : 'rgba(244, 240, 231, .2)';
+    context.shadowBlur = entity.coreRevealed ? 28 * scale : 12 * scale;
+    context.arc?.(0, 0, 50 * scale, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = '#302924';
-    context.lineWidth = 3 * scale;
-    context.stroke();
-    context.font = `${42 * scale}px system-ui, sans-serif`;
+    context.shadowBlur = 0;
+
+    drawPeelProductVisual(context, entity.item, {
+      scale,
+      revealed: entity.coreRevealed,
+      color: '#f4f0e7',
+      accent: '#d7ff43',
+    });
+
+    unpeeledShells.forEach(({ shell, index }, visibleIndex) => {
+      drawSignalFilm(context, shell, index, scale, {
+        front: true,
+        showLabel: visibleIndex === 0,
+      });
+    });
+
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillStyle = '#302924';
-    context.fillText(entity.item.glyph || '□', 0, -3 * scale);
-    context.font = `800 ${9 * scale}px system-ui, sans-serif`;
-    context.fillText(entity.item.name, 0, (price ? 25 : 31) * scale);
+    context.fillStyle = entity.coreRevealed ? '#f4f0e7' : 'rgba(244, 240, 231, .82)';
+    context.font = `600 ${10 * scale}px "PingFang SC", sans-serif`;
+    context.fillText(entity.item.name, 0, (price ? 53 : 48) * scale);
     if (price) {
-      context.font = `900 ${8 * scale}px ui-monospace, SFMono-Regular, monospace`;
-      context.fillText(price, 0, 37 * scale);
-    }
-
-    const shellIndex = entity.shells.findIndex((shell) => !shell.peeled);
-    if (shellIndex >= 0) {
-      const shell = entity.shells[shellIndex];
-      const widthPx = 154 * scale;
-      const heightPx = 62 * scale;
-      drawRoundedRect(context, -widthPx / 2, -heightPx / 2, widthPx, heightPx, 17 * scale);
-      context.fillStyle = shellIndex % 2 === 0 ? '#ffb23f' : '#69ded0';
-      context.fill();
-      context.strokeStyle = '#302924';
-      context.lineWidth = 3 * scale;
-      context.stroke();
-      context.textAlign = 'left';
-      context.textBaseline = 'top';
-      context.fillStyle = 'rgba(48, 41, 36, .72)';
-      context.font = `900 ${7 * scale}px system-ui, sans-serif`;
-      context.fillText('话术样本', -widthPx / 2 + 10 * scale, -heightPx / 2 + 7 * scale);
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillStyle = '#302924';
-      context.font = `900 ${14 * scale}px system-ui, sans-serif`;
-      context.fillText(shell.copy.lure, 0, 6 * scale);
+      context.fillStyle = '#d7ff43';
+      context.font = `650 ${8.5 * scale}px ui-monospace, SFMono-Regular, monospace`;
+      context.fillText(price, 0, 64 * scale);
     }
     context.restore();
   }
 
   function drawShellShard(shard, width, height) {
     if (!context) return;
-    const shardWidth = 70 * appliedDpr;
-    const shardHeight = 44 * appliedDpr;
+    const shardWidth = 66 * appliedDpr;
+    const shardHeight = 24 * appliedDpr;
     context.save();
     context.translate(shard.x * width, shard.y * height);
     context.rotate(shard.rotation);
+    context.globalCompositeOperation = 'screen';
+    context.globalAlpha = 0.72;
     context.fillStyle = shard.color;
-    context.strokeStyle = '#302924';
-    context.lineWidth = 2 * appliedDpr;
-    context.fillRect(-shardWidth / 2, -shardHeight / 2, shardWidth, shardHeight);
-    context.strokeRect(-shardWidth / 2, -shardHeight / 2, shardWidth, shardHeight);
+    context.strokeStyle = 'rgba(244, 240, 231, .58)';
+    context.lineWidth = 0.8 * appliedDpr;
+    context.shadowColor = shard.color;
+    context.shadowBlur = 12 * appliedDpr;
+    context.beginPath();
+    context.moveTo(-shardWidth / 2, 0);
+    context.lineTo(-shardWidth * 0.08, -shardHeight / 2);
+    context.lineTo(shardWidth / 2, -shardHeight * 0.08);
+    context.lineTo(shardWidth * 0.12, shardHeight / 2);
+    context.closePath();
+    context.fill();
+    context.stroke();
     context.restore();
   }
 
   function drawRevealCard(card, width, height) {
     if (!context) return;
-    const cardWidth = Math.min(230 * appliedDpr, width - 24 * appliedDpr);
-    const cardHeight = 54 * appliedDpr;
-    const x = clamp(card.x * width - cardWidth / 2, 12 * appliedDpr, width - cardWidth - 12 * appliedDpr);
-    const y = clamp(card.y * height - 96 * appliedDpr, 12 * appliedDpr, height - cardHeight - 12 * appliedDpr);
+    const echoWidth = Math.min(240 * appliedDpr, width - 36 * appliedDpr);
+    const x = clamp(card.x * width, 18 * appliedDpr + echoWidth / 2, width - 18 * appliedDpr - echoWidth / 2);
+    const y = clamp(card.y * height - 90 * appliedDpr, 30 * appliedDpr, height - 76 * appliedDpr);
     const text = String(card.text || '先看清，再决定');
-    const lines = text.length > 15 ? [text.slice(0, 15), text.slice(15, 30)] : [text];
+    const lines = text.length > 16 ? [text.slice(0, 16), text.slice(16, 32)] : [text];
     context.save();
-    drawRoundedRect(context, x, y, cardWidth, cardHeight, 14 * appliedDpr);
-    context.fillStyle = '#302924';
+    context.globalCompositeOperation = 'screen';
+    context.strokeStyle = 'rgba(215, 255, 67, .72)';
+    context.lineWidth = 0.8 * appliedDpr;
+    context.shadowColor = 'rgba(215, 255, 67, .38)';
+    context.shadowBlur = 10 * appliedDpr;
+    context.beginPath();
+    context.moveTo(x - echoWidth * 0.28, y - 13 * appliedDpr);
+    context.lineTo(x + echoWidth * 0.28, y - 13 * appliedDpr);
+    context.stroke();
+    context.beginPath();
+    context.arc(x - echoWidth * 0.32, y - 13 * appliedDpr, 1.8 * appliedDpr, 0, Math.PI * 2);
+    context.fillStyle = '#d7ff43';
     context.fill();
-    context.fillStyle = '#fffaf0';
+    context.fillStyle = 'rgba(244, 240, 231, .94)';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.font = `800 ${11 * appliedDpr}px system-ui, sans-serif`;
+    context.font = `550 ${10.5 * appliedDpr}px "PingFang SC", system-ui, sans-serif`;
     lines.forEach((line, index) => {
-      const lineOffset = (index - (lines.length - 1) / 2) * 16 * appliedDpr;
-      context.fillText(line, x + cardWidth / 2, y + cardHeight / 2 + lineOffset);
+      const lineOffset = index * 15 * appliedDpr;
+      context.fillText(line, x, y + lineOffset);
     });
     context.restore();
   }
@@ -404,13 +464,24 @@ export function createPeelGameController({
       context.beginPath();
       context.moveTo(trail.from.x * width, trail.from.y * height);
       context.lineTo(trail.to.x * width, trail.to.y * height);
-      context.strokeStyle = 'rgba(255, 255, 255, .86)';
-      context.lineWidth = 4 * appliedDpr;
+      context.strokeStyle = 'rgba(215, 255, 67, .13)';
+      context.lineWidth = 10 * appliedDpr;
+      context.stroke();
+      context.strokeStyle = 'rgba(244, 240, 231, .94)';
+      context.lineWidth = 1.8 * appliedDpr;
       context.stroke();
     }
     for (const particle of particles) {
+      context.beginPath();
       context.fillStyle = particle.color;
-      context.fillRect(particle.x * width, particle.y * height, 6 * appliedDpr, 4 * appliedDpr);
+      context.arc(
+        particle.x * width,
+        particle.y * height,
+        (particle.radius || 1.7) * appliedDpr,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
     }
     context.restore();
   }
@@ -425,7 +496,9 @@ export function createPeelGameController({
       revealCards.push({ x: entity.x, y: entity.y, text: reveal.text, bornAt: at });
       if (!motionIsReduced()) {
         const shellIndex = entity.shells.findIndex((shell) => shell.copy.id === reveal.copyId);
-        const shellColor = shellIndex % 2 === 0 ? '#ffb23f' : '#69ded0';
+        const shellColor = shellIndex % 2 === 0
+          ? 'rgba(215, 255, 67, .28)'
+          : 'rgba(112, 231, 218, .24)';
         [-1, 1].forEach((side) => {
           shellShards.push({
             x: entity.x + side * 0.018,
@@ -445,12 +518,13 @@ export function createPeelGameController({
             vx: (index - 4.5) * 0.008,
             vy: -0.05 - (index % 3) * 0.012,
             bornAt: at,
-            color: index % 2 ? '#d7ff43' : '#fffaf0',
+            radius: index % 3 === 0 ? 2.1 : 1.35,
+            color: index % 2 ? 'rgba(215, 255, 67, .86)' : 'rgba(244, 240, 231, .7)',
           });
         }
       }
       if (elements.liveStatus) {
-        elements.liveStatus.textContent = `${reveal.lure}，剥开后：${reveal.text}。商品完整保留。`;
+        elements.liveStatus.textContent = `已识别“${reveal.lure}”。降噪提示：${reveal.text}。商品完整保留。`;
       }
     }
     particles = particles.slice(-MAX_PEEL_PARTICLES);

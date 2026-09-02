@@ -8,6 +8,7 @@ COPY --chown=node:node server ./server
 COPY --chown=node:node \
   index.html \
   styles.css \
+  peel-game-refined.css \
   app.js \
   analysis-stages.js \
   budget-goals.js \
@@ -24,6 +25,7 @@ COPY --chown=node:node \
   peel-copy-catalog.js \
   peel-game.js \
   peel-game-ui.js \
+  peel-product-visuals.js \
   peel-gesture-controls.js \
   persona-presentations.js \
   route-sync.js \

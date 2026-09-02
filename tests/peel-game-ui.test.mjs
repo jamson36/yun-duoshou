@@ -78,8 +78,9 @@ class FakeElement {
 
 function drawingContext(calls = []) {
   const methods = new Set([
-    'beginPath', 'clearRect', 'fill', 'fillRect', 'fillText', 'lineTo', 'moveTo',
-    'quadraticCurveTo', 'restore', 'rotate', 'save', 'stroke', 'strokeRect', 'translate',
+    'arc', 'beginPath', 'clearRect', 'closePath', 'ellipse', 'fill', 'fillRect', 'fillText',
+    'lineTo', 'moveTo', 'quadraticCurveTo', 'restore', 'rotate', 'save', 'scale', 'stroke',
+    'strokeRect', 'translate',
   ]);
   return new Proxy({}, {
     get(target, key) {
