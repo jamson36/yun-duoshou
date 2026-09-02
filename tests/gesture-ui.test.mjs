@@ -199,8 +199,8 @@ test('游戏内单独开启体感只请求游戏上下文，不获得返回房�
     starting: false,
     inputContext: 'none',
     activityFrameConsumer: null,
-    activityReturnToRoom: true,
-    resumePolicy: 'automatic',
+    activityReturnToRoom: false,
+    resumePolicy: 'manual',
     start: async (options) => {
       calls.push(options);
       controller.active = true;
@@ -215,6 +215,29 @@ test('游戏内单独开启体感只请求游戏上下文，不获得返回房�
   assert.equal(controller.activityReturnToRoom, false);
   assert.equal(controller.resumePolicy, 'manual');
   assert.deepEqual(calls, [{ context: 'activity' }]);
+});
+
+test('从房间带入的体感在结算后重玩仍保留返回房间资格', async () => {
+  const consumer = () => {};
+  const controller = {
+    active: false,
+    starting: false,
+    inputContext: 'none',
+    activityFrameConsumer: null,
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    start: async (options) => {
+      controller.active = true;
+      controller.inputContext = options.context;
+    },
+  };
+  controller.canContinueIntoActivity = RoomGestureController.prototype.canContinueIntoActivity;
+
+  assert.equal(await RoomGestureController.prototype.startForActivity.call(controller, consumer), true);
+  assert.equal(controller.activityReturnToRoom, true);
+  assert.equal(controller.resumePolicy, 'automatic');
+  assert.equal(controller.inputContext, 'activity');
+  assert.equal(controller.activityFrameConsumer, consumer);
 });
 
 test('游戏改用触摸时关闭摄像头但保留原房间手势的恢复资格', () => {

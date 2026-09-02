@@ -548,6 +548,7 @@ export function createPeelGameController({
   function replay() {
     if (!state) return state;
     stopLoop();
+    onInputMode(inputMode);
     replayCount += 1;
     state = createPeelGame({
       ...config,

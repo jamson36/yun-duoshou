@@ -103,7 +103,7 @@ function frameDriver() {
   };
 }
 
-function harness({ canvasAvailable = true, reducedMotion = false } = {}) {
+function harness({ canvasAvailable = true, reducedMotion = false, onInputMode = () => {} } = {}) {
   const root = new FakeElement();
   root.hidden = true;
   const elements = {
@@ -146,6 +146,7 @@ function harness({ canvasAvailable = true, reducedMotion = false } = {}) {
     requestFrame: (callback) => frames.request(callback),
     cancelFrame: (id) => frames.cancel(id),
     loadAssets: async () => { assetLoads += 1; },
+    onInputMode,
   });
   return { root, elements, frames, controller, get assetLoads() { return assetLoads; } };
 }
@@ -164,7 +165,8 @@ test('同一根节点只创建一个控制器，素材只在首次 open 时加�
 });
 
 test('首次开始显示无计时教学，skip 后才启动正式 RAF 且 replay 不重复教学', async () => {
-  const setup = harness();
+  const inputModes = [];
+  const setup = harness({ onInputMode: (mode) => inputModes.push(mode) });
   await setup.controller.open({ seed: 'tutorial', tutorialCompleted: false });
   setup.controller.start('pointer');
   assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.TUTORIAL);
@@ -179,6 +181,7 @@ test('首次开始显示无计时教学，skip 后才启动正式 RAF 且 replay
   setup.controller.replay();
   assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);
   assert.equal(setup.elements.tutorial.hidden, true);
+  assert.deepEqual(inputModes, ['pointer', 'pointer'], '重玩应重新建立上一局输入上下文');
 });
 
 test('触屏轻点与拖动都走同一线段入口，商品本体不会被重复结算', async () => {

@@ -526,9 +526,10 @@ export class RoomGestureController {
   async startForActivity(frameConsumer) {
     if (this.canContinueIntoActivity()) return this.continueIntoActivity(frameConsumer);
     if (this.active || this.starting) return false;
+    const shouldReturnToRoom = this.activityReturnToRoom && this.resumePolicy === 'automatic';
     this.activityFrameConsumer = typeof frameConsumer === 'function' ? frameConsumer : null;
-    this.activityReturnToRoom = false;
-    this.resumePolicy = 'manual';
+    this.activityReturnToRoom = shouldReturnToRoom;
+    this.resumePolicy = shouldReturnToRoom ? 'automatic' : 'manual';
     this.inputContext = 'activity';
     await this.start({ context: 'activity' });
     const started = this.active && this.inputContext === 'activity';
