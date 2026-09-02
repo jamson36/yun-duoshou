@@ -566,17 +566,40 @@ export class RoomGestureController {
   returnToRoomFromActivity() {
     const shouldResume = this.activityReturnToRoom && this.resumePolicy === 'automatic';
     const activityIsRunning = this.active || this.starting || Boolean(this.stream);
+    const canResume = this.isRoomAvailable()
+      && !this.isReducedMotion()
+      && (typeof document === 'undefined' || !document.hidden);
+    if (shouldResume && this.active && this.stream && canResume) {
+      this.activityFrameConsumer = null;
+      this.activityReturnToRoom = false;
+      this.resumePolicy = 'manual';
+      this.inputContext = 'room';
+      this.mapper.reset();
+      this.updatePointer(null);
+      this.setState('active', '举起一只手，保持在预览框中。');
+      return true;
+    }
     this.activityFrameConsumer = null;
     this.activityReturnToRoom = false;
     this.resumePolicy = 'manual';
     this.inputContext = 'none';
     if (activityIsRunning) this.stop('activity-return');
     if (!shouldResume) return activityIsRunning;
-    const canResume = this.isRoomAvailable()
-      && !this.isReducedMotion()
-      && (typeof document === 'undefined' || !document.hidden);
     if (!canResume) return false;
     void this.start({ resume: true, context: 'room' });
+    return true;
+  }
+
+  handoffActivityToPanel() {
+    const shouldResume = this.activityReturnToRoom && this.resumePolicy === 'automatic';
+    this.activityFrameConsumer = null;
+    this.activityReturnToRoom = false;
+    this.resumePolicy = 'manual';
+    this.inputContext = 'none';
+    if (!shouldResume) return this.stop('user');
+    this.panelResumePending = true;
+    this.stop('panel');
+    this.panelResumePending = true;
     return true;
   }
 
@@ -591,7 +614,7 @@ export class RoomGestureController {
   stop(reason = 'user') {
     const wasRunning = this.active || this.starting || Boolean(this.stream) || Boolean(this.worker);
     const keepsWarmWorker = ['panel', 'activity-pointer', 'activity-summary', 'activity-return'].includes(reason);
-    const keepWorker = keepsWarmWorker && this.active && this.workerReady;
+    const keepWorker = keepsWarmWorker && this.workerReady;
     if (reason !== 'panel') this.panelResumePending = false;
     if (['user', 'hidden', 'reduced-motion', 'destroy'].includes(reason)) {
       this.activityFrameConsumer = null;

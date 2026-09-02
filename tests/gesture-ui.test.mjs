@@ -276,6 +276,55 @@ test('结算关闭摄像头，退出游戏后只为原本已开启的房间手�
   assert.equal(RoomGestureController.prototype.returnToRoomFromActivity.call(controller), false);
 });
 
+test('游戏介绍页直接返回房间时原地切回房间输入，不重启媒体流', () => {
+  const calls = [];
+  const controller = {
+    active: true,
+    starting: false,
+    stream: {},
+    inputContext: 'activity',
+    activityFrameConsumer: () => {},
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    isRoomAvailable: () => true,
+    isReducedMotion: () => false,
+    mapper: { reset: () => calls.push('mapper-reset') },
+    updatePointer: (pointer) => calls.push(['pointer', pointer]),
+    setState: (state, copy) => calls.push(['state', state, copy]),
+    stop: () => assert.fail('媒体流仍可用时不应先停止'),
+    start: () => assert.fail('媒体流仍可用时不应重新请求'),
+  };
+
+  assert.equal(RoomGestureController.prototype.returnToRoomFromActivity.call(controller), true);
+  assert.equal(controller.inputContext, 'room');
+  assert.equal(controller.activityFrameConsumer, null);
+  assert.equal(controller.activityReturnToRoom, false);
+  assert.deepEqual(calls.slice(0, 2), ['mapper-reset', ['pointer', null]]);
+});
+
+test('从游戏进入业务页时只为原房间手势保留面板恢复资格', () => {
+  const calls = [];
+  const controller = {
+    active: false,
+    starting: false,
+    stream: null,
+    worker: {},
+    workerReady: true,
+    inputContext: 'none',
+    activityFrameConsumer: null,
+    activityReturnToRoom: true,
+    resumePolicy: 'automatic',
+    panelResumePending: false,
+    stop: (reason) => calls.push(reason) && true,
+  };
+
+  assert.equal(RoomGestureController.prototype.handoffActivityToPanel.call(controller), true);
+  assert.equal(controller.panelResumePending, true);
+  assert.equal(controller.activityReturnToRoom, false);
+  assert.equal(controller.resumePolicy, 'manual');
+  assert.deepEqual(calls, ['panel']);
+});
+
 test('用户在游戏内主动停用体感会取消全部自动恢复资格', () => {
   const calls = [];
   const controller = {
