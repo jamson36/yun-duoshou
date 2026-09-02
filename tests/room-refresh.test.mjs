@@ -63,12 +63,12 @@ test('三秒揭幕只播一次，Figma 4:5 入口视频循环播放', () => {
 test('进入后使用带红凳坐姿浣熊的高清球形全景并保留非一级快递探索热点', () => {
   assert.match(appSource, /imageUrl:\s*'\.\/assets\/room-panorama-hd\.webp'/);
   assert.doesNotMatch(appSource, /imageUrl:\s*'\.\/assets\/room-panorama\.webp'/);
-  assert.match(appSource, /scene-config\.js\?v=20260901-room-camera-2/);
+  assert.match(appSource, /scene-config\.js\?v=20260902-desire-peel-1/);
   assert.match(appSource, /const sceneViewportMedia = window\.matchMedia\('\(max-width: 820px\)'\)/);
   assert.match(appSource, /currentSceneDefaultView = \(\) => \([\s\S]*?sceneViewportMedia\.matches \? SCENE_MOBILE_DEFAULT_VIEW : SCENE_DEFAULT_VIEW/);
   assert.match(appSource, /sceneViewportMedia\.addEventListener\('change', syncSceneDefaultView\)/);
   assert.match(appSource, /projection:\s*'spherical'/);
-  assert.match(appSource, /const sceneHotspots = \[\.\.\.FEATURE_HOTSPOTS, \.\.\.createPackageHotspots\(\)\]/);
+  assert.match(appSource, /const sceneHotspots = \[\.\.\.FEATURE_HOTSPOTS, \.\.\.ACTIVITY_HOTSPOTS, \.\.\.createPackageHotspots\(\)\]/);
   assert.match(appSource.split('\n').slice(0, 6).join('\n'), /createPackageHotspots/);
 });
 

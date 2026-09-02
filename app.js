@@ -1,6 +1,6 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
-import { PanoramaRoom } from './panorama.js?v=20260901-flow-alignment-3';
-import { FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260901-room-camera-2';
+import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-1';
+import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260902-desire-peel-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260830-date-picker-3';
@@ -8,10 +8,12 @@ import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBud
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
 import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
-import { buildClinicHash, buildNewHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, routeSignature } from './route-sync.js?v=20260901-flow-alignment-3';
+import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260902-desire-peel-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
-import { RoomGestureController } from './gesture-ui.js?v=20260901-gesture-runtime-2';
+import { RoomGestureController } from './gesture-ui.js?v=20260902-desire-peel-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
+import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260902-desire-peel-1';
+import { createPeelGameController } from './peel-game-ui.js?v=20260902-desire-peel-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -252,6 +254,20 @@ const ORDER_FALLBACK_PRODUCT_BY_CATEGORY = {
   旅行交通: 'interest-diving',
 };
 
+const PEEL_COMMERCE_PRODUCT_BY_ID = Object.freeze({
+  'milk-tea': 'food-milktea',
+  'cold-brew': 'food-coffee',
+  'sparkling-drink': 'food-milktea',
+  headphones: 'shop-headphones',
+  keyboard: 'shop-keyboard',
+  camera: 'shop-camera',
+  sneakers: 'shop-shoes',
+  'shoulder-bag': 'shop-bag',
+  'blind-box': 'shop-blindbox',
+  'aroma-candle': 'shop-perfume',
+  'camping-lamp': 'interest-diving',
+});
+
 const app = document.querySelector('#app');
 const sceneFrame = document.querySelector('#sceneFrame');
 const focusPanel = document.querySelector('#focusPanel');
@@ -368,6 +384,7 @@ const roomHelpDialog = document.querySelector('#roomHelpDialog');
 const roomHelpButton = document.querySelector('#roomHelpButton');
 const roomHelpCloseButton = document.querySelector('#roomHelpCloseButton');
 const resetRoomViewButton = document.querySelector('#resetRoomViewButton');
+const peelGameRoot = document.querySelector('#peelGameDialog');
 const gestureControlElements = {
   root: document.querySelector('#gestureControl'),
   openButton: document.querySelector('#gestureControlButton'),
@@ -436,6 +453,11 @@ let clockDateSignature = '';
 let clockClinicAssessmentFingerprint = '';
 let roomEntered = false;
 let pendingPanel = null;
+let pendingActivity = null;
+let activeActivity = null;
+let peelActivityReturnFocus = null;
+let peelCloseOptions = null;
+let peelGameController = null;
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 let analysisStageState = {
   active: false,
@@ -468,7 +490,7 @@ let activeCommerceFilter = COMMERCE_CATALOGS[activeCommerceType].filters[0];
 let activeCommerceProductId = null;
 let lastCommerceProduct = null;
 
-const sceneHotspots = [...FEATURE_HOTSPOTS, ...createPackageHotspots()];
+const sceneHotspots = [...FEATURE_HOTSPOTS, ...ACTIVITY_HOTSPOTS, ...createPackageHotspots()];
 const sceneViewportMedia = window.matchMedia('(max-width: 820px)');
 const currentSceneDefaultView = () => (
   sceneViewportMedia.matches ? SCENE_MOBILE_DEFAULT_VIEW : SCENE_DEFAULT_VIEW
@@ -489,6 +511,10 @@ const panorama = new PanoramaRoom({
   projection: 'spherical',
   interactionEnabled: false,
   onActivate: (hotspot, trigger) => {
+    if (hotspot.activity === 'peel') {
+      openPeelActivity(trigger);
+      return;
+    }
     openPanel(hotspot.panel, trigger);
   },
   onThought: () => {},
@@ -500,6 +526,7 @@ const gestureController = new RoomGestureController({
   elements: gestureControlElements,
   onToast: showToast,
   isRoomAvailable: () => roomEntered && !activePanel,
+  isActivityAvailable: () => activeActivity === 'peel',
   isReducedMotion: () => document.body.classList.contains('reduce-motion'),
 });
 const orientationController = new RoomOrientationController({
@@ -509,6 +536,15 @@ const orientationController = new RoomOrientationController({
   onBeforeStart: () => gestureController.stop('user'),
   isRoomAvailable: () => roomEntered && !activePanel,
   isReducedMotion: () => document.body.classList.contains('reduce-motion'),
+});
+const peelGestureMapper = createPeelGestureMapper();
+peelGameController = createPeelGameController({
+  root: peelGameRoot,
+  reducedMotion: () => document.body.classList.contains('reduce-motion'),
+  onInputMode: handlePeelInputMode,
+  onSummary: () => gestureController.finishActivityForSummary(),
+  onIntent: handlePeelGameIntent,
+  onClose: finalizePeelActivityClose,
 });
 
 function syncSceneDefaultView() {
@@ -595,13 +631,208 @@ function setRoomBackgroundSuppressed(suppressed) {
   });
 }
 
+function consumePeelGestureFrame(frame) {
+  if (activeActivity !== 'peel' || !peelGameController) return;
+  const command = peelGestureMapper.update(frame, frame?.at);
+  if (command?.type === 'segment') peelGameController.applySegment(command);
+  else if (command?.type === 'pause') peelGameController.pause('hand-lost');
+  else if (command?.type === 'resume') peelGameController.resume();
+}
+
+function handlePeelInputMode(mode) {
+  peelGestureMapper.reset();
+  if (mode !== 'gesture') {
+    gestureController.pauseActivityForPointer();
+    return true;
+  }
+  void gestureController.startForActivity(consumePeelGestureFrame).then((started) => {
+    if (!started && activeActivity === 'peel') {
+      showToast('体感暂时没有开启，触摸、鼠标和键盘仍可继续。');
+    }
+  });
+  return true;
+}
+
+function peelRoundSeed() {
+  const orderSignature = state.orders
+    .map((order) => `${order.id}:${order.status}:${order.updatedAt || order.createdAt || ''}`)
+    .sort()
+    .join('|');
+  return `peel:${state.dataRevision}:${orderSignature}`;
+}
+
+function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
+  if (!roomEntered || activePanel || activeActivity === 'peel') return false;
+  activeActivity = 'peel';
+  peelActivityReturnFocus = trigger || document.querySelector('[data-hotspot-id="desire-peel"]');
+  app.dataset.activity = 'peel';
+  setRoomUiInteractive(false);
+  setRoomBackgroundSuppressed(true);
+  panorama.focusHotspot('desire-peel');
+  panorama.setInteractionEnabled(false);
+  orientationController.stop('panel');
+  document.body.style.overflow = 'hidden';
+  setMascotSpeech('商品不用碎，先把催你立刻买的话术剥开看看。');
+  peelGestureMapper.reset();
+  if (gestureController.canContinueIntoActivity()) {
+    gestureController.continueIntoActivity(consumePeelGestureFrame);
+  }
+  if (updateHistory) {
+    history.pushState({ panel: null, activity: 'peel', openedByApp: true }, '', buildRoomHash({ activity: 'peel' }));
+  }
+  void peelGameController.open({
+    seed: peelRoundSeed(),
+    orders: state.orders,
+    tutorialCompleted: false,
+  });
+  return true;
+}
+
+function finalizePeelActivityClose() {
+  if (activeActivity !== 'peel') return false;
+  const options = peelCloseOptions || {};
+  const returnTarget = peelActivityReturnFocus;
+  peelCloseOptions = null;
+  peelActivityReturnFocus = null;
+  activeActivity = null;
+  delete app.dataset.activity;
+  peelGestureMapper.reset();
+  setRoomUiInteractive(roomEntered && !activePanel);
+  setRoomBackgroundSuppressed(Boolean(activePanel));
+  panorama.setInteractionEnabled(roomEntered && !activePanel);
+  if (!activePanel) panorama.resetView();
+  document.body.style.overflow = activePanel && window.innerWidth <= 820 ? 'hidden' : '';
+  if (options.updateHistory !== false) {
+    history.replaceState({ panel: null, activity: null, openedByApp: false }, '', buildRoomHash());
+  }
+  if (options.resumeGesture !== false) gestureController.returnToRoomFromActivity();
+  if (options.restoreFocus !== false) {
+    window.requestAnimationFrame(() => {
+      if (returnTarget && document.contains(returnTarget) && returnTarget.getClientRects().length > 0) {
+        returnTarget.focus({ preventScroll: true });
+      } else {
+        sceneFrame.focus({ preventScroll: true });
+      }
+    });
+  }
+  if (!activePanel) setMascotSpeech(idleSpeech());
+  return true;
+}
+
+function closePeelActivity(options = {}) {
+  if (activeActivity !== 'peel') return false;
+  peelCloseOptions = options;
+  peelGameController.close();
+  return true;
+}
+
+function resolvePeelFocusAction(focusItem, orders = state.orders) {
+  if (focusItem?.source === 'order') {
+    const order = orders.find((item) => (
+      String(item.id) === String(focusItem.orderId) && item.status === 'cooling'
+    ));
+    if (order) return { type: 'existing-order', orderId: order.id };
+  }
+  const productId = PEEL_COMMERCE_PRODUCT_BY_ID[focusItem?.id];
+  return productId
+    ? { type: 'catalog-product', productId }
+    : { type: 'blank-composer' };
+}
+
+function openPeelBusinessPanel(panel, trigger, commerceType = 'shop') {
+  if (panel === 'orders') {
+    history.replaceState({ panel: 'orders', openedByApp: true }, '', '#orders');
+    applyPanel('orders', trigger);
+    return;
+  }
+  const route = { panel: 'new', phoneView: 'home', commerceType, productId: null };
+  history.replaceState({ ...route, openedByApp: true }, '', buildNewHash(route));
+  showPhoneView('home', { type: commerceType });
+  applyPanel('new', trigger);
+}
+
+function focusPeelOrder(orderId) {
+  const action = [...orderList.querySelectorAll('[data-order-action]')]
+    .find((button) => button.dataset.orderId === String(orderId));
+  action?.focus({ preventScroll: true });
+  return Boolean(action);
+}
+
+function handlePeelGameIntent(intent) {
+  if (intent?.type === 'replay') return false;
+  if (intent?.type === 'dismiss') {
+    closePeelActivity();
+    showToast('这一局只留在这一局，商品和看穿层数都没有保存。');
+    return true;
+  }
+  if (intent?.type !== 'cool') return false;
+
+  const action = resolvePeelFocusAction(intent.focusItem);
+  const trigger = peelActivityReturnFocus;
+  closePeelActivity({ updateHistory: false, resumeGesture: false, restoreFocus: false });
+  gestureController.handoffActivityToPanel();
+
+  if (action.type === 'existing-order') {
+    activeFilter = 'all';
+    activeTimeFilter = 'all';
+    renderOrders();
+    openPeelBusinessPanel('orders', trigger);
+    window.requestAnimationFrame(() => focusPeelOrder(action.orderId));
+    showToast('这件商品已经在冷静区，没有重复创建。');
+    return true;
+  }
+
+  const product = action.type === 'catalog-product'
+    ? staticCommerceProduct(action.productId)
+    : null;
+  const commerceType = product ? commerceTypeForOrder(product) : 'shop';
+  openPeelBusinessPanel('new', trigger, commerceType);
+  if (product) prefillOrderFromCommerce(product, trigger);
+  else {
+    resetOrderComposer();
+    openOrderComposer(trigger);
+    showToast('先把想冷静的商品写下来，提交后才会产生记录。');
+  }
+  return true;
+}
+
+function peelActivityFocusableElements() {
+  return [...peelGameRoot.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')]
+    .filter((element) => !element.disabled && !element.closest('[hidden]') && element.getClientRects().length > 0);
+}
+
+function handlePeelActivityKeydown(event) {
+  if (activeActivity !== 'peel') return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closePeelActivity();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = peelActivityFocusableElements();
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const nextIndex = event.shiftKey
+    ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+    : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+  if (currentIndex >= 0 && !event.shiftKey && currentIndex < focusable.length - 1) return;
+  if (currentIndex > 0 && event.shiftKey) return;
+  event.preventDefault();
+  focusable[nextIndex].focus({ preventScroll: true });
+}
+
 function completeRoomEntry() {
   roomEntered = true;
   setRoomUiInteractive(true);
   panorama.setInteractionEnabled(true);
-  if (pendingPanel) {
+  if (pendingPanel || pendingActivity) {
     const pendingRoute = routeSnapshot(history.state || {});
     pendingPanel = null;
+    pendingActivity = null;
     syncRouteFromLocation(pendingRoute);
     return;
   }
@@ -1516,7 +1747,7 @@ function applyPanel(panel, trigger = null) {
 }
 
 function openPanel(panel, trigger = null) {
-  if (!roomEntered || !PANEL_META[panel]) return false;
+  if (!roomEntered || activeActivity || !PANEL_META[panel]) return false;
   const requestedGoalsView = panel === 'goals'
     ? (trigger?.dataset.goalsView || (activePanel === 'goals' ? activeGoalsView : 'goal'))
     : activeGoalsView;
@@ -1577,6 +1808,7 @@ function panelFromHash() {
 
 function routeSnapshot(historyState = history.state || {}) {
   const panel = panelFromHash();
+  const activity = panel ? null : parseRoomHashState(location.hash).activity;
   const goalsView = panel === 'goals' ? goalsViewFromHash() : 'goal';
   const clinicView = panel === 'clinic' ? parseClinicHashState(location.hash).clinicView : 'start';
   const newRoute = parseNewHashState(location.hash, historyState);
@@ -1588,6 +1820,7 @@ function routeSnapshot(historyState = history.state || {}) {
     : 'intro';
   return {
     panel,
+    activity,
     goalsView,
     clinicView,
     phoneView,
@@ -1599,6 +1832,7 @@ function routeSnapshot(historyState = history.state || {}) {
 function currentRouteSnapshot() {
   return {
     panel: activePanel,
+    activity: activePanel ? null : activeActivity,
     goalsView: activePanel === 'goals' ? activeGoalsView : 'goal',
     clinicView: activePanel === 'clinic' ? clinicView : 'start',
     phoneView: activePanel === 'new' ? phoneView : 'intro',
@@ -1610,7 +1844,24 @@ function currentRouteSnapshot() {
 function syncRouteFromLocation(route) {
   if (!roomEntered) {
     pendingPanel = route.panel;
+    pendingActivity = route.activity;
     return;
+  }
+
+  if (route.activity === 'peel') {
+    if (activePanel) applyPanel(null);
+    if (activeActivity !== 'peel') openPeelActivity(null, { updateHistory: false });
+    return;
+  }
+
+  if (activeActivity === 'peel') {
+    const openingPanel = Boolean(route.panel);
+    closePeelActivity({
+      updateHistory: false,
+      resumeGesture: !openingPanel,
+      restoreFocus: !openingPanel,
+    });
+    if (openingPanel) gestureController.handoffActivityToPanel();
   }
 
   const panelChanged = route.panel !== activePanel;
@@ -1648,6 +1899,8 @@ const routeSyncCoordinator = createRouteSyncScheduler({
   getCurrentSignature: () => routeSignature(currentRouteSnapshot()),
   schedule: (callback) => window.requestAnimationFrame(callback),
 });
+
+document.addEventListener('keydown', handlePeelActivityKeydown, { capture: true });
 
 function idleSpeech() {
   const { cooling, savedAll } = totals();
@@ -4472,8 +4725,11 @@ window.addEventListener('storage', (event) => {
 window.addEventListener('pagehide', () => {
   aiConsentChannel?.close();
   gachaponMotion.destroy();
+  peelCloseOptions = { updateHistory: false, resumeGesture: false, restoreFocus: false };
+  peelGameController.destroy();
   gestureController.destroy();
   orientationController.destroy();
+  document.removeEventListener('keydown', handlePeelActivityKeydown, { capture: true });
   sceneViewportMedia.removeEventListener('change', syncSceneDefaultView);
 }, { once: true });
 
@@ -4550,11 +4806,14 @@ try {
 if (returnToRoomOnLoad) history.replaceState({ panel: null, openedByApp: false }, '', '#room');
 const initialRoute = routeSnapshot(history.state || {});
 const initialPanel = initialRoute.panel;
+const initialActivity = initialRoute.activity;
 const initialGoalsView = initialRoute.goalsView;
 const initialClinicView = initialRoute.clinicView;
 pendingPanel = initialPanel;
+pendingActivity = initialActivity;
 history.replaceState({
   panel: initialPanel,
+  ...(initialActivity ? { activity: initialActivity } : {}),
   ...(initialPanel === 'new' ? {
     phoneView: initialRoute.phoneView,
     commerceType: initialRoute.commerceType,
@@ -4569,7 +4828,7 @@ history.replaceState({
     ? goalsHash(initialGoalsView)
     : initialPanel === 'clinic'
       ? buildClinicHash({ clinicView: initialClinicView })
-      : initialPanel ? `#${initialPanel}` : '#room');
+      : initialPanel ? `#${initialPanel}` : buildRoomHash({ activity: initialActivity }));
 if (returnToRoomOnLoad && typeof roomIntro.skipToRoom === 'function') roomIntro.skipToRoom();
 else roomIntro.start();
 panorama.whenReady().then((result) => {
