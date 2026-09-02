@@ -5,6 +5,8 @@ import {
   MAX_PEEL_DPR,
   MAX_PEEL_ENTITIES,
   MAX_PEEL_PARTICLES,
+  MAX_PEEL_REVEAL_CARDS,
+  MAX_PEEL_SHARDS,
   createPeelGameController,
 } from '../peel-game-ui.js';
 import { PEEL_GAME_STATUS } from '../peel-game.js';
@@ -74,14 +76,14 @@ class FakeElement {
   replaceChildren(...children) { this.children = [...children]; }
 }
 
-function drawingContext() {
+function drawingContext(calls = []) {
   const methods = new Set([
     'beginPath', 'clearRect', 'fill', 'fillRect', 'fillText', 'lineTo', 'moveTo',
     'quadraticCurveTo', 'restore', 'rotate', 'save', 'stroke', 'strokeRect', 'translate',
   ]);
   return new Proxy({}, {
     get(target, key) {
-      if (methods.has(key)) return () => {};
+      if (methods.has(key)) return (...args) => calls.push([key, ...args]);
       return target[key];
     },
     set(target, key, value) { target[key] = value; return true; },
@@ -106,6 +108,7 @@ function frameDriver() {
 function harness({ canvasAvailable = true, reducedMotion = false, onInputMode = () => {} } = {}) {
   const root = new FakeElement();
   root.hidden = true;
+  const drawCalls = [];
   const elements = {
     title: new FakeElement(),
     introView: new FakeElement(),
@@ -115,7 +118,7 @@ function harness({ canvasAvailable = true, reducedMotion = false, onInputMode = 
     gestureStartButton: new FakeElement(),
     closeButtons: [new FakeElement()],
     stage: new FakeElement(),
-    canvas: new FakeElement({ context: canvasAvailable ? drawingContext() : null }),
+    canvas: new FakeElement({ context: canvasAvailable ? drawingContext(drawCalls) : null }),
     blade: new FakeElement(),
     tutorial: new FakeElement(),
     skipTutorialButton: new FakeElement(),
@@ -148,7 +151,7 @@ function harness({ canvasAvailable = true, reducedMotion = false, onInputMode = 
     loadAssets: async () => { assetLoads += 1; },
     onInputMode,
   });
-  return { root, elements, frames, controller, get assetLoads() { return assetLoads; } };
+  return { root, elements, frames, controller, drawCalls, get assetLoads() { return assetLoads; } };
 }
 
 test('同一根节点只创建一个控制器，素材只在首次 open 时加载且 DPR 上限为 2', async () => {
@@ -202,6 +205,8 @@ test('触屏轻点与拖动都走同一线段入口，商品本体不会被重�
   setup.elements.stage.dispatch('pointerdown', { clientX, clientY });
   setup.elements.stage.dispatch('pointerup', { clientX, clientY });
   assert.equal(setup.controller.getState().score.peeledShells, 1);
+  assert.equal(setup.controller.getDiagnostics().shellShards, 2);
+  assert.equal(setup.controller.getDiagnostics().revealCards, 1);
 
   const afterFirst = setup.controller.getState();
   setup.controller.applySegment({
@@ -238,6 +243,44 @@ test('Canvas 不可用时开启语义目标降级，减少动态取消高速抛�
   assert.ok(Math.abs(setup.controller.getState().entities[0].vy) < 0.6);
   assert.equal(MAX_PEEL_ENTITIES, 8);
   assert.equal(MAX_PEEL_PARTICLES, 60);
+  setup.elements.currentTargetButton.dispatch('click');
+  assert.equal(setup.controller.getDiagnostics().particles, 0);
+  assert.equal(setup.controller.getDiagnostics().shellShards, 0);
+  assert.equal(setup.controller.getDiagnostics().revealCards, 1, '减少动态仍应保留静态文字揭示');
+  assert.equal(MAX_PEEL_SHARDS, 16);
+  assert.equal(MAX_PEEL_REVEAL_CARDS, 8);
+});
+
+test('剥开个人冷静单后只展示订单已有真实价格，不为本地商品池虚构金额', async () => {
+  const setup = harness();
+  await setup.controller.open({
+    seed: 'real-price',
+    tutorialCompleted: true,
+    orders: [{
+      id: 'priced-order',
+      name: '想买的相机',
+      amount: 3299,
+      status: 'cooling',
+      updatedAt: '2026-09-02T09:00:00Z',
+    }],
+  });
+  setup.controller.start('pointer');
+  setup.frames.run(0);
+  setup.frames.run(38_000);
+  let focus = setup.controller.getState().entities.find((entity) => entity.item.orderId === 'priced-order');
+  assert.ok(focus);
+  while (!focus.coreRevealed) {
+    setup.controller.applySegment({
+      from: { x: focus.x - focus.radius, y: focus.y },
+      to: { x: focus.x + focus.radius, y: focus.y },
+      at: 40_000 + setup.controller.getState().score.peeledShells * 200,
+    });
+    focus = setup.controller.getState().entities.find((entity) => entity.item.orderId === 'priced-order');
+  }
+
+  const drawnTexts = setup.drawCalls.filter(([method]) => method === 'fillText').map(([, value]) => value);
+  assert.ok(drawnTexts.includes('¥3,299'));
+  assert.equal(drawnTexts.some((value) => /^¥/.test(String(value)) && value !== '¥3,299'), false);
 });
 
 test('第 45 秒切换结果页并停止 RAF，summary 后拒绝命中，close 清理状态', async () => {
@@ -252,7 +295,12 @@ test('第 45 秒切换结果页并停止 RAF，summary 后拒绝命中，close �
   assert.equal(setup.frames.size, 0);
   assert.equal(setup.elements.playView.hidden, true);
   assert.equal(setup.elements.summaryView.hidden, false);
-  assert.ok(setup.elements.summaryChoices.children.length <= setup.controller.getState().reveals.length);
+  assert.ok(setup.elements.summaryChoices.children.length <= setup.controller.getState().reveals.length + 1);
+  const summaryLabels = setup.elements.summaryChoices.children
+    .flatMap((label) => [label, ...(label.children || [])])
+    .map((child) => child.textContent)
+    .filter(Boolean);
+  assert.ok(summaryLabels.includes('没什么感觉'));
 
   const score = setup.controller.getState().score.peeledShells;
   setup.controller.applySegment({ from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, at: 50_000 });

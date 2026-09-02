@@ -13,6 +13,8 @@ import {
 export const MAX_PEEL_DPR = 2;
 export const MAX_PEEL_ENTITIES = 8;
 export const MAX_PEEL_PARTICLES = 60;
+export const MAX_PEEL_SHARDS = 16;
+export const MAX_PEEL_REVEAL_CARDS = 8;
 
 const CONTROLLERS = new WeakMap();
 const PHASE_LABELS = Object.freeze({
@@ -36,6 +38,13 @@ const REMINDERS = Object.freeze({
   upgrade: '先做十分钟，再看要不要装备',
   coupon: '允许优惠券安静过期',
   reflection: '把答案留到明天',
+  neutral: '不需要硬找原因，照常慢慢决定',
+});
+const NO_FEELING_CHOICE = Object.freeze({
+  copyId: 'neutral-no-feeling',
+  lure: '没什么感觉',
+  text: '这一局没有哪句话特别推我',
+  family: 'neutral',
 });
 
 function clamp(value, min, max) {
@@ -128,6 +137,16 @@ function uniqueReveals(reveals) {
   });
 }
 
+function formatCny(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const fractionDigits = Number.isInteger(value) ? 0 : 2;
+  return `¥${value.toLocaleString('zh-CN', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export function createPeelGameController({
   root,
   elements: providedElements,
@@ -162,6 +181,8 @@ export function createPeelGameController({
   let targetIndex = 0;
   let bladePoint = { x: 0.5, y: 0.5 };
   let particles = [];
+  let shellShards = [];
+  let revealCards = [];
   let trails = [];
   let inputMode = 'pointer';
   let tutorialSeen = false;
@@ -274,7 +295,8 @@ export function createPeelGameController({
     if (!context) return;
     const x = entity.x * width;
     const y = entity.y * height;
-    const scale = clamp(entity.radius / 0.082, 0.82, 1.42);
+    const scale = clamp(entity.radius / 0.082, 0.82, 1.42) * appliedDpr;
+    const price = entity.coreRevealed ? formatCny(entity.item.amount) : '';
     context.save();
     context.translate(x, y);
     if (!motionIsReduced()) context.rotate(entity.rotation);
@@ -298,7 +320,11 @@ export function createPeelGameController({
     context.fillStyle = '#302924';
     context.fillText(entity.item.glyph || '□', 0, -3 * scale);
     context.font = `800 ${9 * scale}px system-ui, sans-serif`;
-    context.fillText(entity.item.name, 0, 31 * scale);
+    context.fillText(entity.item.name, 0, (price ? 25 : 31) * scale);
+    if (price) {
+      context.font = `900 ${8 * scale}px ui-monospace, SFMono-Regular, monospace`;
+      context.fillText(price, 0, 37 * scale);
+    }
 
     const shellIndex = entity.shells.findIndex((shell) => !shell.peeled);
     if (shellIndex >= 0) {
@@ -325,12 +351,52 @@ export function createPeelGameController({
     context.restore();
   }
 
+  function drawShellShard(shard, width, height) {
+    if (!context) return;
+    const shardWidth = 70 * appliedDpr;
+    const shardHeight = 44 * appliedDpr;
+    context.save();
+    context.translate(shard.x * width, shard.y * height);
+    context.rotate(shard.rotation);
+    context.fillStyle = shard.color;
+    context.strokeStyle = '#302924';
+    context.lineWidth = 2 * appliedDpr;
+    context.fillRect(-shardWidth / 2, -shardHeight / 2, shardWidth, shardHeight);
+    context.strokeRect(-shardWidth / 2, -shardHeight / 2, shardWidth, shardHeight);
+    context.restore();
+  }
+
+  function drawRevealCard(card, width, height) {
+    if (!context) return;
+    const cardWidth = Math.min(230 * appliedDpr, width - 24 * appliedDpr);
+    const cardHeight = 54 * appliedDpr;
+    const x = clamp(card.x * width - cardWidth / 2, 12 * appliedDpr, width - cardWidth - 12 * appliedDpr);
+    const y = clamp(card.y * height - 96 * appliedDpr, 12 * appliedDpr, height - cardHeight - 12 * appliedDpr);
+    const text = String(card.text || '先看清，再决定');
+    const lines = text.length > 15 ? [text.slice(0, 15), text.slice(15, 30)] : [text];
+    context.save();
+    drawRoundedRect(context, x, y, cardWidth, cardHeight, 14 * appliedDpr);
+    context.fillStyle = '#302924';
+    context.fill();
+    context.fillStyle = '#fffaf0';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.font = `800 ${11 * appliedDpr}px system-ui, sans-serif`;
+    lines.forEach((line, index) => {
+      const lineOffset = (index - (lines.length - 1) / 2) * 16 * appliedDpr;
+      context.fillText(line, x + cardWidth / 2, y + cardHeight / 2 + lineOffset);
+    });
+    context.restore();
+  }
+
   function draw() {
     if (!context || !elements.canvas) return;
     const width = elements.canvas.width;
     const height = elements.canvas.height;
     context.clearRect(0, 0, width, height);
+    for (const shard of shellShards) drawShellShard(shard, width, height);
     for (const entity of (state?.entities || []).slice(0, MAX_PEEL_ENTITIES)) drawProduct(entity, width, height);
+    for (const card of revealCards) drawRevealCard(card, width, height);
 
     context.save();
     context.lineCap = 'round';
@@ -353,26 +419,46 @@ export function createPeelGameController({
     const previousIds = new Set(previousState.reveals.map((reveal) => `${reveal.entityId}:${reveal.copyId}`));
     const fresh = nextState.reveals.filter((reveal) => !previousIds.has(`${reveal.entityId}:${reveal.copyId}`));
     for (const reveal of fresh) {
-      const entity = nextState.entities.find((entry) => entry.id === reveal.entityId);
+      const entity = previousState.entities.find((entry) => entry.id === reveal.entityId)
+        || nextState.entities.find((entry) => entry.id === reveal.entityId);
       if (!entity) continue;
-      for (let index = 0; index < 10; index += 1) {
-        particles.push({
-          x: entity.x,
-          y: entity.y,
-          vx: (index - 4.5) * 0.008,
-          vy: -0.05 - (index % 3) * 0.012,
-          bornAt: at,
-          color: index % 2 ? '#d7ff43' : '#fffaf0',
+      revealCards.push({ x: entity.x, y: entity.y, text: reveal.text, bornAt: at });
+      if (!motionIsReduced()) {
+        const shellIndex = entity.shells.findIndex((shell) => shell.copy.id === reveal.copyId);
+        const shellColor = shellIndex % 2 === 0 ? '#ffb23f' : '#69ded0';
+        [-1, 1].forEach((side) => {
+          shellShards.push({
+            x: entity.x + side * 0.018,
+            y: entity.y,
+            vx: side * 0.035,
+            vy: -0.065,
+            rotation: side * 0.08,
+            rotationVelocity: side * 0.12,
+            bornAt: at,
+            color: shellColor,
+          });
         });
+        for (let index = 0; index < 10; index += 1) {
+          particles.push({
+            x: entity.x,
+            y: entity.y,
+            vx: (index - 4.5) * 0.008,
+            vy: -0.05 - (index % 3) * 0.012,
+            bornAt: at,
+            color: index % 2 ? '#d7ff43' : '#fffaf0',
+          });
+        }
       }
       if (elements.liveStatus) {
         elements.liveStatus.textContent = `${reveal.lure}，剥开后：${reveal.text}。商品完整保留。`;
       }
     }
     particles = particles.slice(-MAX_PEEL_PARTICLES);
+    shellShards = shellShards.slice(-MAX_PEEL_SHARDS);
+    revealCards = revealCards.slice(-MAX_PEEL_REVEAL_CARDS);
   }
 
-  function updateParticles(deltaMs, at) {
+  function updateEffects(deltaMs, at) {
     const delta = Math.min(Math.max(deltaMs, 0), 80) / 1_000;
     particles = particles
       .filter((particle) => at - particle.bornAt < 650)
@@ -383,6 +469,19 @@ export function createPeelGameController({
         vy: particle.vy + 0.006 * delta * 60,
       }))
       .slice(-MAX_PEEL_PARTICLES);
+    shellShards = shellShards
+      .filter((shard) => at - shard.bornAt < 560)
+      .map((shard) => ({
+        ...shard,
+        x: shard.x + shard.vx * delta * 60,
+        y: shard.y + shard.vy * delta * 60,
+        vy: shard.vy + 0.008 * delta * 60,
+        rotation: shard.rotation + shard.rotationVelocity * delta * 60,
+      }))
+      .slice(-MAX_PEEL_SHARDS);
+    revealCards = revealCards
+      .filter((card) => at - card.bornAt < 1_250)
+      .slice(-MAX_PEEL_REVEAL_CARDS);
     trails = trails.filter((trail) => at - trail.at < 130).slice(-8);
   }
 
@@ -411,7 +510,7 @@ export function createPeelGameController({
     if (elements.summaryCount) elements.summaryCount.textContent = String(summary.peeledShells);
     if (elements.summaryFocusName) elements.summaryFocusName.textContent = summary.focusItem?.name || '本局商品';
     if (elements.summaryFocusGlyph) elements.summaryFocusGlyph.textContent = summary.focusItem?.glyph || '📦';
-    const choices = uniqueReveals(summary.reveals).slice(0, 6);
+    const choices = [...uniqueReveals(summary.reveals).slice(0, 5), NO_FEELING_CHOICE];
     elements.summaryChoices?.replaceChildren?.(...choices.map(createChoice));
     if (choices[0]) {
       if (elements.reminderTrigger) elements.reminderTrigger.textContent = `“${choices[0].lure || choices[0].text}”`;
@@ -434,7 +533,7 @@ export function createPeelGameController({
     const deltaMs = lastFrameAt === null ? 0 : Math.max(0, timestamp - lastFrameAt);
     lastFrameAt = timestamp;
     state = advanceRound(state, deltaMs);
-    updateParticles(deltaMs, timestamp);
+    updateEffects(deltaMs, timestamp);
     renderState();
     draw();
     emitState();
@@ -562,6 +661,8 @@ export function createPeelGameController({
     });
     state = startRound(state);
     particles = [];
+    shellShards = [];
+    revealCards = [];
     trails = [];
     targetIndex = 0;
     bladePoint = { x: 0.5, y: 0.5 };
@@ -601,6 +702,8 @@ export function createPeelGameController({
     stopLoop();
     pointer = null;
     particles = [];
+    shellShards = [];
+    revealCards = [];
     trails = [];
     opened = false;
     if (state) state = { ...state, status: PEEL_GAME_STATUS.CLOSED };
@@ -722,6 +825,8 @@ export function createPeelGameController({
       canvasAvailable,
       appliedDpr,
       particles: particles.length,
+      shellShards: shellShards.length,
+      revealCards: revealCards.length,
       rafActive: rafId !== null,
       listeners: cleanupListeners.length,
     }),
