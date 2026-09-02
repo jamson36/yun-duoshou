@@ -588,6 +588,7 @@ export function createPeelGameController({
     addPeelFeedback(previousState, state, at);
     if (previousState.status === PEEL_GAME_STATUS.TUTORIAL && state.status === PEEL_GAME_STATUS.PLAYING) {
       tutorialSeen = true;
+      lastFrameAt = null;
       scheduleLoop();
     }
     renderState();
@@ -616,6 +617,7 @@ export function createPeelGameController({
     if (state?.status !== PEEL_GAME_STATUS.TUTORIAL) return state;
     tutorialSeen = true;
     state = skipTutorial(state);
+    lastFrameAt = null;
     renderState();
     draw();
     emitState();

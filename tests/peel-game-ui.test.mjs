@@ -192,6 +192,23 @@ test('首次开始用 RAF 从底部抛起无计时教学，skip 后沿用单一 
   assert.deepEqual(inputModes, ['pointer', 'pointer'], '重玩应重新建立上一局输入上下文');
 });
 
+test('教学悬停很久后再切开，也从新的时间基准开始正式 45 秒', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'tutorial-wait', tutorialCompleted: false });
+  setup.controller.start('keyboard');
+  setup.frames.run(0);
+  setup.frames.run(60_000);
+  assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.TUTORIAL);
+  assert.equal(setup.controller.getState().entities[0].frozen, true);
+  assert.equal(setup.frames.size, 0);
+
+  setup.elements.currentTargetButton.dispatch('click');
+  assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);
+  setup.frames.run(120_000);
+  assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);
+  assert.equal(setup.controller.getState().elapsedMs, 0);
+});
+
 test('触屏轻点与拖动都走同一线段入口，商品本体不会被重复结算', async () => {
   const setup = harness();
   await setup.controller.open({ seed: 'pointer', tutorialCompleted: true });
