@@ -38,11 +38,19 @@ test('第一次进入是无计时奶茶教学，切开后才开始正式 45 秒'
   assert.equal(started.status, PEEL_GAME_STATUS.TUTORIAL);
   assert.equal(started.entities.length, 1);
   assert.equal(started.entities[0].item.id, 'milk-tea');
-  assert.equal(started.entities[0].frozen, true);
+  assert.ok(started.entities[0].y > 1, '教学商品也应从舞台底部抛起');
+  assert.ok(started.entities[0].vy < 0);
+  assert.equal(started.entities[0].frozen, false);
 
-  const waited = advanceRound(started, 8_000);
+  const rising = advanceRound(started, 500);
+  assert.equal(rising.elapsedMs, 0, '教学运动不消耗正式回合时间');
+  assert.ok(rising.entities[0].y < started.entities[0].y);
+
+  const waited = advanceRound(rising, 8_000);
   assert.equal(waited.elapsedMs, 0);
-  assert.equal(waited.entities[0].y, started.entities[0].y);
+  assert.equal(waited.entities[0].frozen, true, '教学商品到达切割区后应停住等待操作');
+  assert.equal(waited.entities[0].vy, 0);
+  assert.ok(waited.entities[0].y > 0.35 && waited.entities[0].y < 0.58);
 
   const peeled = applyPeelSegment(waited, crossing(waited.entities[0]));
   assert.equal(peeled.status, PEEL_GAME_STATUS.PLAYING);

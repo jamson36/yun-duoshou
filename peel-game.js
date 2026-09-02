@@ -225,16 +225,16 @@ function createEntity(state, { item, phase, tutorial = false }) {
     id: `peel-entity-${ordinal}`,
     item,
     x,
-    y: tutorial ? 0.46 : reducedMotion ? 1.02 : 1.08,
+    y: tutorial ? 1.08 : reducedMotion ? 1.02 : 1.08,
     vx: tutorial || reducedMotion ? 0 : horizontalDirection * (0.04 + unitFromSeed(`${entitySeed}:vx`) * 0.13),
-    vy: tutorial ? 0 : reducedMotion ? -0.42 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28),
-    gravity: tutorial ? 0 : reducedMotion ? 0.36 : GRAVITY,
+    vy: tutorial ? -0.7 : reducedMotion ? -0.42 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28),
+    gravity: tutorial ? 0.38 : reducedMotion ? 0.36 : GRAVITY,
     rotation: unitFromSeed(`${entitySeed}:rotation`) * Math.PI * 2,
     rotationVelocity: tutorial || reducedMotion ? 0 : (unitFromSeed(`${entitySeed}:spin`) - 0.5) * 2.2,
     radius: tutorial ? 0.12 : phase === 'focus' ? 0.115 : 0.082,
     shells: makeShells(copies),
     coreRevealed: false,
-    frozen: tutorial,
+    frozen: false,
     phase,
   };
 }
@@ -421,9 +421,35 @@ export function summarizeRound(state) {
 }
 
 export function advanceRound(state, deltaMs = 0) {
-  if (!state || state.status !== PEEL_GAME_STATUS.PLAYING) return state;
+  if (!state || ![PEEL_GAME_STATUS.TUTORIAL, PEEL_GAME_STATUS.PLAYING].includes(state.status)) return state;
   const safeDeltaMs = Math.max(0, Number(deltaMs) || 0);
   if (safeDeltaMs === 0) return state;
+
+  if (state.status === PEEL_GAME_STATUS.TUTORIAL) {
+    const deltaSeconds = Math.min(safeDeltaMs, 2_500) / 1_000;
+    const entities = state.entities.map((entity) => {
+      if (entity.frozen) return entity;
+      const nextVy = entity.vy + entity.gravity * deltaSeconds;
+      if (nextVy >= 0) {
+        const apexY = entity.gravity > 0
+          ? entity.y - ((entity.vy ** 2) / (2 * entity.gravity))
+          : entity.y;
+        return {
+          ...entity,
+          y: clamp(apexY, 0.42, 0.5),
+          vy: 0,
+          gravity: 0,
+          frozen: true,
+        };
+      }
+      return {
+        ...entity,
+        y: entity.y + entity.vy * deltaSeconds + 0.5 * entity.gravity * deltaSeconds ** 2,
+        vy: nextVy,
+      };
+    });
+    return { ...state, entities };
+  }
 
   const elapsedMs = Math.min(GAME_DURATION_MS, state.elapsedMs + safeDeltaMs);
   const physicsDeltaSeconds = Math.min(safeDeltaMs, 500) / 1_000;

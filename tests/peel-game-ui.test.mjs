@@ -164,14 +164,19 @@ test('同一根节点只创建一个控制器，素材只在首次 open 时加�
   assert.equal(MAX_PEEL_DPR, 2);
 });
 
-test('首次开始显示无计时教学，skip 后才启动正式 RAF 且 replay 不重复教学', async () => {
+test('首次开始用 RAF 从底部抛起无计时教学，skip 后沿用单一 RAF 且 replay 不重复教学', async () => {
   const inputModes = [];
   const setup = harness({ onInputMode: (mode) => inputModes.push(mode) });
   await setup.controller.open({ seed: 'tutorial', tutorialCompleted: false });
   setup.controller.start('pointer');
   assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.TUTORIAL);
-  assert.equal(setup.frames.size, 0);
+  assert.equal(setup.frames.size, 1);
   assert.equal(setup.elements.tutorial.hidden, false);
+
+  const initialY = setup.controller.getState().entities[0].y;
+  setup.frames.run(0);
+  setup.frames.run(500);
+  assert.ok(setup.controller.getState().entities[0].y < initialY);
 
   setup.controller.skipTutorial();
   assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);

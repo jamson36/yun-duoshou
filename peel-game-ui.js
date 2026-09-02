@@ -430,7 +430,7 @@ export function createPeelGameController({
 
   function frame(timestamp) {
     rafId = null;
-    if (destroyed || state?.status !== PEEL_GAME_STATUS.PLAYING) return;
+    if (destroyed || ![PEEL_GAME_STATUS.TUTORIAL, PEEL_GAME_STATUS.PLAYING].includes(state?.status)) return;
     const deltaMs = lastFrameAt === null ? 0 : Math.max(0, timestamp - lastFrameAt);
     lastFrameAt = timestamp;
     state = advanceRound(state, deltaMs);
@@ -439,11 +439,15 @@ export function createPeelGameController({
     draw();
     emitState();
     if (state.status === PEEL_GAME_STATUS.SUMMARY) finishSummary();
-    else scheduleLoop();
+    else if (state.status !== PEEL_GAME_STATUS.TUTORIAL || state.entities.some((entity) => !entity.frozen)) scheduleLoop();
   }
 
   function scheduleLoop() {
-    if (rafId !== null || state?.status !== PEEL_GAME_STATUS.PLAYING || destroyed) return;
+    if (
+      rafId !== null
+      || ![PEEL_GAME_STATUS.TUTORIAL, PEEL_GAME_STATUS.PLAYING].includes(state?.status)
+      || destroyed
+    ) return;
     rafId = requestFrame(frame);
   }
 
@@ -469,8 +473,8 @@ export function createPeelGameController({
     renderState();
     draw();
     emitState();
-    if (state.status === PEEL_GAME_STATUS.PLAYING) scheduleLoop();
-    else elements.stage?.focus?.();
+    scheduleLoop();
+    elements.stage?.focus?.();
     return state;
   }
 
