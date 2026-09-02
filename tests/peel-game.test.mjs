@@ -151,6 +151,46 @@ test('聚焦商品优先最近的非演示冷静中订单，否则稳定回退�
   assert.ok(PRODUCT_CATALOG.some((item) => item.id === fallbackA.id));
 });
 
+test('个人冷静单只把用户明确选择的原因映射为话术家族', () => {
+  const focus = selectFocusItem({
+    orders: [{
+      id: 'mapped',
+      name: '新耳机',
+      category: '数码家居',
+      reason: '限时优惠',
+      decisionSignals: ['creator', 'deal'],
+      status: 'cooling',
+      updatedAt: '2026-09-02T09:00:00Z',
+    }],
+  });
+
+  assert.equal(focus.category, 'digital');
+  assert.deepEqual(focus.structuredTriggers, ['algorithm', 'coupon', 'bundle', 'urgency']);
+});
+
+test('没有可归因结构化原因的个人冷静单只使用中性问号外壳', () => {
+  let game = startRound(createPeelGame({
+    seed: 'neutral-order',
+    tutorialCompleted: true,
+    orders: [{
+      id: 'neutral',
+      name: '还没想清楚的东西',
+      category: '其他',
+      reason: '其他',
+      decisionSignals: ['wait', 'research'],
+      status: 'cooling',
+      updatedAt: '2026-09-02T09:00:00Z',
+    }],
+  }));
+  game = advanceRound(game, 38_000);
+  const focusEntity = game.entities.find((entity) => entity.item.orderId === 'neutral');
+
+  assert.ok(focusEntity);
+  assert.equal(focusEntity.shells.length, 1);
+  assert.equal(focusEntity.shells[0].copy.family, 'reflection');
+  assert.match(focusEntity.shells[0].copy.lure, /\?|？/);
+});
+
 test('45 秒只结算一次，漏接商品不扣分也不生成排行榜或奖励', () => {
   const started = startRound(createPeelGame({ seed: 'summary', tutorialCompleted: true }));
   const completed = advanceRound(started, 45_000);

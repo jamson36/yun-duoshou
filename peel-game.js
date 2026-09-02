@@ -1,4 +1,4 @@
-import { selectShellSequence } from './peel-copy-catalog.js';
+import { PEEL_COPY_FAMILIES, selectShellSequence } from './peel-copy-catalog.js';
 
 export const PEEL_GAME_VERSION = 'peel-v1';
 
@@ -41,6 +41,37 @@ const MIXED_PHASE_START_MS = 20_000;
 const FOCUS_PHASE_START_MS = 38_000;
 const SPAWN_INTERVAL_MS = 1_150;
 const GRAVITY = 1.9;
+const PEEL_COPY_FAMILY_SET = new Set(PEEL_COPY_FAMILIES);
+const CATEGORY_ALIASES = Object.freeze({
+  餐饮饮品: 'food',
+  数码家居: 'digital',
+  服饰美妆: 'fashion',
+  娱乐社交: 'interest',
+  学习成长: 'interest',
+  旅行交通: 'interest',
+  其他: 'interest',
+});
+const SIGNAL_TRIGGER_FAMILIES = Object.freeze({
+  instant: Object.freeze(['urgency']),
+  compare: Object.freeze(['anchor']),
+  reviews: Object.freeze(['social']),
+  friends: Object.freeze(['social']),
+  creator: Object.freeze(['algorithm']),
+  deal: Object.freeze(['coupon', 'bundle']),
+  comfort: Object.freeze(['emotion']),
+  achievement: Object.freeze(['upgrade']),
+  identity: Object.freeze(['identity']),
+  stock: Object.freeze(['collection']),
+});
+const REASON_TRIGGER_FAMILIES = Object.freeze({
+  嘴馋: Object.freeze(['emotion']),
+  无聊: Object.freeze(['emotion']),
+  被种草: Object.freeze(['algorithm']),
+  情绪不好: Object.freeze(['emotion']),
+  限时优惠: Object.freeze(['urgency']),
+  社交需要: Object.freeze(['social']),
+  自我提升: Object.freeze(['upgrade']),
+});
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -61,19 +92,32 @@ function unitFromSeed(seed) {
 
 function normalizedCategory(value) {
   const category = String(value || '').trim().toLowerCase();
+  if (CATEGORY_ALIASES[category]) return CATEGORY_ALIASES[category];
   return ['food', 'digital', 'fashion', 'interest', 'home'].includes(category)
     ? category
     : 'interest';
 }
 
 function structuredTriggersFromOrder(order) {
-  const candidates = order?.structuredTriggers
-    || order?.decisionSignals
-    || order?.triggerReasons
-    || [];
-  return Array.isArray(candidates)
-    ? candidates.map((value) => String(value || '').trim()).filter(Boolean)
-    : [];
+  const families = [];
+  const appendFamily = (family) => {
+    if (PEEL_COPY_FAMILY_SET.has(family) && !families.includes(family)) families.push(family);
+  };
+  const appendMapped = (value, mapping) => {
+    const key = String(value || '').trim();
+    (mapping[key] || []).forEach(appendFamily);
+  };
+
+  (Array.isArray(order?.structuredTriggers) ? order.structuredTriggers : []).forEach(appendFamily);
+  (Array.isArray(order?.decisionSignals) ? order.decisionSignals : [])
+    .forEach((signal) => appendMapped(signal, SIGNAL_TRIGGER_FAMILIES));
+  (Array.isArray(order?.triggerReasons) ? order.triggerReasons : [])
+    .forEach((reason) => {
+      appendFamily(String(reason || '').trim());
+      appendMapped(reason, REASON_TRIGGER_FAMILIES);
+    });
+  appendMapped(order?.reason, REASON_TRIGGER_FAMILIES);
+  return families;
 }
 
 function orderTimestamp(order) {
