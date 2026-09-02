@@ -1,3 +1,133 @@
+/* 房间入口贴合书桌上的真实掌机，只叠加克制的定位反馈。 */
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity {
+  width: 126px;
+  height: 88px;
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-screen,
+.panorama-app[data-room-phase="room"] .activity-hotspot-controls {
+  display: none;
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-device {
+  left: 50%;
+  top: 54%;
+  width: 98px;
+  height: 62px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 12px;
+  background:
+    linear-gradient(#f8f5eb, #f8f5eb) left top / 18px 1px no-repeat,
+    linear-gradient(#f8f5eb, #f8f5eb) left top / 1px 15px no-repeat,
+    linear-gradient(#f8f5eb, #f8f5eb) right top / 18px 1px no-repeat,
+    linear-gradient(#f8f5eb, #f8f5eb) right top / 1px 15px no-repeat,
+    linear-gradient(#d7ff43, #d7ff43) left bottom / 18px 1px no-repeat,
+    linear-gradient(#d7ff43, #d7ff43) left bottom / 1px 15px no-repeat,
+    linear-gradient(#d7ff43, #d7ff43) right bottom / 18px 1px no-repeat,
+    linear-gradient(#d7ff43, #d7ff43) right bottom / 1px 15px no-repeat;
+  box-shadow: none;
+  filter: drop-shadow(0 1px 2px rgba(28, 23, 18, .72));
+  opacity: .86;
+  animation: activity-target-breathe 2.8s ease-in-out infinite;
+  transition: width 180ms ease, height 180ms ease, opacity 180ms ease, filter 180ms ease;
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-device::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, rgba(215, 255, 67, .72), transparent);
+  opacity: .42;
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-device::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #d7ff43;
+  box-shadow: 0 0 9px rgba(215, 255, 67, .78);
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-copy {
+  bottom: calc(100% + 7px);
+  padding: 5px 9px 5px 6px;
+  border-color: rgba(244, 240, 231, .18);
+  background: rgba(13, 15, 14, .84);
+  box-shadow: 0 8px 22px rgba(30, 22, 17, .24);
+  color: #f4f0e7;
+  backdrop-filter: blur(12px) saturate(.78);
+}
+
+.panorama-app[data-room-phase="room"] .activity-hotspot-copy small {
+  background: #d7ff43;
+  color: #151713;
+}
+
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity:hover .activity-hotspot-device,
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity:focus-visible .activity-hotspot-device,
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity.is-active .activity-hotspot-device,
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity.is-gesture-target .activity-hotspot-device {
+  width: 104px;
+  height: 66px;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 8px rgba(215, 255, 67, .58)) drop-shadow(0 2px 2px rgba(28, 23, 18, .72));
+  opacity: 1;
+}
+
+.panorama-app[data-room-phase="room"] .scene-hotspot.is-activity:focus-visible .activity-hotspot-device {
+  outline: 2px solid rgba(255, 255, 255, .92);
+  outline-offset: 4px;
+  box-shadow: none;
+}
+
+@keyframes activity-target-breathe {
+  0%, 100% { opacity: .72; }
+  50% { opacity: .96; }
+}
+
+body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-device {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panorama-app[data-room-phase="room"] .activity-hotspot-device {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .panorama-app[data-room-phase="room"] .scene-hotspot.is-activity {
+    width: 108px;
+    height: 78px;
+  }
+
+  .panorama-app[data-room-phase="room"] .activity-hotspot-device {
+    width: 84px;
+    height: 54px;
+    transform: translate(-50%, -50%);
+  }
+
+  .panorama-app[data-room-phase="room"] .scene-hotspot.is-activity:hover .activity-hotspot-device,
+  .panorama-app[data-room-phase="room"] .scene-hotspot.is-activity:focus-visible .activity-hotspot-device,
+  .panorama-app[data-room-phase="room"] .scene-hotspot.is-activity.is-active .activity-hotspot-device,
+  .panorama-app[data-room-phase="room"] .scene-hotspot.is-activity.is-gesture-target .activity-hotspot-device {
+    width: 90px;
+    height: 58px;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* 精品解构舱：覆盖基础活动层视觉，不改变游戏状态与业务事实。 */
 .peel-game-dialog {
   isolation: isolate;
