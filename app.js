@@ -10,10 +10,10 @@ import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from '.
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260902-desire-peel-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
-import { RoomGestureController } from './gesture-ui.js?v=20260902-desire-peel-1';
+import { RoomGestureController } from './gesture-ui.js?v=20260903-gesture-smooth-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
-import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260902-desire-peel-1';
-import { createPeelGameController } from './peel-game-ui.js?v=20260902-desire-peel-3-gallery-glass-2';
+import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
+import { createPeelGameController } from './peel-game-ui.js?v=20260902-desire-peel-3-gallery-glass-2-gesture-smooth-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];

@@ -250,6 +250,29 @@ test('键盘刀锋和持久目标按钮可操作同一批动态实体', async ()
   assert.equal(setup.elements.currentTargetButton.focused, undefined, '动态实体变化不应替换持久按钮');
 });
 
+test('体感刀锋在稀疏识别帧之间逐帧追踪，并保留亚像素位置', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'gesture-blade', tutorialCompleted: true });
+  setup.controller.start('gesture');
+  setup.frames.run(0);
+  setup.controller.applySegment({
+    from: { x: 0.5, y: 0.9 },
+    to: { x: 0.73123, y: 0.81234 },
+    at: 8,
+  });
+
+  setup.frames.run(16);
+  const firstX = Number.parseFloat(setup.elements.blade.style.values.get('--blade-x'));
+  const firstY = Number.parseFloat(setup.elements.blade.style.values.get('--blade-y'));
+  assert.ok(firstX > 50 && firstX < 73.123, `首个显示帧应平滑追踪：${firstX}`);
+  assert.ok(firstY > 50 && firstY < 81.234, `首个显示帧应平滑追踪：${firstY}`);
+  assert.match(setup.elements.blade.style.values.get('--blade-x'), /\.\d+%$/);
+
+  setup.frames.run(32);
+  const secondX = Number.parseFloat(setup.elements.blade.style.values.get('--blade-x'));
+  assert.ok(secondX > firstX && secondX < 73.123);
+});
+
 test('Canvas 不可用时开启语义目标降级，减少动态取消高速抛物与旋转', async () => {
   const setup = harness({ canvasAvailable: false, reducedMotion: true });
   await setup.controller.open({ seed: 'fallback', tutorialCompleted: true });

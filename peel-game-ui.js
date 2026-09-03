@@ -227,6 +227,7 @@ export function createPeelGameController({
   let pointer = null;
   let targetIndex = 0;
   let bladePoint = { x: 0.5, y: 0.5 };
+  let gestureBladeTarget = null;
   let particles = [];
   let shellShards = [];
   let revealCards = [];
@@ -331,8 +332,8 @@ export function createPeelGameController({
     if (elements.tutorial) elements.tutorial.hidden = state.status !== PEEL_GAME_STATUS.TUTORIAL;
     if (elements.pauseNotice) elements.pauseNotice.hidden = state.status !== PEEL_GAME_STATUS.PAUSED;
     if (elements.blade) {
-      elements.blade.style.setProperty('--blade-x', `${Math.round(bladePoint.x * 100)}%`);
-      elements.blade.style.setProperty('--blade-y', `${Math.round(bladePoint.y * 100)}%`);
+      elements.blade.style.setProperty('--blade-x', `${(clamp(bladePoint.x, 0, 1) * 100).toFixed(3)}%`);
+      elements.blade.style.setProperty('--blade-y', `${(clamp(bladePoint.y, 0, 1) * 100).toFixed(3)}%`);
     }
     renderTargetController();
     renderFallbackTargets();
@@ -559,6 +560,18 @@ export function createPeelGameController({
     trails = trails.filter((trail) => at - trail.at < 130).slice(-8);
   }
 
+  function updateGestureBlade(deltaMs) {
+    if (inputMode !== 'gesture' || !gestureBladeTarget || deltaMs <= 0) return;
+    const alpha = 1 - Math.exp(-Math.min(deltaMs, 80) / 42);
+    bladePoint = {
+      x: bladePoint.x + (gestureBladeTarget.x - bladePoint.x) * alpha,
+      y: bladePoint.y + (gestureBladeTarget.y - bladePoint.y) * alpha,
+    };
+    if (lineDistance(bladePoint, gestureBladeTarget) < 0.0005) {
+      bladePoint = { ...gestureBladeTarget };
+    }
+  }
+
   function createChoice(reveal, index) {
     if (!documentRef?.createElement) return { textContent: reveal.lure || reveal.text };
     const label = documentRef.createElement('label');
@@ -608,6 +621,7 @@ export function createPeelGameController({
     lastFrameAt = timestamp;
     state = advanceRound(state, deltaMs);
     updateEffects(deltaMs, timestamp);
+    updateGestureBlade(deltaMs);
     renderState();
     draw();
     emitState();
@@ -639,6 +653,8 @@ export function createPeelGameController({
   function start(mode = 'pointer') {
     if (!state || state.status !== PEEL_GAME_STATUS.READY) return state;
     inputMode = mode === 'gesture' ? 'gesture' : mode === 'keyboard' ? 'keyboard' : 'pointer';
+    bladePoint = { x: 0.5, y: 0.5 };
+    gestureBladeTarget = null;
     onInputMode(inputMode);
     state = startRound(state);
     showPlayView();
@@ -655,6 +671,16 @@ export function createPeelGameController({
     if (!state) return state;
     const at = Number.isFinite(Number(segment?.at)) ? Number(segment.at) : now();
     const normalizedSegment = { ...segment, at };
+    if (
+      inputMode === 'gesture'
+      && Number.isFinite(Number(normalizedSegment.to?.x))
+      && Number.isFinite(Number(normalizedSegment.to?.y))
+    ) {
+      gestureBladeTarget = {
+        x: clamp(Number(normalizedSegment.to.x), 0, 1),
+        y: clamp(Number(normalizedSegment.to.y), 0, 1),
+      };
+    }
     const previousState = state;
     state = applyPeelSegment(state, normalizedSegment);
     trails.push({ ...normalizedSegment, at });
@@ -742,6 +768,7 @@ export function createPeelGameController({
     trails = [];
     targetIndex = 0;
     bladePoint = { x: 0.5, y: 0.5 };
+    gestureBladeTarget = null;
     showPlayView();
     renderState();
     draw();
@@ -781,6 +808,7 @@ export function createPeelGameController({
     shellShards = [];
     revealCards = [];
     trails = [];
+    gestureBladeTarget = null;
     opened = false;
     if (state) state = { ...state, status: PEEL_GAME_STATUS.CLOSED };
     root.hidden = true;
