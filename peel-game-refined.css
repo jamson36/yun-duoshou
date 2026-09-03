@@ -130,7 +130,10 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
 
 /* 精品解构舱：覆盖基础活动层视觉，不改变游戏状态与业务事实。 */
 .peel-game-dialog {
+  --peel-portal-x: 66%;
+  --peel-portal-y: 58%;
   isolation: isolate;
+  perspective: 1400px;
 }
 
 .peel-game-backdrop {
@@ -138,6 +141,11 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
     radial-gradient(circle at 50% 22%, rgba(215, 255, 67, .07), transparent 34%),
     rgba(5, 7, 6, .79);
   backdrop-filter: blur(24px) saturate(.72);
+  transform-origin: var(--peel-portal-x) var(--peel-portal-y);
+}
+
+.peel-game-dialog:not([hidden]) .peel-game-backdrop {
+  animation: peel-portal-reveal 420ms cubic-bezier(.22, .8, .22, 1) both;
 }
 
 .peel-game-card {
@@ -164,6 +172,11 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
     0 44px 120px rgba(0, 0, 0, .62),
     inset 0 1px 0 rgba(255, 255, 255, .05);
   color: var(--peel-gallery-ink);
+  transform-origin: var(--peel-portal-x) var(--peel-portal-y);
+}
+
+.peel-game-dialog:not([hidden]) .peel-game-card {
+  animation: peel-card-materialize 420ms 45ms cubic-bezier(.2, .82, .2, 1) both;
 }
 
 .peel-game-card::before {
@@ -176,6 +189,61 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(215, 255, 67, .48), transparent);
   pointer-events: none;
+}
+
+.peel-game-card::after {
+  content: "";
+  position: absolute;
+  z-index: 7;
+  top: -20%;
+  right: 0;
+  left: 0;
+  height: 18%;
+  transform: translate3d(0, -140%, 0);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(112, 231, 218, .055) 42%,
+    rgba(215, 255, 67, .2) 50%,
+    rgba(112, 231, 218, .04) 58%,
+    transparent
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  animation: peel-card-scan 560ms 95ms ease-out both;
+}
+
+@keyframes peel-portal-reveal {
+  0% {
+    clip-path: circle(0 at var(--peel-portal-x) var(--peel-portal-y));
+    opacity: .18;
+  }
+  62% { opacity: 1; }
+  100% {
+    clip-path: circle(150vmax at var(--peel-portal-x) var(--peel-portal-y));
+    opacity: 1;
+  }
+}
+
+@keyframes peel-card-materialize {
+  0% {
+    transform: translate3d(0, 22px, 0) scale(.968) rotateX(1.4deg);
+    filter: brightness(.68) saturate(.72);
+    opacity: 0;
+  }
+  64% { opacity: 1; }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1) rotateX(0);
+    filter: brightness(1) saturate(1);
+    opacity: 1;
+  }
+}
+
+@keyframes peel-card-scan {
+  0% { transform: translate3d(0, -140%, 0); opacity: 0; }
+  18% { opacity: .9; }
+  100% { transform: translate3d(0, 760%, 0); opacity: 0; }
 }
 
 .peel-game-heading {
@@ -552,7 +620,8 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
   border: 1px solid rgba(244, 240, 231, .18);
   border-radius: 22px;
   background:
-    radial-gradient(ellipse at 50% 42%, rgba(215, 255, 67, .085), transparent 25%),
+    radial-gradient(ellipse at 50% 44%, rgba(215, 255, 67, .105), transparent 27%),
+    linear-gradient(180deg, transparent 0 64%, rgba(215, 255, 67, .018) 78%, transparent 100%),
     radial-gradient(circle at 18% 18%, rgba(112, 231, 218, .045), transparent 24%),
     linear-gradient(180deg, #101311, #070908 76%);
   box-shadow:
@@ -564,9 +633,11 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
 .peel-game-stage::before {
   z-index: 0;
   background:
+    repeating-linear-gradient(180deg, rgba(244, 240, 231, .012) 0 1px, transparent 1px 5px),
     linear-gradient(90deg, transparent 0 11%, rgba(244, 240, 231, .022) 11.2%, transparent 11.45% 88%, rgba(244, 240, 231, .018) 88.2%, transparent 88.45%),
-    linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 36%);
+    linear-gradient(180deg, rgba(255, 255, 255, .022), transparent 36%);
   background-size: auto;
+  opacity: .82;
 }
 
 .peel-game-stage::after {
@@ -585,6 +656,36 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
 
 .peel-game-stage canvas {
   z-index: 2;
+}
+
+.peel-game-play:not([hidden]) .peel-game-stage {
+  animation: peel-stage-online 360ms cubic-bezier(.2, .82, .2, 1) both;
+}
+
+.peel-game-dialog[data-effect-quality="balanced"] .peel-game-stage::before {
+  opacity: .58;
+}
+
+.peel-game-dialog[data-effect-quality="essential"] .peel-game-stage {
+  box-shadow: inset 0 -54px 72px rgba(0, 0, 0, .42), 0 14px 34px rgba(0, 0, 0, .2);
+}
+
+.peel-game-dialog[data-effect-quality="essential"] .peel-game-stage::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .014), transparent 34%);
+  opacity: .34;
+}
+
+@keyframes peel-stage-online {
+  0% {
+    transform: translate3d(0, 9px, 0) scale(.986);
+    filter: brightness(.66) contrast(1.08);
+    opacity: .62;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1) contrast(1);
+    opacity: 1;
+  }
 }
 
 .peel-game-blade {
@@ -882,6 +983,11 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
 }
 
 @media (max-width: 720px) {
+  .peel-game-dialog {
+    --peel-portal-x: 50%;
+    --peel-portal-y: 68%;
+  }
+
   .peel-game-card {
     max-height: 96dvh;
     border-width: 1px 0 0;
@@ -1060,12 +1166,24 @@ body.reduce-motion .panorama-app[data-room-phase="room"] .activity-hotspot-devic
   }
 }
 
-body.reduce-motion .peel-intro-shell {
+body.reduce-motion :is(
+  .peel-game-backdrop,
+  .peel-game-card,
+  .peel-game-card::after,
+  .peel-game-play:not([hidden]) .peel-game-stage,
+  .peel-intro-shell
+) {
   animation: none !important;
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .peel-game-backdrop,
+  .peel-game-card,
+  .peel-game-card::after,
+  .peel-game-play:not([hidden]) .peel-game-stage,
   .peel-intro-shell {
     animation: none !important;
+    transition: none !important;
   }
 }

@@ -16,6 +16,16 @@ export const MAX_PEEL_ENTITIES = 8;
 export const MAX_PEEL_PARTICLES = 60;
 export const MAX_PEEL_SHARDS = 16;
 export const MAX_PEEL_REVEAL_CARDS = 8;
+export const MAX_PEEL_IMPACT_RINGS = 6;
+export const MAX_PEEL_SIGNAL_GLYPHS = 12;
+
+const PEEL_REVEAL_DURATION_MS = 280;
+const PEEL_EFFECT_QUALITY = Object.freeze({
+  FULL: 'full',
+  BALANCED: 'balanced',
+  ESSENTIAL: 'essential',
+});
+const SIGNAL_REVEAL_GLYPHS = Object.freeze(Array.from('￥％◇╱╲＋×·░▒▓'));
 
 const CONTROLLERS = new WeakMap();
 const PHASE_LABELS = Object.freeze({
@@ -194,6 +204,34 @@ function formatCny(amount) {
   })}`;
 }
 
+export function materializePeelRevealText(text, elapsedMs, { reducedMotion = false } = {}) {
+  const characters = Array.from(String(text || ''));
+  const elapsed = Math.max(0, Number(elapsedMs) || 0);
+  if (reducedMotion || elapsed >= PEEL_REVEAL_DURATION_MS || characters.length === 0) {
+    return characters.join('');
+  }
+  const resolvedCharacters = Math.floor(characters.length * (elapsed / PEEL_REVEAL_DURATION_MS));
+  const tick = Math.floor(elapsed / 42);
+  return characters.map((character, index) => {
+    if (index < resolvedCharacters || /[\s，。！？、：；,.!?]/u.test(character)) return character;
+    const codePoint = character.codePointAt(0) || 0;
+    return SIGNAL_REVEAL_GLYPHS[(codePoint + index * 7 + tick * 3) % SIGNAL_REVEAL_GLYPHS.length];
+  }).join('');
+}
+
+function trailDynamics(segment, previousAt) {
+  const distance = lineDistance(segment?.from || {}, segment?.to || {});
+  const travel = Number.isFinite(distance) ? distance : 0;
+  const elapsedMs = Number.isFinite(previousAt)
+    ? clamp(Number(segment.at) - previousAt, 8, 80)
+    : 16;
+  const speed = travel / Math.max(elapsedMs, 1) * 1_000;
+  return {
+    travel,
+    intensity: clamp(speed / 1.6, 0.5, 1.4),
+  };
+}
+
 export function createPeelGameController({
   root,
   elements: providedElements,
@@ -232,6 +270,10 @@ export function createPeelGameController({
   let shellShards = [];
   let revealCards = [];
   let trails = [];
+  let impactRings = [];
+  let signalGlyphs = [];
+  let effectQuality = PEEL_EFFECT_QUALITY.FULL;
+  let slowFrameDebt = 0;
   let inputMode = 'pointer';
   let tutorialSeen = false;
   let replayCount = 0;
@@ -240,6 +282,49 @@ export function createPeelGameController({
   const motionIsReduced = () => (
     typeof reducedMotion === 'function' ? Boolean(reducedMotion()) : Boolean(reducedMotion)
   );
+
+  function setEffectQuality(nextQuality) {
+    if (!Object.values(PEEL_EFFECT_QUALITY).includes(nextQuality)) return;
+    effectQuality = nextQuality;
+    if (root.dataset) root.dataset.effectQuality = nextQuality;
+  }
+
+  function setPortalOrigin(origin) {
+    const requestedX = Number(origin?.x);
+    const requestedY = Number(origin?.y);
+    const x = Number.isFinite(requestedX) ? clamp(requestedX, 0, 1) : 0.66;
+    const y = Number.isFinite(requestedY) ? clamp(requestedY, 0, 1) : 0.58;
+    root.style?.setProperty?.('--peel-portal-x', `${Number((x * 100).toFixed(2))}%`);
+    root.style?.setProperty?.('--peel-portal-y', `${Number((y * 100).toFixed(2))}%`);
+  }
+
+  function resetEffectBudget() {
+    slowFrameDebt = 0;
+    setEffectQuality(motionIsReduced() ? PEEL_EFFECT_QUALITY.ESSENTIAL : PEEL_EFFECT_QUALITY.FULL);
+  }
+
+  function updateEffectBudget(deltaMs) {
+    if (motionIsReduced()) {
+      setEffectQuality(PEEL_EFFECT_QUALITY.ESSENTIAL);
+      return;
+    }
+    const safeDelta = Number(deltaMs);
+    if (!Number.isFinite(safeDelta) || safeDelta <= 0 || safeDelta > 160) return;
+    slowFrameDebt = clamp(
+      slowFrameDebt + (safeDelta > 28 ? Math.min(3, (safeDelta - 20) / 8) : -0.32),
+      0,
+      24,
+    );
+    if (effectQuality === PEEL_EFFECT_QUALITY.FULL && slowFrameDebt >= 8) {
+      setEffectQuality(PEEL_EFFECT_QUALITY.BALANCED);
+    } else if (effectQuality === PEEL_EFFECT_QUALITY.BALANCED && slowFrameDebt >= 16) {
+      setEffectQuality(PEEL_EFFECT_QUALITY.ESSENTIAL);
+    } else if (effectQuality === PEEL_EFFECT_QUALITY.ESSENTIAL && slowFrameDebt <= 6) {
+      setEffectQuality(PEEL_EFFECT_QUALITY.BALANCED);
+    } else if (effectQuality === PEEL_EFFECT_QUALITY.BALANCED && slowFrameDebt <= 2) {
+      setEffectQuality(PEEL_EFFECT_QUALITY.FULL);
+    }
+  }
 
   function listen(element, type, listener, options) {
     if (!element?.addEventListener) return;
@@ -343,7 +428,12 @@ export function createPeelGameController({
     if (!context) return;
     const x = entity.x * width;
     const y = entity.y * height;
-    const scale = clamp(entity.radius / 0.082, 0.82, 1.42) * appliedDpr;
+    const flightDepth = clamp(0.98 + (entity.y - 0.45) * 0.12, 0.96, 1.08);
+    const scale = clamp(
+      clamp(entity.radius / 0.082, 0.82, 1.42) * 1.18 * flightDepth,
+      0.92,
+      1.64,
+    ) * appliedDpr;
     const price = entity.coreRevealed ? formatCny(entity.item.amount) : '';
     const unpeeledShells = entity.shells
       .map((shell, index) => ({ shell, index }))
@@ -393,6 +483,86 @@ export function createPeelGameController({
     context.restore();
   }
 
+  function drawFlightLines(entity, width, height) {
+    if (!context || motionIsReduced() || effectQuality === PEEL_EFFECT_QUALITY.ESSENTIAL || entity.frozen) return;
+    const velocityX = (Number(entity.vx) || 0) * width;
+    const velocityY = (Number(entity.vy) || 0) * height;
+    const speed = Math.hypot(velocityX, velocityY);
+    if (speed < 54 * appliedDpr) return;
+    const unitX = velocityX / speed;
+    const unitY = velocityY / speed;
+    const normalX = -unitY;
+    const normalY = unitX;
+    const x = entity.x * width;
+    const y = entity.y * height;
+    const lineCount = effectQuality === PEEL_EFFECT_QUALITY.FULL ? 3 : 1;
+    const trailLength = clamp(speed * 0.034, 22 * appliedDpr, 58 * appliedDpr);
+    context.save();
+    context.globalCompositeOperation = 'screen';
+    context.lineCap = 'round';
+    for (let index = 0; index < lineCount; index += 1) {
+      const side = index - (lineCount - 1) / 2;
+      const offset = side * 11 * appliedDpr;
+      const stagger = index * 7 * appliedDpr;
+      context.beginPath();
+      context.moveTo(
+        x - unitX * (trailLength + stagger) + normalX * offset,
+        y - unitY * (trailLength + stagger) + normalY * offset,
+      );
+      context.lineTo(
+        x - unitX * (10 * appliedDpr + stagger * 0.25) + normalX * offset,
+        y - unitY * (10 * appliedDpr + stagger * 0.25) + normalY * offset,
+      );
+      context.strokeStyle = index % 2
+        ? 'rgba(112, 231, 218, .18)'
+        : 'rgba(215, 255, 67, .22)';
+      context.lineWidth = (index === 1 ? 1.4 : 0.8) * appliedDpr;
+      context.stroke();
+    }
+    context.restore();
+  }
+
+  function drawImpactRing(ring, width, height, at) {
+    if (!context) return;
+    const elapsed = Math.max(0, at - ring.bornAt);
+    const progress = clamp(elapsed / 520, 0, 1);
+    const radius = (24 + progress * 72) * appliedDpr * ring.intensity;
+    context.save();
+    context.globalCompositeOperation = 'screen';
+    context.globalAlpha = (1 - progress) * 0.72;
+    context.strokeStyle = ring.color;
+    context.lineWidth = (2.2 - progress * 1.2) * appliedDpr;
+    context.shadowColor = ring.color;
+    context.shadowBlur = 18 * appliedDpr * (1 - progress);
+    context.beginPath();
+    context.arc(ring.x * width, ring.y * height, radius, 0, Math.PI * 2);
+    context.stroke();
+    if (effectQuality === PEEL_EFFECT_QUALITY.FULL) {
+      context.globalAlpha *= 0.42;
+      context.beginPath();
+      context.arc(ring.x * width, ring.y * height, radius * 0.72, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.restore();
+  }
+
+  function drawSignalGlyph(glyph, width, height, at) {
+    if (!context) return;
+    const elapsed = Math.max(0, at - glyph.bornAt);
+    const progress = clamp(elapsed / 620, 0, 1);
+    context.save();
+    context.translate(glyph.x * width, glyph.y * height);
+    context.rotate(glyph.rotation + progress * glyph.rotationVelocity);
+    context.globalCompositeOperation = 'screen';
+    context.globalAlpha = (1 - progress) * 0.72;
+    context.fillStyle = glyph.color;
+    context.font = `650 ${glyph.size * appliedDpr}px ui-monospace, SFMono-Regular, monospace`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(glyph.character, 0, 0);
+    context.restore();
+  }
+
   function drawShellShard(shard, width, height) {
     if (!context) return;
     const shardWidth = 66 * appliedDpr;
@@ -418,12 +588,15 @@ export function createPeelGameController({
     context.restore();
   }
 
-  function drawRevealCard(card, width, height) {
+  function drawRevealCard(card, width, height, at) {
     if (!context) return;
     const echoWidth = Math.min(240 * appliedDpr, width - 36 * appliedDpr);
     const x = clamp(card.x * width, 18 * appliedDpr + echoWidth / 2, width - 18 * appliedDpr - echoWidth / 2);
     const y = clamp(card.y * height - 90 * appliedDpr, 30 * appliedDpr, height - 76 * appliedDpr);
-    const text = String(card.text || '先看清，再决定');
+    const elapsed = Math.max(0, at - card.bornAt);
+    const text = materializePeelRevealText(card.text || '先看清，再决定', elapsed, {
+      reducedMotion: motionIsReduced(),
+    });
     const lines = text.length > 16 ? [text.slice(0, 16), text.slice(16, 32)] : [text];
     context.save();
     context.globalCompositeOperation = 'screen';
@@ -445,31 +618,49 @@ export function createPeelGameController({
     context.font = `550 ${10.5 * appliedDpr}px "PingFang SC", system-ui, sans-serif`;
     lines.forEach((line, index) => {
       const lineOffset = index * 15 * appliedDpr;
+      if (elapsed < PEEL_REVEAL_DURATION_MS && effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
+        const chromaFade = 1 - elapsed / PEEL_REVEAL_DURATION_MS;
+        context.globalAlpha = chromaFade * 0.32;
+        context.fillStyle = '#70e7da';
+        context.fillText(line, x - 1.4 * appliedDpr, y + lineOffset);
+        context.fillStyle = '#d7ff43';
+        context.fillText(line, x + 1.4 * appliedDpr, y + lineOffset);
+      }
+      context.globalAlpha = 1;
+      context.fillStyle = 'rgba(244, 240, 231, .94)';
       context.fillText(line, x, y + lineOffset);
     });
     context.restore();
   }
 
-  function draw() {
+  function draw(at = now()) {
     if (!context || !elements.canvas) return;
     const width = elements.canvas.width;
     const height = elements.canvas.height;
     context.clearRect(0, 0, width, height);
+    for (const ring of impactRings) drawImpactRing(ring, width, height, at);
+    for (const entity of (state?.entities || []).slice(0, MAX_PEEL_ENTITIES)) drawFlightLines(entity, width, height);
     for (const shard of shellShards) drawShellShard(shard, width, height);
     for (const entity of (state?.entities || []).slice(0, MAX_PEEL_ENTITIES)) drawProduct(entity, width, height);
-    for (const card of revealCards) drawRevealCard(card, width, height);
+    for (const card of revealCards) drawRevealCard(card, width, height, at);
 
     context.save();
     context.lineCap = 'round';
     for (const trail of trails) {
+      const intensity = clamp(Number(trail.intensity) || 0.7, 0.5, 1.4);
       context.beginPath();
       context.moveTo(trail.from.x * width, trail.from.y * height);
       context.lineTo(trail.to.x * width, trail.to.y * height);
-      context.strokeStyle = 'rgba(215, 255, 67, .13)';
-      context.lineWidth = 10 * appliedDpr;
+      context.strokeStyle = `rgba(215, 255, 67, ${0.11 + intensity * 0.08})`;
+      context.lineWidth = (8 + intensity * 7) * appliedDpr;
       context.stroke();
+      if (effectQuality === PEEL_EFFECT_QUALITY.FULL) {
+        context.strokeStyle = `rgba(112, 231, 218, ${0.08 + intensity * 0.08})`;
+        context.lineWidth = (3.2 + intensity * 2) * appliedDpr;
+        context.stroke();
+      }
       context.strokeStyle = 'rgba(244, 240, 231, .94)';
-      context.lineWidth = 1.8 * appliedDpr;
+      context.lineWidth = (1.5 + intensity * 0.8) * appliedDpr;
       context.stroke();
     }
     for (const particle of particles) {
@@ -484,10 +675,11 @@ export function createPeelGameController({
       );
       context.fill();
     }
+    for (const glyph of signalGlyphs) drawSignalGlyph(glyph, width, height, at);
     context.restore();
   }
 
-  function addPeelFeedback(previousState, nextState, at) {
+  function addPeelFeedback(previousState, nextState, at, intensity = 1) {
     const previousIds = new Set(previousState.reveals.map((reveal) => `${reveal.entityId}:${reveal.copyId}`));
     const fresh = nextState.reveals.filter((reveal) => !previousIds.has(`${reveal.entityId}:${reveal.copyId}`));
     for (const reveal of fresh) {
@@ -500,23 +692,52 @@ export function createPeelGameController({
         const shellColor = shellIndex % 2 === 0
           ? 'rgba(215, 255, 67, .28)'
           : 'rgba(112, 231, 218, .24)';
-        [-1, 1].forEach((side) => {
-          shellShards.push({
-            x: entity.x + side * 0.018,
+        if (!motionIsReduced()) {
+          impactRings.push({
+            x: entity.x,
             y: entity.y,
-            vx: side * 0.035,
-            vy: -0.065,
-            rotation: side * 0.08,
-            rotationVelocity: side * 0.12,
             bornAt: at,
-            color: shellColor,
+            intensity: clamp(Number(intensity) || 1, 0.68, 1.3),
+            color: shellIndex % 2 === 0 ? '#d7ff43' : '#70e7da',
           });
-        });
-        for (let index = 0; index < 10; index += 1) {
+        }
+        if (effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
+          [-1, 1].forEach((side) => {
+            shellShards.push({
+              x: entity.x + side * 0.018,
+              y: entity.y,
+              vx: side * (0.03 + intensity * 0.01),
+              vy: -(0.055 + intensity * 0.012),
+              rotation: side * 0.08,
+              rotationVelocity: side * 0.12,
+              bornAt: at,
+              color: shellColor,
+            });
+          });
+          Array.from(String(reveal.lure || '信号')).slice(0, 4).forEach((character, index) => {
+            const direction = index % 2 === 0 ? -1 : 1;
+            signalGlyphs.push({
+              character,
+              x: entity.x + direction * (0.012 + index * 0.005),
+              y: entity.y - 0.012,
+              vx: direction * (0.018 + index * 0.006),
+              vy: -(0.034 + (index % 3) * 0.009),
+              rotation: direction * 0.12,
+              rotationVelocity: direction * (0.4 + index * 0.08),
+              bornAt: at,
+              size: index === 0 ? 10 : 8,
+              color: index % 2 ? 'rgba(112, 231, 218, .78)' : 'rgba(215, 255, 67, .86)',
+            });
+          });
+        }
+        const particleCount = effectQuality === PEEL_EFFECT_QUALITY.FULL
+          ? 10
+          : effectQuality === PEEL_EFFECT_QUALITY.BALANCED ? 6 : 3;
+        for (let index = 0; index < particleCount; index += 1) {
           particles.push({
             x: entity.x,
             y: entity.y,
-            vx: (index - 4.5) * 0.008,
+            vx: (index - (particleCount - 1) / 2) * 0.008 * intensity,
             vy: -0.05 - (index % 3) * 0.012,
             bornAt: at,
             radius: index % 3 === 0 ? 2.1 : 1.35,
@@ -531,6 +752,8 @@ export function createPeelGameController({
     particles = particles.slice(-MAX_PEEL_PARTICLES);
     shellShards = shellShards.slice(-MAX_PEEL_SHARDS);
     revealCards = revealCards.slice(-MAX_PEEL_REVEAL_CARDS);
+    impactRings = impactRings.slice(-MAX_PEEL_IMPACT_RINGS);
+    signalGlyphs = signalGlyphs.slice(-MAX_PEEL_SIGNAL_GLYPHS);
   }
 
   function updateEffects(deltaMs, at) {
@@ -558,6 +781,18 @@ export function createPeelGameController({
       .filter((card) => at - card.bornAt < 1_250)
       .slice(-MAX_PEEL_REVEAL_CARDS);
     trails = trails.filter((trail) => at - trail.at < 130).slice(-8);
+    impactRings = impactRings
+      .filter((ring) => at - ring.bornAt < 520)
+      .slice(-MAX_PEEL_IMPACT_RINGS);
+    signalGlyphs = signalGlyphs
+      .filter((glyph) => at - glyph.bornAt < 620)
+      .map((glyph) => ({
+        ...glyph,
+        x: glyph.x + glyph.vx * delta * 60,
+        y: glyph.y + glyph.vy * delta * 60,
+        vy: glyph.vy + 0.004 * delta * 60,
+      }))
+      .slice(-MAX_PEEL_SIGNAL_GLYPHS);
   }
 
   function updateGestureBlade(deltaMs) {
@@ -620,10 +855,11 @@ export function createPeelGameController({
     const deltaMs = lastFrameAt === null ? 0 : Math.max(0, timestamp - lastFrameAt);
     lastFrameAt = timestamp;
     state = advanceRound(state, deltaMs);
+    updateEffectBudget(deltaMs);
     updateEffects(deltaMs, timestamp);
     updateGestureBlade(deltaMs);
     renderState();
-    draw();
+    draw(timestamp);
     emitState();
     if (state.status === PEEL_GAME_STATUS.SUMMARY) finishSummary();
     else if (state.status !== PEEL_GAME_STATUS.TUTORIAL || state.entities.some((entity) => !entity.frozen)) scheduleLoop();
@@ -655,6 +891,7 @@ export function createPeelGameController({
     inputMode = mode === 'gesture' ? 'gesture' : mode === 'keyboard' ? 'keyboard' : 'pointer';
     bladePoint = { x: 0.5, y: 0.5 };
     gestureBladeTarget = null;
+    resetEffectBudget();
     onInputMode(inputMode);
     state = startRound(state);
     showPlayView();
@@ -683,16 +920,18 @@ export function createPeelGameController({
     }
     const previousState = state;
     state = applyPeelSegment(state, normalizedSegment);
-    trails.push({ ...normalizedSegment, at });
+    const previousTrailAt = trails.at(-1)?.at;
+    const dynamics = trailDynamics(normalizedSegment, previousTrailAt);
+    trails.push({ ...normalizedSegment, ...dynamics, at });
     trails = trails.slice(-8);
-    addPeelFeedback(previousState, state, at);
+    addPeelFeedback(previousState, state, at, dynamics.intensity);
     if (previousState.status === PEEL_GAME_STATUS.TUTORIAL && state.status === PEEL_GAME_STATUS.PLAYING) {
       tutorialSeen = true;
       lastFrameAt = null;
       scheduleLoop();
     }
     renderState();
-    draw();
+    draw(at);
     emitState();
     return state;
   }
@@ -766,9 +1005,12 @@ export function createPeelGameController({
     shellShards = [];
     revealCards = [];
     trails = [];
+    impactRings = [];
+    signalGlyphs = [];
     targetIndex = 0;
     bladePoint = { x: 0.5, y: 0.5 };
     gestureBladeTarget = null;
+    resetEffectBudget();
     showPlayView();
     renderState();
     draw();
@@ -781,6 +1023,7 @@ export function createPeelGameController({
     if (destroyed) return null;
     if (!assetsPromise) assetsPromise = Promise.resolve().then(() => loadAssets());
     await assetsPromise;
+    setPortalOrigin(nextConfig.portalOrigin);
     if (opened) return state;
     config = { ...nextConfig };
     state = createPeelGame({
@@ -788,6 +1031,7 @@ export function createPeelGameController({
       tutorialCompleted: Boolean(config.tutorialCompleted || tutorialSeen),
       reducedMotion: motionIsReduced(),
     });
+    resetEffectBudget();
     opened = true;
     root.hidden = false;
     root.setAttribute?.('aria-hidden', 'false');
@@ -808,6 +1052,8 @@ export function createPeelGameController({
     shellShards = [];
     revealCards = [];
     trails = [];
+    impactRings = [];
+    signalGlyphs = [];
     gestureBladeTarget = null;
     opened = false;
     if (state) state = { ...state, status: PEEL_GAME_STATUS.CLOSED };
@@ -931,6 +1177,10 @@ export function createPeelGameController({
       particles: particles.length,
       shellShards: shellShards.length,
       revealCards: revealCards.length,
+      impactRings: impactRings.length,
+      signalGlyphs: signalGlyphs.length,
+      effectQuality,
+      slowFrameDebt,
       rafActive: rafId !== null,
       listeners: cleanupListeners.length,
     }),

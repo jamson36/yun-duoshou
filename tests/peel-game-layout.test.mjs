@@ -6,6 +6,7 @@ import { renderActivityHotspotMarkup } from '../panorama.js';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS } from '../scene-config.js';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const refinedCss = await readFile(new URL('../peel-game-refined.css', import.meta.url), 'utf8');
 const gameStart = html.indexOf('<!-- PEEL_GAME_START -->');
 const gameEnd = html.indexOf('<!-- PEEL_GAME_END -->');
 const gameMarkup = gameStart >= 0 && gameEnd > gameStart
@@ -90,4 +91,13 @@ test('游戏区不包含水果、支付、抽奖、排行或在线模型文案',
   assert.doesNotMatch(inspected, /水果|西瓜|苹果|香蕉|抽奖|排行榜|真实支付|OpenAI|DeepSeek|provider|api[_-]?key/i);
   assert.match(manifest, /程序化绘制/);
   assert.match(manifest, /CSS 文字降级/);
+});
+
+test('掌机入口以一次性局部扫描展开，并为慢帧与减少动态提供回退', () => {
+  assert.match(refinedCss, /@keyframes\s+peel-portal-reveal/);
+  assert.match(refinedCss, /\.peel-game-dialog:not\(\[hidden\]\)\s+\.peel-game-backdrop[^}]*animation:\s*peel-portal-reveal/s);
+  assert.match(refinedCss, /@keyframes\s+peel-card-materialize/);
+  assert.match(refinedCss, /\.peel-game-dialog\[data-effect-quality="essential"\]/);
+  assert.match(refinedCss, /body\.reduce-motion[^}]*peel-game-backdrop[^}]*animation:\s*none/s);
+  assert.match(refinedCss, /prefers-reduced-motion:\s*reduce[\s\S]*peel-game-backdrop[^}]*animation:\s*none/s);
 });

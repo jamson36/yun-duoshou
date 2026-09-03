@@ -13,7 +13,7 @@ import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stage
 import { RoomGestureController } from './gesture-ui.js?v=20260903-gesture-smooth-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
-import { createPeelGameController } from './peel-game-ui.js?v=20260902-desire-peel-3-gallery-glass-2-gesture-smooth-1';
+import { createPeelGameController } from './peel-game-ui.js?v=20260903-warm-feedback-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -677,10 +677,20 @@ function peelRoundSeed() {
   return `peel:${state.dataRevision}:${orderSignature}`;
 }
 
+function peelPortalOriginForTrigger(trigger) {
+  const rect = trigger?.getBoundingClientRect?.();
+  if (!rect || window.innerWidth <= 0 || window.innerHeight <= 0) return null;
+  return {
+    x: (rect.left + rect.width / 2) / window.innerWidth,
+    y: (rect.top + rect.height / 2) / window.innerHeight,
+  };
+}
+
 function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
   if (!roomEntered || activePanel || activeActivity === 'peel') return false;
   activeActivity = 'peel';
   peelActivityReturnFocus = trigger || document.querySelector('[data-hotspot-id="desire-peel"]');
+  const portalOrigin = peelPortalOriginForTrigger(peelActivityReturnFocus);
   app.dataset.activity = 'peel';
   setRoomUiInteractive(false);
   setRoomBackgroundSuppressed(true);
@@ -700,6 +710,7 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
     seed: peelRoundSeed(),
     orders: state.orders,
     tutorialCompleted: false,
+    portalOrigin,
   });
   return true;
 }

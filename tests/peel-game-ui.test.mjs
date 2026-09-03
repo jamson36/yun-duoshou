@@ -4,10 +4,13 @@ import test from 'node:test';
 import {
   MAX_PEEL_DPR,
   MAX_PEEL_ENTITIES,
+  MAX_PEEL_IMPACT_RINGS,
   MAX_PEEL_PARTICLES,
   MAX_PEEL_REVEAL_CARDS,
+  MAX_PEEL_SIGNAL_GLYPHS,
   MAX_PEEL_SHARDS,
   createPeelGameController,
+  materializePeelRevealText,
 } from '../peel-game-ui.js';
 import { PEEL_GAME_STATUS } from '../peel-game.js';
 
@@ -160,7 +163,13 @@ test('同一根节点只创建一个控制器，素材只在首次 open 时加�
   const duplicate = createPeelGameController({ root: setup.root, elements: setup.elements });
   assert.equal(duplicate, setup.controller);
 
-  await setup.controller.open({ seed: 'open', tutorialCompleted: true });
+  await setup.controller.open({
+    seed: 'open',
+    tutorialCompleted: true,
+    portalOrigin: { x: 0.63, y: 0.57 },
+  });
+  assert.equal(setup.root.style.values.get('--peel-portal-x'), '63%');
+  assert.equal(setup.root.style.values.get('--peel-portal-y'), '57%');
   await setup.controller.open({ seed: 'open-again', tutorialCompleted: true });
   assert.equal(setup.assetLoads, 1);
   assert.equal(setup.root.hidden, false);
@@ -349,4 +358,42 @@ test('第 45 秒切换结果页并停止 RAF，summary 后拒绝命中，close �
   setup.controller.close();
   assert.equal(setup.root.hidden, true);
   assert.equal(setup.frames.size, 0);
+});
+
+test('降噪回声先做确定性字符显影，减少动态直接呈现完整文案', () => {
+  const text = '倒计时不替我做决定';
+  const firstFrame = materializePeelRevealText(text, 0);
+
+  assert.notEqual(firstFrame, text);
+  assert.equal(firstFrame, materializePeelRevealText(text, 0), '同一时刻的字符显影必须可复现');
+  assert.equal(materializePeelRevealText(text, 320), text);
+  assert.equal(materializePeelRevealText(text, 0, { reducedMotion: true }), text);
+});
+
+test('切割反馈有数量上限，并在连续慢帧时自动收敛为基础效果', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'effect-budget', tutorialCompleted: true });
+  setup.controller.start('gesture');
+  setup.elements.currentTargetButton.dispatch('click');
+
+  let diagnostics = setup.controller.getDiagnostics();
+  assert.equal(diagnostics.effectQuality, 'full');
+  assert.equal(diagnostics.impactRings, 1);
+  assert.ok(diagnostics.signalGlyphs > 0);
+  assert.ok(diagnostics.impactRings <= MAX_PEEL_IMPACT_RINGS);
+  assert.ok(diagnostics.signalGlyphs <= MAX_PEEL_SIGNAL_GLYPHS);
+
+  setup.frames.run(0);
+  for (let index = 1; index <= 18; index += 1) setup.frames.run(index * 40);
+  diagnostics = setup.controller.getDiagnostics();
+  assert.notEqual(diagnostics.effectQuality, 'full');
+
+  const reduced = harness({ reducedMotion: true });
+  await reduced.controller.open({ seed: 'effect-budget-reduced', tutorialCompleted: true });
+  reduced.controller.start('pointer');
+  reduced.elements.currentTargetButton.dispatch('click');
+  const reducedDiagnostics = reduced.controller.getDiagnostics();
+  assert.equal(reducedDiagnostics.effectQuality, 'essential');
+  assert.equal(reducedDiagnostics.impactRings, 0);
+  assert.equal(reducedDiagnostics.signalGlyphs, 0);
 });

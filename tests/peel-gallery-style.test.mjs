@@ -9,7 +9,7 @@ const peelUiSource = readFileSync(new URL('../peel-game-ui.js', import.meta.url)
 test('精品解构舱通过独立样式层加载，便于审查与回退', () => {
   const refinementCss = readFileSync(new URL('../peel-game-refined.css', import.meta.url), 'utf8');
 
-  assert.match(indexSource, /peel-game-refined\.css\?v=20260902-gallery-glass-2/);
+  assert.match(indexSource, /peel-game-refined\.css\?v=20260903-warm-feedback-1/);
   assert.match(refinementCss, /\.peel-game-card/);
   assert.match(refinementCss, /\.peel-game-stage/);
   assert.match(refinementCss, /\.peel-intro-shell/);
@@ -39,7 +39,7 @@ test('局内状态与辅助操作统一使用信号语言', () => {
 });
 
 test('入口与游戏控制器使用精品解构舱缓存版本', () => {
-  assert.match(indexSource, /app\.js\?v=[^"']*gallery-glass-2/);
-  assert.match(appSource, /peel-game-ui\.js\?v=[^"']*gallery-glass-2/);
+  assert.match(indexSource, /app\.js\?v=[^"']*warm-feedback-1/);
+  assert.match(appSource, /peel-game-ui\.js\?v=[^"']*warm-feedback-1/);
   assert.match(peelUiSource, /peel-product-visuals\.js\?v=20260902-gallery-glass-1/);
 });
