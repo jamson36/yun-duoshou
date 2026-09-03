@@ -1,7 +1,9 @@
 const DEFAULT_OPTIONS = Object.freeze({
   minConfidence: 0.68,
-  smoothing: 0.34,
-  pointerSmoothing: 0.42,
+  smoothing: null,
+  pointerSmoothing: null,
+  centerResponseMs: 72,
+  pointerResponseMs: 56,
   panDeadZone: 0.0035,
   panSensitivityX: 2.4,
   panSensitivityY: 1.2,
@@ -13,6 +15,14 @@ const DEFAULT_OPTIONS = Object.freeze({
   maxZoomDelta: 0.075,
   dwellMs: 800,
   cooldownMs: 1200,
+});
+
+const DEFAULT_MOTION_OPTIONS = Object.freeze({
+  durationMs: null,
+  baseDurationMs: 82,
+  minDurationMs: 68,
+  maxDurationMs: 120,
+  intervalScale: 1.12,
 });
 
 function clamp(value, min, max) {
@@ -28,6 +38,19 @@ function finitePoint(point) {
   return point
     && Number.isFinite(Number(point.x))
     && Number.isFinite(Number(point.y));
+}
+
+function smoothingAlpha(fixedAlpha, responseMs, elapsedMs) {
+  if (fixedAlpha !== null && fixedAlpha !== undefined && fixedAlpha !== '') {
+    return clamp(Number(fixedAlpha) || 0, 0, 1);
+  }
+  const response = Math.max(1, Number(responseMs) || 1);
+  const elapsed = clamp(Number(elapsedMs) || 0, 0, 250);
+  return 1 - Math.exp(-elapsed / response);
+}
+
+function emptyMotionDelta() {
+  return { panX: 0, panY: 0, zoomDelta: 0 };
 }
 
 export function mirroredLandmarkPoint(landmark) {
@@ -71,6 +94,97 @@ export function normalizedPinchDistance(landmarks) {
   return distance(landmarks[4], landmarks[8]) / palmWidth;
 }
 
+export class GestureMotionInterpolator {
+  constructor(options = {}) {
+    this.options = { ...DEFAULT_MOTION_OPTIONS, ...options };
+    this.reset();
+  }
+
+  reset() {
+    this.mode = 'idle';
+    this.lastPushAt = null;
+    this.segments = [];
+  }
+
+  setMode(mode) {
+    const nextMode = mode === 'pan' || mode === 'zoom' ? mode : 'idle';
+    if (nextMode === this.mode) return false;
+    this.mode = nextMode;
+    this.lastPushAt = null;
+    this.segments = [];
+    return true;
+  }
+
+  durationFor(timestamp) {
+    const fixedDuration = Number(this.options.durationMs);
+    if (Number.isFinite(fixedDuration) && fixedDuration > 0) return fixedDuration;
+    const baseDuration = Math.max(16, Number(this.options.baseDurationMs) || 82);
+    if (!Number.isFinite(this.lastPushAt)) return baseDuration;
+    const interval = Math.max(1, timestamp - this.lastPushAt);
+    return clamp(
+      interval * (Number(this.options.intervalScale) || 1),
+      Math.max(16, Number(this.options.minDurationMs) || 68),
+      Math.max(16, Number(this.options.maxDurationMs) || 120),
+    );
+  }
+
+  push(command, now = performance.now()) {
+    const timestamp = Number(now);
+    if (!Number.isFinite(timestamp)) return false;
+    const mode = command?.mode === 'zoom' ? 'zoom' : command?.mode === 'pan' ? 'pan' : 'idle';
+    this.setMode(mode);
+    if (mode === 'idle') return false;
+
+    const delta = {
+      panX: Number.isFinite(Number(command?.panX)) ? Number(command.panX) : 0,
+      panY: Number.isFinite(Number(command?.panY)) ? Number(command.panY) : 0,
+      zoomDelta: Number.isFinite(Number(command?.zoomDelta)) ? Number(command.zoomDelta) : 0,
+    };
+    if (!delta.panX && !delta.panY && !delta.zoomDelta) return false;
+
+    const durationMs = this.durationFor(timestamp);
+    this.lastPushAt = timestamp;
+    this.segments.push({
+      ...delta,
+      remainingMs: durationMs,
+      lastSampleAt: timestamp,
+    });
+    return true;
+  }
+
+  sample(now = performance.now()) {
+    const timestamp = Number(now);
+    if (!Number.isFinite(timestamp) || !this.segments.length) return emptyMotionDelta();
+    const output = emptyMotionDelta();
+    const pending = [];
+
+    for (const segment of this.segments) {
+      const elapsedMs = clamp(timestamp - segment.lastSampleAt, 0, segment.remainingMs);
+      if (elapsedMs <= 0) {
+        pending.push(segment);
+        continue;
+      }
+      const fraction = elapsedMs / segment.remainingMs;
+      output.panX += segment.panX * fraction;
+      output.panY += segment.panY * fraction;
+      output.zoomDelta += segment.zoomDelta * fraction;
+      segment.panX *= 1 - fraction;
+      segment.panY *= 1 - fraction;
+      segment.zoomDelta *= 1 - fraction;
+      segment.remainingMs -= elapsedMs;
+      segment.lastSampleAt = timestamp;
+      if (segment.remainingMs > 0.01) pending.push(segment);
+    }
+
+    this.segments = pending;
+    return output;
+  }
+
+  hasPending() {
+    return this.segments.length > 0;
+  }
+}
+
 export class GestureCommandMapper {
   constructor(options = {}) {
     const normalizedOptions = { ...options };
@@ -99,6 +213,8 @@ export class GestureCommandMapper {
     this.smoothedCenter = null;
     this.previousControlCenter = null;
     this.smoothedPointer = null;
+    this.centerSmoothedAt = null;
+    this.pointerSmoothedAt = null;
     this.pinchActive = false;
     this.dwellHotspotId = null;
     this.dwellStartedAt = null;
@@ -121,12 +237,18 @@ export class GestureCommandMapper {
     return true;
   }
 
-  smoothCenter(center) {
+  smoothCenter(center, now) {
     if (!this.smoothedCenter) {
       this.smoothedCenter = { ...center };
+      this.centerSmoothedAt = now;
       return this.smoothedCenter;
     }
-    const alpha = clamp(Number(this.options.smoothing), 0, 1);
+    const alpha = smoothingAlpha(
+      this.options.smoothing,
+      this.options.centerResponseMs,
+      now - this.centerSmoothedAt,
+    );
+    this.centerSmoothedAt = now;
     this.smoothedCenter = {
       x: this.smoothedCenter.x + (center.x - this.smoothedCenter.x) * alpha,
       y: this.smoothedCenter.y + (center.y - this.smoothedCenter.y) * alpha,
@@ -134,12 +256,18 @@ export class GestureCommandMapper {
     return this.smoothedCenter;
   }
 
-  smoothPointer(point) {
+  smoothPointer(point, now) {
     if (!this.smoothedPointer) {
       this.smoothedPointer = { ...point };
+      this.pointerSmoothedAt = now;
       return this.smoothedPointer;
     }
-    const alpha = clamp(Number(this.options.pointerSmoothing), 0, 1);
+    const alpha = smoothingAlpha(
+      this.options.pointerSmoothing,
+      this.options.pointerResponseMs,
+      now - this.pointerSmoothedAt,
+    );
+    this.pointerSmoothedAt = now;
     this.smoothedPointer = {
       x: this.smoothedPointer.x + (point.x - this.smoothedPointer.x) * alpha,
       y: this.smoothedPointer.y + (point.y - this.smoothedPointer.y) * alpha,
@@ -162,7 +290,7 @@ export class GestureCommandMapper {
       return idleCommand();
     }
 
-    const smoothedCenter = this.smoothCenter(center);
+    const smoothedCenter = this.smoothCenter(center, now);
     const gesture = gestureKey(frame.gesture);
     const pinchRatio = normalizedPinchDistance(frame.landmarks);
     this.pinchActive = this.pinchActive
@@ -220,7 +348,7 @@ export class GestureCommandMapper {
     const pointer = this.smoothPointer({
       x: clamp(mirroredPoint.x * safeWidth, 0, safeWidth),
       y: clamp(mirroredPoint.y * safeHeight, 0, safeHeight),
-    });
+    }, now);
     const hotspotId = typeof hitTest === 'function' ? hitTest(pointer) : null;
     let progress = 0;
 

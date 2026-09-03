@@ -172,7 +172,7 @@ test('剥壳机输入域只转发识别帧，不再驱动房间镜头或热点',
     updateCalibration: () => assert.fail('游戏内不应触发房间校准提示'),
     stage: { getBoundingClientRect: () => assert.fail('游戏内不应读取房间舞台') },
     panorama: { applyInputDelta: () => assert.fail('游戏内不应驱动房间') },
-    elements: { mode: { textContent: '' } },
+    elements: { dialog: { open: true }, mode: { textContent: '' } },
   };
   const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5 }));
 
@@ -189,6 +189,71 @@ test('剥壳机输入域只转发识别帧，不再驱动房间镜头或热点',
   assert.equal(calls[2][1].score, 0.91);
   assert.equal(controller.consecutiveFrameErrors, 0);
   assert.match(controller.elements.mode.textContent, /食指/);
+});
+
+test('房间手势先进入显示帧插值，不把整段识别增量直接跳到全景', () => {
+  const calls = [];
+  const command = {
+    mode: 'pan',
+    panX: 48,
+    panY: -12,
+    zoomDelta: 0,
+    pointer: null,
+    activation: null,
+  };
+  const controller = {
+    inputContext: 'room',
+    consecutiveFrameErrors: 0,
+    frameGate: { release: () => calls.push(['release']) },
+    drawLandmarks: () => assert.fail('预览对话框关闭后不应继续绘制骨架'),
+    updateCalibration: () => calls.push(['calibration']),
+    mapper: { update: () => command },
+    motionInterpolator: {
+      setMode: (mode) => calls.push(['mode', mode]),
+      push: (value) => calls.push(['push', value]),
+    },
+    stage: { getBoundingClientRect: () => ({ width: 1_000, height: 700 }) },
+    panorama: {
+      applyInputDelta: () => assert.fail('识别回调不应直接产生阶梯式镜头跳动'),
+      hotspotAtPoint: () => null,
+    },
+    updatePointer: (pointer) => calls.push(['pointer', pointer]),
+    elements: {
+      dialog: { open: false },
+      mode: { textContent: '' },
+    },
+  };
+
+  RoomGestureController.prototype.handleWorkerMessage.call(controller, {
+    type: 'result',
+    gesture: 'Closed_Fist',
+    confidence: 0.93,
+    landmarks: Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5 })),
+  });
+
+  assert.deepEqual(calls.find(([type]) => type === 'mode'), ['mode', 'pan']);
+  assert.deepEqual(calls.find(([type]) => type === 'push'), ['push', command]);
+});
+
+test('显示帧只在房间上下文取出一小段镜头增量', () => {
+  const calls = [];
+  const controller = {
+    active: true,
+    inputContext: 'room',
+    motionInterpolator: {
+      sample: (at) => ({ panX: at / 10, panY: -2, zoomDelta: 0.01 }),
+    },
+    panorama: {
+      applyInputDelta: (delta) => calls.push(delta),
+    },
+  };
+
+  RoomGestureController.prototype.flushGestureMotion.call(controller, 160);
+  assert.deepEqual(calls, [{ panX: 16, panY: -2, zoomDelta: 0.01 }]);
+
+  controller.inputContext = 'activity';
+  RoomGestureController.prototype.flushGestureMotion.call(controller, 176);
+  assert.equal(calls.length, 1, '游戏输入域不能顺带移动房间镜头');
 });
 
 test('游戏内单独开启体感只请求游戏上下文，不获得返回房间自动恢复资格', async () => {

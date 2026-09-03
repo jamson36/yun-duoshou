@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   GestureCommandMapper,
+  GestureMotionInterpolator,
   handCenter,
   mirroredLandmarkPoint,
   normalizedPinchDistance,
@@ -176,4 +177,46 @@ test('空气指针切换热点会重新计算停留时间', () => {
   assert.equal(switched.pointer.hotspotId, 'whiteboard');
   assert.equal(switched.pointer.progress, 0);
   assert.equal(switched.activation, null);
+});
+
+test('默认坐标平滑按真实时间收敛，不因识别帧率不同产生明显拖手差异', () => {
+  function accumulatedPan(stepMs) {
+    const mapper = new GestureCommandMapper({
+      panDeadZone: 0,
+      maxPanPixelsX: 1_000,
+      maxPanPixelsY: 1_000,
+    });
+    let total = 0;
+    mapper.update(frame({ gesture: 'Closed_Fist', x: 0.5 }), {
+      now: 0,
+      width: 1_000,
+      height: 800,
+    });
+    for (let at = stepMs; at <= 330; at += stepMs) {
+      total += mapper.update(frame({ gesture: 'Closed_Fist', x: 0.7 }), {
+        now: at,
+        width: 1_000,
+        height: 800,
+      }).panX;
+    }
+    return total;
+  }
+
+  const thirtyFps = accumulatedPan(33);
+  const fifteenFps = accumulatedPan(66);
+  assert.ok(Math.abs(thirtyFps - fifteenFps) < 2, `同一时长的响应偏差过大：${thirtyFps} / ${fifteenFps}`);
+  assert.ok(Math.abs(fifteenFps) > 460, '330ms 内应基本跟上手掌位置');
+});
+
+test('稀疏识别增量会拆成多个显示帧且保持总位移不变', () => {
+  const motion = new GestureMotionInterpolator({ durationMs: 80 });
+  motion.setMode('pan');
+  motion.push({ mode: 'pan', panX: 80, panY: -40, zoomDelta: 0 }, 0);
+
+  const samples = [16, 32, 48, 64, 80].map((at) => motion.sample(at));
+  assert.ok(samples.every((sample) => sample.panX > 0 && sample.panX <= 16.01));
+  assert.ok(samples.every((sample) => sample.panY < 0 && sample.panY >= -8.01));
+  assert.ok(Math.abs(samples.reduce((sum, sample) => sum + sample.panX, 0) - 80) < 1e-9);
+  assert.ok(Math.abs(samples.reduce((sum, sample) => sum + sample.panY, 0) + 40) < 1e-9);
+  assert.equal(motion.hasPending(), false);
 });

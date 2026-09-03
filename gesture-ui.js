@@ -1,4 +1,4 @@
-import { GestureCommandMapper } from './gesture-controls.js?v=20260901-hand-gesture-4';
+import { GestureCommandMapper, GestureMotionInterpolator } from './gesture-controls.js?v=20260903-gesture-smooth-1';
 
 const HAND_CONNECTIONS = Object.freeze([
   [0, 1], [1, 2], [2, 3], [3, 4],
@@ -138,6 +138,7 @@ export class RoomGestureController {
     this.isActivityAvailable = isActivityAvailable;
     this.isReducedMotion = isReducedMotion;
     this.mapper = new GestureCommandMapper();
+    this.motionInterpolator = new GestureMotionInterpolator();
     this.frameGate = new GestureFrameGate(gestureFrameInterval({
       width: window.innerWidth,
       hardwareConcurrency: navigator.hardwareConcurrency,
@@ -327,6 +328,7 @@ export class RoomGestureController {
       this.inputContext = requestedContext;
       this.frameGate.reset();
       this.mapper.reset();
+      this.motionInterpolator?.reset?.();
       this.setState('active', requestedContext === 'activity'
         ? '体感已开启：伸出食指，在空中划过商品外壳。'
         : '举起一只手，保持在预览框中。');
@@ -343,6 +345,7 @@ export class RoomGestureController {
   async captureLoop(now, session) {
     if (!this.active || this.session !== session) return;
     this.frameRequest = window.requestAnimationFrame((nextNow) => this.captureLoop(nextNow, session));
+    this.flushGestureMotion(now);
     if (this.elements.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
     if (!this.frameGate.tryAcquire(now)) return;
 
@@ -374,7 +377,8 @@ export class RoomGestureController {
     this.consecutiveFrameErrors = 0;
     const landmarks = Array.isArray(data.landmarks) ? data.landmarks : [];
     const score = Number(data.confidence) || 0;
-    this.drawLandmarks(landmarks, score);
+    const handledAt = performance.now();
+    if (this.elements.dialog?.open) this.drawLandmarks(landmarks, score);
 
     if (this.inputContext === 'activity') {
       this.elements.mode.textContent = MODE_COPY.activity;
@@ -382,7 +386,7 @@ export class RoomGestureController {
         gesture: data.gesture,
         score,
         landmarks,
-        at: performance.now(),
+        at: handledAt,
       });
       return;
     }
@@ -395,14 +399,15 @@ export class RoomGestureController {
       score,
       landmarks,
     }, {
-      now: performance.now(),
+      now: handledAt,
       width: rect.width,
       height: rect.height,
       hitTest: (point) => this.panorama.hotspotAtPoint?.(point) || null,
     });
 
+    this.motionInterpolator?.setMode(command.mode);
     if (command.panX || command.panY || command.zoomDelta) {
-      this.panorama.applyInputDelta(command);
+      this.motionInterpolator?.push(command, handledAt);
     }
     this.updatePointer(command.pointer);
     this.elements.mode.textContent = MODE_COPY[command.mode] || MODE_COPY.idle;
@@ -410,6 +415,13 @@ export class RoomGestureController {
     if (command.activation?.hotspotId) {
       this.panorama.activateHotspot?.(command.activation.hotspotId);
     }
+  }
+
+  flushGestureMotion(now) {
+    if (!this.active || this.inputContext !== 'room') return false;
+    const delta = this.motionInterpolator?.sample(now);
+    if (!delta || (!delta.panX && !delta.panY && !delta.zoomDelta)) return false;
+    return this.panorama.applyInputDelta(delta);
   }
 
   updateCalibration(landmarks, score) {
@@ -518,6 +530,7 @@ export class RoomGestureController {
     this.activityFrameConsumer = typeof frameConsumer === 'function' ? frameConsumer : null;
     this.inputContext = 'activity';
     this.mapper.reset();
+    this.motionInterpolator?.reset?.();
     this.updatePointer(null);
     this.setState('active', '体感已接入欲望剥壳机：伸出食指划过商品外壳。');
     return true;
@@ -576,6 +589,7 @@ export class RoomGestureController {
       this.resumePolicy = 'manual';
       this.inputContext = 'room';
       this.mapper.reset();
+      this.motionInterpolator?.reset?.();
       this.updatePointer(null);
       this.setState('active', '举起一只手，保持在预览框中。');
       return true;
@@ -629,6 +643,7 @@ export class RoomGestureController {
     this.inputContext = 'none';
     this.releaseResources({ keepWorker });
     this.mapper.reset();
+    this.motionInterpolator?.reset?.();
     this.updatePointer(null);
     this.elements.root.removeAttribute('data-calibrated');
 

@@ -70,3 +70,20 @@ test('reset 清除锚点、丢手状态和命中冷却', () => {
   assert.equal(mapper.update(frame({ x: 0.3 }), 20), null);
   assert.equal(mapper.registerHit('product-1', 20), true);
 });
+
+test('体感刀锋平滑按真实时间收敛，不随识别帧率改变拖尾距离', () => {
+  function finalPoint(stepMs) {
+    const mapper = createPeelGestureMapper({ minTravel: 0, maxJump: 1 });
+    mapper.update(frame({ x: 0.2 }), 0);
+    let latest = null;
+    for (let at = stepMs; at <= 330; at += stepMs) {
+      latest = mapper.update(frame({ x: 0.4 }), at);
+    }
+    return latest.to.x;
+  }
+
+  const thirtyFps = finalPoint(33);
+  const fifteenFps = finalPoint(66);
+  assert.ok(Math.abs(thirtyFps - fifteenFps) < 0.002, `同一时长的刀锋位置偏差过大：${thirtyFps} / ${fifteenFps}`);
+  assert.ok(fifteenFps < 0.605, '330ms 内刀锋应基本追上手指');
+});
