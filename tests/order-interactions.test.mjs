@@ -163,13 +163,41 @@ test('订单状态重绘后优先聚焦同张小票的下一个合法操作', ()
     orderList: { querySelectorAll: () => buttons },
     document: { querySelector: () => ({ focus: () => { focusedTarget = 'filter'; } }) },
   };
-  vm.runInNewContext(`${functionSource('focusOrderAfterStatusChange', 'confidenceLabel')}
+  vm.runInNewContext(`${functionSource('focusOrderAction', 'focusOrderAfterStatusChange')}
+${functionSource('focusOrderAfterStatusChange', 'confidenceLabel')}
 focusOrderAfterStatusChange('order-1', 'saved');`, focusContext);
   assert.equal(focusedTarget, 'purchased');
 
   focusContext.orderList.querySelectorAll = () => [];
-  vm.runInNewContext("focusOrderAfterStatusChange('missing', 'saved');", focusContext);
+  vm.runInNewContext(`${functionSource('focusOrderAction', 'focusOrderAfterStatusChange')}
+${functionSource('focusOrderAfterStatusChange', 'confidenceLabel')}
+focusOrderAfterStatusChange('missing', 'saved');`, focusContext);
   assert.equal(focusedTarget, 'filter');
+});
+
+test('确认删除订单后把焦点移到相邻小票，列表为空时退到当前筛选', () => {
+  let focusedTarget = '';
+  const buttons = [
+    { dataset: { orderId: 'order-2', orderAction: 'saved' }, focus: () => { focusedTarget = 'order-2'; } },
+  ];
+  const focusContext = {
+    activeFilter: 'all',
+    orderList: { querySelectorAll: () => buttons },
+    document: { querySelector: () => ({ focus: () => { focusedTarget = 'filter'; } }) },
+  };
+  vm.runInNewContext(`${functionSource('focusOrderAction', 'focusOrderAfterDeletion')}
+${functionSource('focusOrderAfterDeletion', 'focusOrderAfterStatusChange')}
+focusOrderAfterDeletion('order-1', ['order-1', 'order-2']);`, focusContext);
+  assert.equal(focusedTarget, 'order-2');
+
+  focusContext.orderList.querySelectorAll = () => [];
+  vm.runInNewContext(`${functionSource('focusOrderAction', 'focusOrderAfterDeletion')}
+${functionSource('focusOrderAfterDeletion', 'focusOrderAfterStatusChange')}
+focusOrderAfterDeletion('order-1', ['order-1']);`, focusContext);
+  assert.equal(focusedTarget, 'filter');
+
+  const deleteSource = functionSource('deleteOrder', 'updateOrderStatus');
+  assert.match(deleteSource, /visibleOrderIds[\s\S]*?requestAnimationFrame\(\(\) => focusOrderAfterDeletion\(id, visibleOrderIds\)\)/);
 });
 
 test('商城立即模拟会先丢弃旧编辑标记，再新建冷静单', () => {

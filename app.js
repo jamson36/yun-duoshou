@@ -384,6 +384,14 @@ const roomHelpDialog = document.querySelector('#roomHelpDialog');
 const roomHelpButton = document.querySelector('#roomHelpButton');
 const roomHelpCloseButton = document.querySelector('#roomHelpCloseButton');
 const resetRoomViewButton = document.querySelector('#resetRoomViewButton');
+const siteConfirmDialog = document.querySelector('#siteConfirmDialog');
+const siteConfirmCard = siteConfirmDialog.querySelector('.site-confirm-card');
+const siteConfirmEyebrow = document.querySelector('#siteConfirmEyebrow');
+const siteConfirmTitle = document.querySelector('#siteConfirmTitle');
+const siteConfirmDescription = document.querySelector('#siteConfirmDescription');
+const siteConfirmNote = document.querySelector('#siteConfirmNote');
+const siteConfirmCancelButton = document.querySelector('#siteConfirmCancelButton');
+const siteConfirmAcceptButton = document.querySelector('#siteConfirmAcceptButton');
 const peelGameRoot = document.querySelector('#peelGameDialog');
 const gestureControlElements = {
   root: document.querySelector('#gestureControl'),
@@ -444,6 +452,8 @@ let posterFingerprint = '';
 let posterGenerating = false;
 let posterShareReturnFocus = null;
 let gachaponResultReturnFocus = null;
+let siteConfirmResolve = null;
+let siteConfirmReturnFocus = null;
 let clinicRenderPending = false;
 let localGachaponSpinTimer = null;
 let localGachaponSpinSequence = 0;
@@ -614,6 +624,12 @@ function setClinicView(view, { focus = false, scroll = true } = {}) {
     const target = nextView === 'report' ? clinicReportTitle : gachaponTitle;
     target?.focus({ preventScroll: true });
   });
+}
+
+function isAvailableFocusTarget(target) {
+  if (!target || typeof target.focus !== 'function' || !document.contains(target)) return false;
+  if (target.disabled || target.closest?.('[hidden], [inert], [aria-hidden="true"]')) return false;
+  return typeof target.getClientRects !== 'function' || target.getClientRects().length > 0;
 }
 
 function setRoomUiInteractive(value) {
@@ -825,6 +841,24 @@ function handlePeelActivityKeydown(event) {
   focusable[nextIndex].focus({ preventScroll: true });
 }
 
+function trapOpenDialogFocus(event) {
+  if (event.key !== 'Tab') return false;
+  const dialog = [...document.querySelectorAll('dialog[open]')].at(-1);
+  if (!dialog) return false;
+  const focusable = [...dialog.querySelectorAll('button, a[href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    .filter(isAvailableFocusTarget);
+  if (!focusable.length) return false;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  const active = document.activeElement;
+  const shouldWrapBackward = event.shiftKey && (active === first || !dialog.contains(active));
+  const shouldWrapForward = !event.shiftKey && (active === last || !dialog.contains(active));
+  if (!shouldWrapBackward && !shouldWrapForward) return false;
+  event.preventDefault();
+  (shouldWrapBackward ? last : first).focus({ preventScroll: true });
+  return true;
+}
+
 function completeRoomEntry() {
   roomEntered = true;
   setRoomUiInteractive(true);
@@ -881,6 +915,49 @@ function defaultState() {
     diagnosis: null,
     settings: { reduceMotion: false, aiConsent: false },
   };
+}
+
+function finishSiteConfirmation(accepted = false) {
+  const resolve = siteConfirmResolve;
+  const returnFocus = siteConfirmReturnFocus;
+  siteConfirmResolve = null;
+  siteConfirmReturnFocus = null;
+  if (siteConfirmDialog.open) siteConfirmDialog.close(accepted ? 'accepted' : 'cancelled');
+  if (!accepted) {
+    window.requestAnimationFrame(() => {
+      if (isAvailableFocusTarget(returnFocus)) returnFocus.focus({ preventScroll: true });
+    });
+  }
+  resolve?.(Boolean(accepted));
+}
+
+function requestSiteConfirmation({
+  tone = 'danger',
+  eyebrow = '操作确认',
+  title = '确定继续吗？',
+  description = '确认后将执行当前操作。',
+  note = '',
+  confirmLabel = '确认继续',
+  cancelLabel = '先保留',
+  trigger = document.activeElement,
+} = {}) {
+  if (siteConfirmResolve) finishSiteConfirmation(false);
+  siteConfirmCard.dataset.tone = tone === 'warning' ? 'warning' : 'danger';
+  siteConfirmEyebrow.textContent = eyebrow;
+  siteConfirmTitle.textContent = title;
+  siteConfirmDescription.textContent = description;
+  siteConfirmNote.textContent = note;
+  siteConfirmNote.hidden = !note;
+  siteConfirmAcceptButton.textContent = confirmLabel;
+  siteConfirmCancelButton.textContent = cancelLabel;
+  siteConfirmReturnFocus = isAvailableFocusTarget(trigger) ? trigger : document.activeElement;
+
+  const confirmation = new Promise((resolve) => {
+    siteConfirmResolve = resolve;
+  });
+  if (!siteConfirmDialog.open) siteConfirmDialog.showModal();
+  window.requestAnimationFrame(() => siteConfirmCancelButton.focus({ preventScroll: true }));
+  return confirmation;
 }
 
 function setAiConsentRevocationFallback(revoked) {
@@ -2453,14 +2530,26 @@ function moveOrderTimeFilterFocus(key) {
   options[nextIndex]?.focus({ preventScroll: true });
 }
 
-function focusOrderAfterStatusChange(orderId, nextStatus) {
+function focusOrderAction(orderId, preferredAction = null) {
   const actionButtons = [...orderList.querySelectorAll('[data-order-action]')]
     .filter((button) => button.dataset.orderId === orderId);
-  const preferredAction = allowedOrderStatusActions(nextStatus)[0];
   const target = actionButtons.find((button) => button.dataset.orderAction === preferredAction)
     || actionButtons[0]
     || document.querySelector(`[data-filter="${activeFilter}"]`);
   target?.focus({ preventScroll: true });
+  return Boolean(target);
+}
+
+function focusOrderAfterDeletion(deletedOrderId, orderedOrderIds) {
+  const deletedIndex = orderedOrderIds.indexOf(deletedOrderId);
+  const neighborId = deletedIndex >= 0
+    ? orderedOrderIds[deletedIndex + 1] || orderedOrderIds[deletedIndex - 1]
+    : orderedOrderIds.find((orderId) => orderId !== deletedOrderId);
+  focusOrderAction(neighborId || null);
+}
+
+function focusOrderAfterStatusChange(orderId, nextStatus) {
+  focusOrderAction(orderId, allowedOrderStatusActions(nextStatus)[0]);
 }
 
 function confidenceLabel(confidence) {
@@ -3515,15 +3604,30 @@ function editOrder(id, trigger) {
   window.setTimeout(() => openOrderComposer(trigger), document.body.classList.contains('reduce-motion') ? 20 : 360);
 }
 
-function deleteOrder(id) {
+async function deleteOrder(id, trigger = document.activeElement) {
   const order = state.orders.find((item) => item.id === id);
-  if (!order || !window.confirm(`确定删除“${order.name}”这张小票吗？删除后统计和目标进度会重新计算。`)) return;
+  if (!order) return false;
+  const confirmed = await requestSiteConfirmation({
+    tone: 'danger',
+    eyebrow: '删除小票 · 会重新计算',
+    title: '要让这张小票离场吗？',
+    description: `“${order.name}”会从当前浏览器的冷静记录中删除。`,
+    note: '删除后，统计、消费倾向和目标进度都会从剩余记录重新计算。此操作无法撤销。',
+    confirmLabel: '确认删除',
+    cancelLabel: '先留着',
+    trigger,
+  });
+  if (!confirmed || !state.orders.some((item) => item.id === id)) return false;
+  const visibleOrderIds = [...new Set([...orderList.querySelectorAll('[data-order-id]')]
+    .map((button) => button.dataset.orderId))];
   mutate((draft) => {
     draft.orders = draft.orders.filter((item) => item.id !== id);
   });
   if (editingOrderId === id) resetOrderComposer();
   setMascotSpeech('这张小票已经删除，统计和目标进度也重新算过了。');
   showToast('小票已删除。');
+  window.requestAnimationFrame(() => focusOrderAfterDeletion(id, visibleOrderIds));
+  return true;
 }
 
 function updateOrderStatus(id, status) {
@@ -3974,9 +4078,20 @@ function updateGoalNoteColor(goalId, color) {
   showToast('便签颜色已更换。');
 }
 
-function removeGoalNote() {
+async function removeGoalNote(trigger = document.activeElement) {
   const goal = goalById(selectedGoalId);
-  if (!goal || !window.confirm(`撕掉“${goal.name}”会同时删除这个预算目标，继续吗？`)) return;
+  if (!goal) return false;
+  const confirmed = await requestSiteConfirmation({
+    tone: 'danger',
+    eyebrow: '撕掉便签 · 目标会删除',
+    title: '真的要撕掉这张目标便签吗？',
+    description: `“${goal.name}”会从当前浏览器的预算白板中删除。`,
+    note: '已有订单会继续保留，只会解除与这个目标的关联；此操作无法撤销。',
+    confirmLabel: '确认撕掉',
+    cancelLabel: '先贴着',
+    trigger,
+  });
+  if (!confirmed || !goalById(goal.id)) return false;
   mutate((draft) => {
     draft.goals = draft.goals.filter((item) => item.id !== goal.id);
     draft.orders.forEach((order) => {
@@ -3991,6 +4106,7 @@ function removeGoalNote() {
   setMascotSpeech('这张便签已经撕掉，其他目标和订单都还在。');
   showToast('预算便签已删除。');
   goalForm.elements.goalName.focus({ preventScroll: true });
+  return true;
 }
 
 function setActiveGoal(goalId) {
@@ -4022,8 +4138,20 @@ function minutesAgoToday(minutes) {
   return new Date(Math.max(startOfToday.getTime(), now.getTime() - minutes * 60_000)).toISOString();
 }
 
-function loadDemo() {
-  if ((state.orders.length || state.goals.length) && !window.confirm('载入演示数据会替换当前浏览器中的原型数据，继续吗？')) return;
+async function loadDemo(trigger = document.activeElement) {
+  if (state.orders.length || state.goals.length) {
+    const confirmed = await requestSiteConfirmation({
+      tone: 'warning',
+      eyebrow: '演示数据 · 整页替换',
+      title: '用演示房间替换当前记录？',
+      description: `当前浏览器已有 ${state.orders.length} 笔小票和 ${state.goals.length} 个目标。`,
+      note: '载入后会替换本产品的本地原型数据，不涉及真实资金；原记录无法自动恢复。',
+      confirmLabel: '载入演示数据',
+      cancelLabel: '保留我的数据',
+      trigger,
+    });
+    if (!confirmed) return false;
+  }
   restoredTestHistory = null;
   const demoGoalId = 'goal-demo-seaside';
   state = {
@@ -4058,6 +4186,10 @@ function loadDemo() {
   renderAll();
   setMascotSpeech('演示记录已经放进房间。健身屏、手机和白板都会显示新的状态。');
   showToast('已载入 7 笔演示数据。');
+  window.requestAnimationFrame(() => {
+    if (isAvailableFocusTarget(trigger)) trigger.focus({ preventScroll: true });
+  });
+  return true;
 }
 
 function localDateStamp(date = new Date()) {
@@ -4255,6 +4387,8 @@ panelClose.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (trapOpenDialogFocus(event)) return;
+  if (siteConfirmDialog.open) return;
   if (gachaponResultModal.open && event.key === 'Escape') {
     event.preventDefault();
     event.stopPropagation();
@@ -4544,7 +4678,9 @@ goalForm.querySelectorAll('[name="goalNoteColor"]').forEach((input) => {
   });
 });
 
-deleteGoalButton.addEventListener('click', removeGoalNote);
+deleteGoalButton.addEventListener('click', () => {
+  void removeGoalNote(deleteGoalButton);
+});
 setActiveGoalButton.addEventListener('click', () => setActiveGoal(selectedGoalId));
 newGoalButton.addEventListener('click', () => startNewGoal());
 goalList.addEventListener('click', (event) => {
@@ -4560,7 +4696,7 @@ orderList.addEventListener('click', (event) => {
     return;
   }
   if (button.dataset.orderAction === 'delete') {
-    deleteOrder(button.dataset.orderId);
+    void deleteOrder(button.dataset.orderId, button);
     return;
   }
   updateOrderStatus(button.dataset.orderId, button.dataset.orderAction);
@@ -4694,7 +4830,9 @@ downloadPosterButton.addEventListener('click', () => {
   const download = downloadSharePoster(posterBlob, `让你花个爽-钱包人格-${localDateStamp()}.png`);
   posterShareStatus.textContent = download.mobileSaveHint || '已发起保存高清 PNG 的请求。';
 });
-document.querySelector('#loadDemoButton').addEventListener('click', loadDemo);
+document.querySelector('#loadDemoButton').addEventListener('click', (event) => {
+  void loadDemo(event.currentTarget);
+});
 document.querySelector('#exportButton').addEventListener('click', exportData);
 document.querySelector('#exportCsvButton').addEventListener('click', exportOrdersCsv);
 document.querySelector('#motionButton').addEventListener('click', toggleMotion);
@@ -4705,6 +4843,18 @@ roomHelpButton.addEventListener('click', () => {
 roomHelpCloseButton.addEventListener('click', () => roomHelpDialog.close());
 roomHelpDialog.addEventListener('click', (event) => {
   if (event.target === roomHelpDialog) roomHelpDialog.close();
+});
+siteConfirmCancelButton.addEventListener('click', () => finishSiteConfirmation(false));
+siteConfirmAcceptButton.addEventListener('click', () => finishSiteConfirmation(true));
+siteConfirmDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  finishSiteConfirmation(false);
+});
+siteConfirmDialog.addEventListener('click', (event) => {
+  if (event.target === siteConfirmDialog) finishSiteConfirmation(false);
+});
+siteConfirmDialog.addEventListener('close', () => {
+  if (siteConfirmResolve) finishSiteConfirmation(false);
 });
 resetRoomViewButton.addEventListener('click', () => {
   roomHelpDialog.close();

@@ -53,8 +53,8 @@ test('游戏对话层同时提供普通开始、可选体感和明确本地隐�
   assert.match(gameMarkup, /data-focus-return="desire-peel"/);
 });
 
-test('教程说明切掉话术但保留商品，并能直接开始正式回合', () => {
-  assert.match(gameMarkup, /划开外层贴纸，商品会完整保留/);
+test('教程说明移除推动信号但保留商品，并能直接开始正式回合', () => {
+  assert.match(gameMarkup, /划过信号膜，商品会完整保留/);
   assert.match(gameMarkup, /id="peelSkipTutorialButton"[^>]*>\s*直接开始/);
 });
 
@@ -74,7 +74,7 @@ test('局内状态与结算选择具备可播报、无业务手势目标的完�
   assert.match(gameMarkup, /id="peelPauseNotice"[^>]*role="status"/);
   assert.match(gameMarkup, /id="peelLiveStatus"[^>]*aria-live="polite"/);
   assert.match(gameMarkup, /id="peelSummaryCopyChoices"/);
-  assert.match(gameMarkup, /如果再看到/);
+  assert.match(gameMarkup, /如果再遇到/);
   assert.match(gameMarkup, /id="peelReminderText"/);
   assert.match(gameMarkup, /id="peelCoolButton"[^>]*data-peel-intent="cool"/);
   assert.match(gameMarkup, /id="peelDismissButton"[^>]*data-peel-intent="dismiss"/);

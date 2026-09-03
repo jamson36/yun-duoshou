@@ -118,7 +118,7 @@ test('测试结果刷新标记只消费一次并直接跳过开屏', () => {
   assert.match(boot, /returnToRoomOnLoad[\s\S]*?roomIntro\.skipToRoom\(\)[\s\S]*?(?:else|:)[\s\S]*?roomIntro\.start\(\)/);
 });
 
-test('演示数据至少包含三件已剁手商品并继续按金额只取最贵三件', () => {
+test('演示数据至少包含三件已剁手商品并继续按金额只取最贵三件', async () => {
   const loadDemoSource = sourceBetween('function daysAgo(', 'function localDateStamp');
   const reportHelpers = sourceBetween('const REPORT_IMPULSE_SIGNAL_LABELS', 'function localReportSuggestion');
   const context = {
@@ -128,7 +128,9 @@ test('演示数据至少包含三件已剁手商品并继续按金额只取最�
     Set,
     state: { orders: [], goals: [] },
     defaultState: () => ({ orders: [], goals: [], settings: {} }),
-    window: { confirm: () => true },
+    window: { requestAnimationFrame: (callback) => callback() },
+    requestSiteConfirmation: async () => true,
+    isAvailableFocusTarget: () => false,
     selectedGoalId: null,
     goalFormMode: 'new',
     renderedGoalId: null,
@@ -139,7 +141,7 @@ test('演示数据至少包含三件已剁手商品并继续按金额只取最�
     localDateKey: () => '2026-09-01',
   };
   vm.runInNewContext(`${loadDemoSource}\n${reportHelpers}\nthis.api = { loadDemo, reportProductGroups };`, context);
-  context.api.loadDemo();
+  await context.api.loadDemo(null);
 
   const purchased = context.state.orders.filter((order) => order.status === 'purchased');
   assert.ok(purchased.length >= 3, 'Demo 应保证报告至少有三件已剁手商品');

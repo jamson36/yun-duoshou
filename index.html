@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个够爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260902-desire-peel-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260902-interaction-fixes-6-desire-peel-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260902-gallery-glass-2-desk-hotspot-1" />
-  <script type="module" src="./app.js?v=20260902-desire-peel-3-gallery-glass-2-desk-hotspot-1"></script>
+  <script type="module" src="./app.js?v=20260902-interaction-fixes-11-desire-peel-3-gallery-glass-2-desk-hotspot-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -54,6 +54,31 @@
             <button id="motionButton" type="button" aria-pressed="false">减少动态效果</button>
           </div>
         </div>
+      </dialog>
+
+      <dialog class="site-confirm-dialog" id="siteConfirmDialog" role="dialog" aria-modal="true" aria-labelledby="siteConfirmTitle" aria-describedby="siteConfirmDescription">
+        <article class="site-confirm-card" data-tone="danger">
+          <header class="site-confirm-ticket-head" aria-hidden="true">
+            <span>DECISION CHECK</span>
+            <span>KEEP / CUT</span>
+          </header>
+          <div class="site-confirm-body">
+            <div class="site-confirm-mascot" aria-hidden="true">
+              <img src="./assets/phone-raccoon.webp" alt="" width="384" height="384" decoding="async" />
+              <span>先想一下</span>
+            </div>
+            <div class="site-confirm-copy">
+              <p id="siteConfirmEyebrow">操作确认</p>
+              <h2 id="siteConfirmTitle">确定继续吗？</h2>
+              <p id="siteConfirmDescription">确认后将执行当前操作。</p>
+            </div>
+          </div>
+          <p class="site-confirm-note" id="siteConfirmNote" role="note" hidden></p>
+          <div class="site-confirm-actions">
+            <button id="siteConfirmCancelButton" type="button" autofocus>先保留</button>
+            <button id="siteConfirmAcceptButton" type="button">确认继续</button>
+          </div>
+        </article>
       </dialog>
 
       <dialog class="orientation-dialog" id="orientationDialog" aria-labelledby="orientationDialogTitle" aria-describedby="orientationPrivacy">
