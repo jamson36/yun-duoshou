@@ -373,6 +373,8 @@
 }
 
 .observatory-dialog[data-dragging="true"] .observatory-stage { cursor: grabbing; }
+.observatory-dialog[data-scene-signal-hover] .observatory-stage,
+.observatory-dialog[data-picking-signal] .observatory-stage { cursor: pointer; }
 
 .observatory-stage::before {
   content: "";
@@ -432,7 +434,7 @@
   box-shadow:
     0 34px 90px rgba(0, 0, 0, .58),
     0 0 80px color-mix(in srgb, var(--observatory-current-accent) 24%, transparent);
-  transform: perspective(1000px) rotateY(-3deg) rotateX(1deg);
+  transform: translateZ(0);
 }
 
 .observatory-fallback-object {
@@ -831,6 +833,13 @@
 .observatory-dialog[data-calm-level="2"] .observatory-stage::before,
 .observatory-dialog[data-calm-level="3"] .observatory-stage::before {
   opacity: .38;
+}
+
+.observatory-dialog[data-portal-ready="true"] .observatory-primary {
+  border-color: rgba(114, 221, 212, .52);
+  background: linear-gradient(115deg, #6edbd1, #d9ff88);
+  color: #071210;
+  box-shadow: 0 0 28px rgba(114, 221, 212, .2);
 }
 
 .observatory-dialog[data-quality="balanced"] .observatory-stage::after { opacity: .72; }

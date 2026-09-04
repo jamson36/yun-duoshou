@@ -61,7 +61,7 @@ test('观察舱焦点循环跳过仅用于点击遮罩的负 tabindex 按钮', (
   assert.match(source, /element\.tabIndex >= 0/);
 });
 
-test('体感帧经过平滑映射器后只旋转商品，丢手暂停，恢复后继续', () => {
+test('体感帧经过平滑映射器后只移动观察镜头，丢手暂停，恢复后继续', () => {
   const consumerSource = functionSource('consumePeelGestureFrame', 'handlePeelInputMode');
   const inputSource = functionSource('handlePeelInputMode', 'peelRoundSeed');
 

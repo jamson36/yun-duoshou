@@ -63,17 +63,20 @@ test('观察舱没有倒计时、分数或胜负，并让用户主动关闭催�
 
 test('Canvas 只负责 3D 视觉，键盘和屏幕阅读器使用持久语义控制器', () => {
   assert.match(gameMarkup, /<canvas[^>]*id="observatoryCanvas"[^>]*aria-hidden="true"/);
-  assert.match(gameMarkup, /左右方向键切换商品，上下方向键调整视角/);
+  assert.match(gameMarkup, /左右方向键切换商品，上下方向键调整镜头高度/);
+  assert.match(gameMarkup, /直接点击画面中的信号塔/);
   assert.match(gameMarkup, /id="observatoryPreviousProduct"/);
   assert.match(gameMarkup, /id="observatoryNextProduct"/);
   assert.match(gameMarkup, /id="observatoryCoolButton"/);
   assert.doesNotMatch(gameMarkup, /3×3|3x3|九宫格/i);
 });
 
-test('展牌拖动不会吞掉左右商品按钮的点击', async () => {
+test('镜头拖动不会吞掉左右商品按钮，明确滑动才切换展位', async () => {
   const observatory = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
 
   assert.match(observatory, /event\.target\?\.closest\?\.\('button, a, input, select, textarea, \[role="button"\]'\)/);
+  assert.match(observatory, /swipeDirectionForDistance/);
+  assert.match(observatory, /renderer\?\.pickSignal/);
 });
 
 test('观察状态与业务交接具备可播报、无业务手势目标的完整结构', () => {

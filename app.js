@@ -13,7 +13,7 @@ import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stage
 import { RoomGestureController } from './gesture-ui.js?v=20260903-gesture-smooth-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
-import { createDesireObservatoryController } from './desire-observatory.js?v=20260904-night-window-5';
+import { createDesireObservatoryController } from './desire-observatory.js?v=20260904-tech-arcade-4';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -723,7 +723,7 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
   panorama.setInteractionEnabled(false);
   orientationController.stop('panel');
   document.body.style.overflow = 'hidden';
-  setMascotSpeech('商品先别下结论。转一圈，再把催你立刻买的信号关掉。');
+  setMascotSpeech('商品先放在橱窗里。沿轨道逛一圈，再把催促信号一座座关掉。');
   peelGestureMapper.reset();
   const continueGesture = gestureController.canContinueIntoActivity();
   if (continueGesture) {

@@ -1,9 +1,8 @@
-import { createObservatoryScene } from './desire-observatory-scene.js?v=20260904-night-window-5';
+import { createObservatoryScene } from './desire-observatory-scene.js?v=20260904-tech-arcade-4';
 
 export const MAX_OBSERVATORY_DPR = 1.6;
 export const MAX_OBSERVATORY_VISIBLE_PRODUCTS = 3;
 
-const TAU = Math.PI * 2;
 const CONTROLLERS = new WeakMap();
 
 const SIGNAL_LIBRARY = Object.freeze({
@@ -206,16 +205,25 @@ export function nextObservatoryIndex(index, direction, total) {
   return ((Number(index) || 0) + step + count) % count;
 }
 
-export function rotationDeltaForSegment(segment, { yaw = 4.6, pitch = 3.2 } = {}) {
+export function cameraDeltaForSegment(segment, { lateral = 2.6, vertical = 1.8 } = {}) {
   const fromX = Number(segment?.from?.x);
   const fromY = Number(segment?.from?.y);
   const toX = Number(segment?.to?.x);
   const toY = Number(segment?.to?.y);
   if (![fromX, fromY, toX, toY].every(Number.isFinite)) return { x: 0, y: 0 };
   return {
-    x: clamp((toY - fromY) * pitch, -0.22, 0.22),
-    y: clamp((toX - fromX) * yaw, -0.32, 0.32),
+    x: clamp((toY - fromY) * vertical, -0.18, 0.18),
+    y: clamp((toX - fromX) * lateral, -0.28, 0.28),
   };
+}
+
+export function swipeDirectionForDistance(distance, width, threshold = 0.14) {
+  const delta = Number(distance);
+  const viewportWidth = Number(width);
+  const ratio = Number(threshold);
+  if (!Number.isFinite(delta) || !Number.isFinite(viewportWidth) || viewportWidth <= 0) return 0;
+  if (Math.abs(delta) < viewportWidth * clamp(Number.isFinite(ratio) ? ratio : 0.14, 0.08, 0.28)) return 0;
+  return delta < 0 ? 1 : -1;
 }
 
 function defaultNow() {
@@ -285,8 +293,8 @@ export function createDesireObservatoryController({
   let products = [...OBSERVATORY_PRODUCTS];
   let selectedIndex = 0;
   let dismissedSignalIds = new Set();
-  let rotation = { x: -0.08, y: 0.5 };
-  let targetRotation = { ...rotation };
+  let cameraOffset = { x: 0, y: 0 };
+  let targetCameraOffset = { ...cameraOffset };
   let inputMode = 'pointer';
   let opened = false;
   let destroyed = false;
@@ -355,7 +363,16 @@ export function createDesireObservatoryController({
     const remaining = signals.filter((signal) => !dismissedSignalIds.has(signal.id)).length;
     if (elements.signalCount) elements.signalCount.textContent = String(remaining);
     if (elements.question) elements.question.hidden = dismissedSignalIds.size < 2;
-    if (root.dataset) root.dataset.calmLevel = String(Math.min(3, dismissedSignalIds.size));
+    if (elements.coolButton) {
+      const product = currentProduct();
+      elements.coolButton.textContent = product.source === 'order'
+        ? '查看这笔冷静单'
+        : (dismissedSignalIds.size >= 2 ? '进入冷静通道' : '放进冷静单');
+    }
+    if (root.dataset) {
+      root.dataset.calmLevel = String(Math.min(3, dismissedSignalIds.size));
+      root.dataset.portalReady = String(dismissedSignalIds.size >= 2);
+    }
   }
 
   function renderProduct({ announceSelection = false } = {}) {
@@ -375,10 +392,7 @@ export function createDesireObservatoryController({
       const accent = Array.isArray(product.accent) ? product.accent : [1, 0.43, 0.25];
       root.style.setProperty('--observatory-current-accent', `rgb(${accent.map((value) => Math.round(value * 255)).join(' ')})`);
     }
-    if (elements.stage) elements.stage.setAttribute('aria-label', `查看${product.name}。拖动旋转，方向键切换或调整角度。`);
-    if (elements.coolButton) {
-      elements.coolButton.textContent = product.source === 'order' ? '查看这笔冷静单' : '放进冷静单';
-    }
+    if (elements.stage) elements.stage.setAttribute('aria-label', `浏览${product.name}科技橱窗。点击画面中的信号塔可关闭催促声，横向滑动或方向键切换商品。`);
     renderSignals();
     if (announceSelection) announce(`正在观察${product.name}，${formatCny(product.amount)}。`);
   }
@@ -388,8 +402,10 @@ export function createDesireObservatoryController({
     lastDiagnostics = renderer.render({
       products,
       selectedIndex,
-      rotationX: rotation.x,
-      rotationY: rotation.y,
+      signals: signalsForProduct(currentProduct()),
+      dismissedSignalIds: [...dismissedSignalIds],
+      cameraOffsetX: cameraOffset.x,
+      cameraOffsetY: cameraOffset.y,
       dismissedCount: dismissedSignalIds.size,
       time: now(),
       reducedMotion: motionIsReduced(),
@@ -441,17 +457,19 @@ export function createDesireObservatoryController({
     updateQuality(deltaMs);
     const direct = motionIsReduced() || pointer;
     const response = direct ? 1 : 1 - Math.exp(-deltaMs / (inputMode === 'gesture' ? 42 : 76));
-    rotation.x += (targetRotation.x - rotation.x) * response;
-    rotation.y += (targetRotation.y - rotation.y) * response;
+    cameraOffset.x += (targetCameraOffset.x - cameraOffset.x) * response;
+    cameraOffset.y += (targetCameraOffset.y - cameraOffset.y) * response;
     if (!motionIsReduced() && !pointer && inputMode !== 'gesture') {
-      targetRotation.y += (0 - targetRotation.y) * Math.min(1, deltaMs / 1600);
-      targetRotation.x += (-0.04 - targetRotation.x) * Math.min(1, deltaMs / 1800);
+      targetCameraOffset.y += (0 - targetCameraOffset.y) * Math.min(1, deltaMs / 850);
+      targetCameraOffset.x += (0 - targetCameraOffset.x) * Math.min(1, deltaMs / 1000);
     }
     lastDiagnostics = renderer.render({
       products,
       selectedIndex,
-      rotationX: rotation.x,
-      rotationY: rotation.y,
+      signals: signalsForProduct(currentProduct()),
+      dismissedSignalIds: [...dismissedSignalIds],
+      cameraOffsetX: cameraOffset.x,
+      cameraOffsetY: cameraOffset.y,
       dismissedCount: dismissedSignalIds.size,
       time: at,
       reducedMotion: motionIsReduced(),
@@ -488,8 +506,9 @@ export function createDesireObservatoryController({
     if (!opened || products.length < 2) return false;
     selectedIndex = nextObservatoryIndex(selectedIndex, direction, products.length);
     dismissedSignalIds = new Set();
-    rotation = { x: -0.08, y: direction < 0 ? -0.46 : 0.46 };
-    targetRotation = { x: -0.08, y: 0 };
+    cameraOffset = { x: 0, y: direction < 0 ? -0.42 : 0.42 };
+    targetCameraOffset = { x: 0, y: 0 };
+    renderer?.setHoveredSignal?.(null);
     if (root.dataset) root.dataset.switching = 'true';
     if (switchTimer !== null) globalThis.clearTimeout(switchTimer);
     switchTimer = globalThis.setTimeout(() => {
@@ -506,6 +525,8 @@ export function createDesireObservatoryController({
     const signal = signalsForProduct(currentProduct()).find((item) => item.id === signalId);
     if (!signal || dismissedSignalIds.has(signal.id)) return false;
     dismissedSignalIds.add(signal.id);
+    renderer?.setHoveredSignal?.(null);
+    if (root.dataset) delete root.dataset.sceneSignalHover;
     renderSignals();
     const remaining = Math.max(0, signalsForProduct(currentProduct()).length - dismissedSignalIds.size);
     announce(`已关掉“${signal.label}”，还剩 ${remaining} 个催促信号。`);
@@ -513,20 +534,34 @@ export function createDesireObservatoryController({
     return true;
   }
 
-  function rotateBy(deltaX, deltaY, { direct = false } = {}) {
-    targetRotation.x = clamp(targetRotation.x + deltaX, -0.7, 0.7);
-    targetRotation.y += deltaY;
-    if (direct || motionIsReduced()) rotation = { ...targetRotation };
+  function moveCameraBy(deltaX, deltaY, { direct = false } = {}) {
+    targetCameraOffset.x = clamp(targetCameraOffset.x + deltaX, -0.52, 0.52);
+    targetCameraOffset.y = clamp(targetCameraOffset.y + deltaY, -0.92, 0.92);
+    if (direct || motionIsReduced()) cameraOffset = { ...targetCameraOffset };
     drawStaticFrame();
     startAnimation();
+  }
+
+  function setSceneSignalHover(signalId) {
+    const nextSignalId = String(signalId || '');
+    renderer?.setHoveredSignal?.(nextSignalId || null);
+    if (!root.dataset) return;
+    if (nextSignalId) root.dataset.sceneSignalHover = nextSignalId;
+    else delete root.dataset.sceneSignalHover;
   }
 
   function pointerDown(event) {
     if (!opened || event.button > 0) return;
     if (event.target?.closest?.('button, a, input, select, textarea, [role="button"]')) return;
-    pointer = { id: event.pointerId, x: Number(event.clientX), y: Number(event.clientY) };
+    const x = Number(event.clientX);
+    const y = Number(event.clientY);
+    const signalId = renderer?.pickSignal?.(x, y) || null;
+    pointer = { id: event.pointerId, x, y, startX: x, startY: y, totalX: 0, totalY: 0, signalId };
     elements.stage?.setPointerCapture?.(event.pointerId);
-    if (root.dataset) root.dataset.dragging = 'true';
+    if (root.dataset) {
+      if (signalId) root.dataset.pickingSignal = signalId;
+      else root.dataset.dragging = 'true';
+    }
     if (inputMode !== 'pointer') {
       inputMode = 'pointer';
       onInputMode('pointer');
@@ -536,21 +571,62 @@ export function createDesireObservatoryController({
   }
 
   function pointerMove(event) {
-    if (!pointer || event.pointerId !== pointer.id) return;
+    if (!pointer || event.pointerId !== pointer.id) {
+      setSceneSignalHover(renderer?.pickSignal?.(Number(event.clientX), Number(event.clientY)) || null);
+      return;
+    }
     const rect = elements.stage?.getBoundingClientRect?.() || { width: 1, height: 1 };
-    const dx = (Number(event.clientX) - pointer.x) / Math.max(1, rect.width);
-    const dy = (Number(event.clientY) - pointer.y) / Math.max(1, rect.height);
-    pointer.x = Number(event.clientX);
-    pointer.y = Number(event.clientY);
-    rotateBy(dy * 3.8, dx * 5.4, { direct: true });
+    const nextX = Number(event.clientX);
+    const nextY = Number(event.clientY);
+    const pixelDx = nextX - pointer.x;
+    const pixelDy = nextY - pointer.y;
+    pointer.totalX = nextX - pointer.startX;
+    pointer.totalY = nextY - pointer.startY;
+    pointer.x = nextX;
+    pointer.y = nextY;
+    if (pointer.signalId && Math.hypot(pointer.totalX, pointer.totalY) > 10) {
+      pointer.signalId = null;
+      if (root.dataset) {
+        delete root.dataset.pickingSignal;
+        root.dataset.dragging = 'true';
+      }
+    }
+    if (!pointer.signalId) {
+      moveCameraBy(
+        (pixelDy / Math.max(1, rect.height)) * 1.45,
+        (pixelDx / Math.max(1, rect.width)) * 2.8,
+        { direct: true },
+      );
+    }
     event.preventDefault?.();
   }
 
   function pointerUp(event) {
     if (!pointer || event.pointerId !== pointer.id) return;
+    const finishedPointer = pointer;
     elements.stage?.releasePointerCapture?.(event.pointerId);
     pointer = null;
-    if (root.dataset) delete root.dataset.dragging;
+    if (root.dataset) {
+      delete root.dataset.dragging;
+      delete root.dataset.pickingSignal;
+    }
+    if (finishedPointer.signalId && Math.hypot(finishedPointer.totalX, finishedPointer.totalY) <= 10) {
+      dismissSignal(finishedPointer.signalId);
+      return;
+    }
+    const rect = elements.stage?.getBoundingClientRect?.() || { width: 1 };
+    const direction = Math.abs(finishedPointer.totalX) > Math.abs(finishedPointer.totalY) * 1.15
+      ? swipeDirectionForDistance(finishedPointer.totalX, rect.width)
+      : 0;
+    if (direction) selectProduct(direction);
+    else {
+      targetCameraOffset = { x: 0, y: 0 };
+      startAnimation();
+    }
+  }
+
+  function pointerLeave() {
+    if (!pointer) setSceneSignalHover(null);
   }
 
   function stageKeydown(event) {
@@ -561,13 +637,13 @@ export function createDesireObservatoryController({
     }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault();
-      rotateBy(event.key === 'ArrowUp' ? -0.14 : 0.14, 0, { direct: true });
-      announce(`已从${event.key === 'ArrowUp' ? '较高' : '较低'}角度查看${currentProduct().name}。`);
+      moveCameraBy(event.key === 'ArrowUp' ? -0.12 : 0.12, 0, { direct: true });
+      announce(`镜头已移到${event.key === 'ArrowUp' ? '较高' : '较低'}位置查看${currentProduct().name}。`);
       return;
     }
     if (event.key.toLowerCase() === 'a' || event.key.toLowerCase() === 'd') {
       event.preventDefault();
-      rotateBy(0, event.key.toLowerCase() === 'a' ? -0.22 : 0.22, { direct: true });
+      moveCameraBy(0, event.key.toLowerCase() === 'a' ? -0.18 : 0.18, { direct: true });
     }
   }
 
@@ -577,7 +653,7 @@ export function createDesireObservatoryController({
     elements.gestureButton.dataset.active = String(active);
     elements.gestureButton.setAttribute('aria-pressed', String(active));
     const label = elements.gestureButton.querySelector?.('b');
-    if (label) label.textContent = active ? '手势已接管' : '手势旋转';
+    if (label) label.textContent = active ? '手势浏览中' : '手势浏览';
     const state = elements.gestureButton.querySelector?.('small');
     if (state) state.textContent = active ? '再次点击退出' : '可选 · 本地识别';
   }
@@ -590,7 +666,7 @@ export function createDesireObservatoryController({
     if (elements.pauseNotice) elements.pauseNotice.hidden = true;
     renderInputMode();
     announce(nextMode === 'gesture'
-      ? '手势旋转已开启。伸出食指，左右移动查看商品。'
+      ? '手势浏览已开启。伸出食指，左右移动镜头查看科技橱窗。'
       : '已切换为触摸、鼠标和键盘操作。');
     startAnimation();
   }
@@ -603,12 +679,12 @@ export function createDesireObservatoryController({
 
   function applySegment(segment) {
     if (!opened || destroyed) return false;
-    const delta = rotationDeltaForSegment(segment);
+    const delta = cameraDeltaForSegment(segment);
     inputMode = 'gesture';
     pausedReason = null;
     if (elements.pauseNotice) elements.pauseNotice.hidden = true;
     renderInputMode();
-    rotateBy(delta.x, delta.y);
+    moveCameraBy(delta.x, delta.y);
     return Boolean(delta.x || delta.y);
   }
 
@@ -619,7 +695,7 @@ export function createDesireObservatoryController({
     if (elements.pauseNotice) {
       elements.pauseNotice.hidden = false;
       elements.pauseNotice.textContent = reason === 'hand-lost'
-        ? '暂时没看到手，商品停在原处。重新伸出食指即可继续。'
+        ? '暂时没看到手，镜头停在原处。重新伸出食指即可继续。'
         : '观察舱已暂停。';
     }
     if (root.dataset) root.dataset.paused = 'true';
@@ -631,7 +707,7 @@ export function createDesireObservatoryController({
     pausedReason = null;
     if (elements.pauseNotice) elements.pauseNotice.hidden = true;
     if (root.dataset) delete root.dataset.paused;
-    announce('手势已恢复，商品保持原角度继续响应。');
+    announce('手势已恢复，镜头继续响应。');
     startAnimation();
     return true;
   }
@@ -641,8 +717,8 @@ export function createDesireObservatoryController({
     products = selectObservatoryProducts(config);
     selectedIndex = 0;
     dismissedSignalIds = new Set();
-    rotation = { x: -0.08, y: 0.5 };
-    targetRotation = { x: -0.08, y: 0 };
+    cameraOffset = { x: 0, y: 0.42 };
+    targetCameraOffset = { x: 0, y: 0 };
     inputMode = config.inputMode === 'gesture' ? 'gesture' : 'pointer';
     pausedReason = null;
     hiddenByDocument = Boolean(documentRef?.hidden);
@@ -653,6 +729,7 @@ export function createDesireObservatoryController({
     if (root.dataset) {
       root.dataset.quality = quality;
       root.dataset.calmLevel = '0';
+      root.dataset.portalReady = 'false';
     }
     opened = true;
     renderProduct();
@@ -676,6 +753,8 @@ export function createDesireObservatoryController({
     root.hidden = true;
     if (root.dataset) {
       delete root.dataset.dragging;
+      delete root.dataset.pickingSignal;
+      delete root.dataset.sceneSignalHover;
       delete root.dataset.paused;
       delete root.dataset.switching;
     }
@@ -706,7 +785,7 @@ export function createDesireObservatoryController({
       inputMode,
       renderMode,
       pausedReason,
-      rotation: { ...rotation },
+      cameraOffset: { ...cameraOffset },
       quality,
     };
   }
@@ -718,6 +797,7 @@ export function createDesireObservatoryController({
   listen(elements.stage, 'pointermove', pointerMove);
   listen(elements.stage, 'pointerup', pointerUp);
   listen(elements.stage, 'pointercancel', pointerUp);
+  listen(elements.stage, 'pointerleave', pointerLeave);
   listen(elements.stage, 'keydown', stageKeydown);
   listen(elements.coolButton, 'click', () => onIntent({ type: 'cool', focusItem: currentProduct() }));
   listen(elements.dismissButton, 'click', () => onIntent({ type: 'dismiss', focusItem: currentProduct() }));

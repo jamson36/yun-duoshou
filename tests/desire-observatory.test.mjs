@@ -6,11 +6,12 @@ import {
   MAX_OBSERVATORY_DPR,
   MAX_OBSERVATORY_VISIBLE_PRODUCTS,
   OBSERVATORY_PRODUCTS,
+  cameraDeltaForSegment,
   modelForOrder,
   nextObservatoryIndex,
-  rotationDeltaForSegment,
   selectObservatoryProducts,
   signalsForProduct,
+  swipeDirectionForDistance,
 } from '../desire-observatory.js';
 
 test('观察舱提供六类确定性商品展牌且复用现有商城映射', () => {
@@ -59,18 +60,25 @@ test('订单模型只依据商品文本选择视觉外形，不推断身份或�
   assert.equal(modelForOrder({ name: '不认识的东西' }), 'package');
 });
 
-test('手势片段只产生有上限的连续旋转量，非法输入保持静止', () => {
-  assert.deepEqual(rotationDeltaForSegment(null), { x: 0, y: 0 });
-  const smoothDelta = rotationDeltaForSegment({ from: { x: 0.4, y: 0.5 }, to: { x: 0.45, y: 0.47 } });
-  assert.ok(Math.abs(smoothDelta.x + 0.096) < 1e-9);
-  assert.ok(Math.abs(smoothDelta.y - 0.23) < 1e-9);
+test('手势片段只产生有上限的镜头视差，非法输入保持静止', () => {
+  assert.deepEqual(cameraDeltaForSegment(null), { x: 0, y: 0 });
+  const smoothDelta = cameraDeltaForSegment({ from: { x: 0.4, y: 0.5 }, to: { x: 0.45, y: 0.47 } });
+  assert.ok(Math.abs(smoothDelta.x + 0.054) < 1e-9);
+  assert.ok(Math.abs(smoothDelta.y - 0.13) < 1e-9);
   assert.deepEqual(
-    rotationDeltaForSegment({ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }),
-    { x: 0.22, y: 0.32 },
+    cameraDeltaForSegment({ from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }),
+    { x: 0.18, y: 0.28 },
   );
 });
 
-test('3D 展陈使用本地 Three.js、现有商品图和固定镜头，不依赖外部模型或网络', async () => {
+test('只有明确横向滑动才切换橱窗，短拖动只保留镜头视差', () => {
+  assert.equal(swipeDirectionForDistance(-180, 1000), 1);
+  assert.equal(swipeDirectionForDistance(180, 1000), -1);
+  assert.equal(swipeDirectionForDistance(90, 1000), 0);
+  assert.equal(swipeDirectionForDistance(300, 0), 0);
+});
+
+test('科技橱窗街使用本地 Three.js、固定商品屏、信号塔与镜头轨道', async () => {
   const [controllerSource, sceneSource] = await Promise.all([
     readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8'),
     readFile(new URL('../desire-observatory-scene.js', import.meta.url), 'utf8'),
@@ -82,5 +90,11 @@ test('3D 展陈使用本地 Three.js、现有商品图和固定镜头，不依�
   assert.match(sceneSource, /FogExp2/);
   assert.match(sceneSource, /PointLight/);
   assert.match(sceneSource, /ACESFilmicToneMapping/);
-  assert.doesNotMatch(sceneSource, /\.glb|\.gltf|https?:\/\/|fetch\(|fillText|strokeText/);
+  assert.match(sceneSource, /Raycaster/);
+  assert.match(sceneSource, /createSignalTower/);
+  assert.match(sceneSource, /pickSignal/);
+  assert.match(sceneSource, /cameraOffsetX/);
+  assert.match(sceneSource, /coolingPortal/);
+  assert.doesNotMatch(sceneSource, /panel\.rotation\.(?:x|y)\s*=.*rotation[XY]/);
+  assert.doesNotMatch(sceneSource, /\.glb|\.gltf|https?:\/\/|fetch\(/);
 });
