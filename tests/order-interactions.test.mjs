@@ -305,6 +305,7 @@ test('从订单页取消新增或编辑会恢复来源路由与触发按钮', ()
       primary?.focus();
       return Boolean(primary);
     },
+    panelFocusTargets: () => [fallback],
   };
   vm.runInNewContext(`${source}
 this.composerApi = { captureOrderComposerReturnContext, openOrderComposer, closeOrderComposer };`, context);
@@ -388,6 +389,7 @@ test('编辑面板动画期间按 Esc 会取消待打开弹窗并回到订单页
       primary?.focus();
       return Boolean(primary);
     },
+    panelFocusTargets: () => [fallback],
   };
   vm.runInNewContext(`${source}
 this.composerApi = { scheduleOrderComposerOpen, closeOrderComposer };`, context);
@@ -499,7 +501,7 @@ setRoomBackgroundSuppressed(true);`, accessibilityContext);
 test('功能面板只把焦点送到内容标题，不在进入动画后再次抢焦点', () => {
   const source = functionSource('applyPanel', 'openPanel');
   assert.doesNotMatch(source, /panelClose\.focus/);
-  assert.match(source, /requestAnimationFrame\([\s\S]*heading\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /requestAnimationFrame\([\s\S]*focusPanelEntry\(activePanel\)/);
 });
 
 test('功能面板内部切换后仍保留最初的房间触发器用于关闭时恢复焦点', () => {

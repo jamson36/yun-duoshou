@@ -10677,6 +10677,50 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   display: none !important;
 }
 
+.clinic-history-button {
+  position: relative;
+  z-index: 3;
+  order: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 214px;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: 1px solid rgba(171, 111, 45, .24);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, .82);
+  box-shadow: 0 8px 20px rgba(121, 74, 29, .09);
+  color: #624819;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.clinic-history-button[hidden] {
+  display: none;
+}
+
+.clinic-history-button b {
+  min-width: 38px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff0cf;
+  color: #aa641b;
+  font-size: 10px;
+}
+
+.clinic-history-button:hover,
+.clinic-history-button:focus-visible {
+  border-color: #e89236;
+  background: #fff8e9;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(232, 146, 54, .2), 0 10px 24px rgba(121, 74, 29, .12);
+}
+
 @media (min-width: 821px) and (min-height: 681px) {
   .app[data-focus="clinic"]:has(.panel-view[data-panel="clinic"][data-clinic-view="start"].is-active) .panel-inner {
     padding-top: 0;
@@ -11219,6 +11263,12 @@ body.reduce-motion .shopping-intro-enter i { transition: none; }
   bottom: auto;
   margin-top: 0;
   box-shadow: none;
+}
+
+/* Product detail already has explicit back and order controls in its header.
+   Removing the redundant dock keeps it from intercepting either CTA. */
+.app[data-focus="new"][data-phone-view="detail"] .device-tabs {
+  display: none;
 }
 
 .app[data-focus="new"] :is(.shopping-intro-copy h2, #newPanelTitle, #commerceTitle, #commerceDetailContent h3):focus-visible {

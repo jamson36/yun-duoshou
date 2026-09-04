@@ -11,6 +11,7 @@ import {
   parseClinicHashState,
   parseNewHashState,
   parseRoomHashState,
+  panelTransitionHistoryMethod,
   routeSignature,
 } from '../route-sync.js';
 import { buildDiagnosisRequest, scorePersonality } from '../personality-scoring.js';
@@ -137,6 +138,12 @@ async function runDiagnosisRequestScenario({
   await context.requestAiDiagnosis();
   return { context, requestBodies, renderStates, persistedDiagnoses, resultCloseCount, posterClearCount };
 }
+
+test('外部深链切换功能时保留当前页，应用内页面切换复用当前历史层级', () => {
+  assert.equal(panelTransitionHistoryMethod({ openedByApp: false }), 'pushState');
+  assert.equal(panelTransitionHistoryMethod({}), 'pushState');
+  assert.equal(panelTransitionHistoryMethod({ openedByApp: true }), 'replaceState');
+});
 
 test('路由同步把同一帧的 popstate 与 hashchange 合并为最后一次状态', () => {
   const scheduled = [];

@@ -77,8 +77,7 @@ test('商城购物车按钮就是订单入口，不建立独立 cart 页面状�
     "commerceSearchInput.addEventListener('input'",
   );
   assert.match(buttonById('commerceOrdersButton'), /aria-label="查看已下单的订单"/);
-  assert.match(handler, /history\.replaceState\(\{\s*panel:\s*'orders'/);
-  assert.match(handler, /'',\s*'#orders'/);
+  assert.match(handler, /transitionPanelRoute\(\{\s*panel:\s*'orders'\s*\},\s*'#orders'\)/);
   assert.match(handler, /applyPanel\('orders'/);
   assert.doesNotMatch(handler, /['"]cart['"]|cartState|shoppingCart/i);
 });

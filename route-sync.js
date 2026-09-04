@@ -65,6 +65,10 @@ export function buildRoomHash({ activity = null } = {}) {
   return ROOM_ACTIVITIES.has(activity) ? `#room?activity=${encodeURIComponent(activity)}` : '#room';
 }
 
+export function panelTransitionHistoryMethod(historyState = {}) {
+  return historyState?.openedByApp ? 'replaceState' : 'pushState';
+}
+
 export function routeSignature(route = {}) {
   const panel = route.panel || 'room';
   const activity = panel === 'room' && ROOM_ACTIVITIES.has(route.activity) ? route.activity : '-';
