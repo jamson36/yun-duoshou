@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#15141b" />
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
-    <title>让你花个够爽！</title>
+    <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260902-interaction-fixes-6-desire-peel-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260904-mall-receipt-stub-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260903-warm-feedback-1" />
-  <script type="module" src="./app.js?v=20260903-warm-feedback-1"></script>
+  <script type="module" src="./app.js?v=20260903-warm-feedback-1-mall-receipt-stub-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -52,6 +52,21 @@
           <div class="room-help-actions">
             <button id="resetRoomViewButton" type="button">回到房间中间</button>
             <button id="motionButton" type="button" aria-pressed="false">减少动态效果</button>
+            <button id="resetAllDataButton" type="button">重置全部数据</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog class="room-help-dialog reset-data-dialog" id="resetDataDialog" role="dialog" aria-modal="true" aria-labelledby="resetDataTitle" aria-describedby="resetDataDescription">
+        <div class="room-help-card reset-data-card">
+          <div class="room-help-heading modal-header">
+            <div><small>LOCAL DATA RESET</small><h2 id="resetDataTitle">重置这台浏览器里的全部记录？</h2></div>
+          </div>
+          <p id="resetDataDescription">这会删除订单、目标、消费报告历史和数据发送同意，并恢复到首次进入状态。操作无法撤销，也不会影响任何真实资金。</p>
+          <p class="reset-data-status" id="resetDataStatus" role="status" aria-live="polite"></p>
+          <div class="reset-data-actions">
+            <button id="resetDataCancelButton" type="button">先保留</button>
+            <button id="resetDataConfirmButton" type="button">确认重置</button>
           </div>
         </div>
       </dialog>
@@ -453,13 +468,8 @@
             <section class="mall-success-modal" id="mallSuccessModal" role="dialog" aria-modal="true" aria-labelledby="mallSuccessTitle" hidden>
               <img class="mall-confetti-gif" id="mallConfettiGif" alt="" />
               <img class="mall-confetti-poster" src="./assets/mall-confetti-poster.png" alt="" loading="lazy" decoding="async" />
-              <div class="mall-static-barrage" aria-hidden="true"><span>先冷静一下</span><span>想买已记录</span><span>没有真实支付</span></div>
               <div class="mall-success-card">
-                <span class="mall-mood-icon" id="mallMoodIcon" aria-hidden="true">😂</span>
-                <span class="mall-horn-art" aria-hidden="true">
-                  <img class="mall-horn-gif" id="mallHornGif" alt="" />
-                  <img class="mall-horn-poster" src="./assets/mall-horn-poster.png" alt="" loading="lazy" decoding="async" />
-                </span>
+                <div class="mall-receipt-stub" aria-hidden="true"><span>COOLING NOTE</span><i></i><strong>已入冷静单</strong></div>
                 <h2 id="mallSuccessTitle" tabindex="-1">记录好了，先冷静一下</h2>
                 <p>本次记录 <strong id="mallSuccessAmount">¥0</strong></p>
                 <div class="mall-success-total"><small>今日累计</small><b id="mallSuccessTotal">¥0</b></div>

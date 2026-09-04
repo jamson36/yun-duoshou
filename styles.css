@@ -4644,8 +4644,9 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-action b {
   z-index: 220;
   inset: 0;
   display: grid;
-  place-items: start center;
+  place-items: center;
   overflow: hidden;
+  padding: clamp(16px, 3.6%, 28px) 16px;
   border-radius: 43px;
   background: rgba(10, 10, 10, .31);
   backdrop-filter: blur(2px);
@@ -4656,14 +4657,18 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-action b {
   position: absolute;
   z-index: 0;
   top: 0;
-  left: -3px;
-  width: calc(100% + 6px);
-  height: auto;
+  left: 0;
+  width: 100%;
+  height: clamp(120px, 24%, 190px);
+  object-fit: cover;
+  object-position: center top;
+  opacity: .42;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0 48%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0 48%, transparent 100%);
   pointer-events: none;
 }
 
-.mall-confetti-poster,
-.mall-horn-poster { display: none; }
+.mall-confetti-poster { display: none; }
 
 .mall-success-card {
   position: relative;
@@ -4672,31 +4677,50 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-action b {
   justify-items: center;
   width: 82.2%;
   min-height: 314px;
-  margin-top: 29.8%;
-  padding: 49px 21px 17px;
+  margin: 0;
+  padding: 22px 21px 17px;
+  border: 1px solid rgba(104, 73, 45, .1);
   border-radius: 32px;
-  background: #fff;
-  box-shadow: 0 19px 48px rgba(37, 25, 17, .24);
+  background: linear-gradient(180deg, #fff 0%, #fffdfa 100%);
+  box-shadow: 0 22px 58px rgba(37, 25, 17, .26);
   color: #171717;
   text-align: center;
 }
 
-.mall-horn-art {
-  position: absolute;
-  top: -35px;
-  left: 50%;
+.mall-receipt-stub {
+  position: relative;
   display: grid;
-  place-items: center;
-  width: 70px;
-  height: 70px;
-  overflow: hidden;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: #ff6a37;
-  box-shadow: 0 8px 18px rgba(255, 106, 55, .27);
+  grid-template-columns: auto minmax(18px, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  width: min(100%, 240px);
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border-block: 1px dashed rgba(154, 102, 53, .42);
+  background: linear-gradient(90deg, rgba(255, 247, 228, 0), #fff7e4 14%, #fff7e4 86%, rgba(255, 247, 228, 0));
+  color: #8f572f;
+  line-height: 1;
 }
 
-.mall-horn-art img { grid-area: 1 / 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+.mall-receipt-stub span {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.mall-receipt-stub i {
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgba(154, 102, 53, .35) 0 3px, transparent 3px 6px);
+}
+
+.mall-receipt-stub strong {
+  color: #a43b1c;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .06em;
+}
+
 .mall-success-card h2 { margin: 0; color: #171717; font-size: 19px; line-height: 1.3; }
 .mall-success-card h2:focus { outline: 0; }
 .mall-success-card > p { margin: 8px 0 13px; color: #76716b; font-size: 10px; }
@@ -4710,16 +4734,12 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-action b {
 .mall-success-actions button:last-child { border: 1px solid #a93818; background: #a93818; color: #fff; }
 .mall-success-note { align-self: end; margin-top: 10px; color: #69635d; font-size: 7px; }
 
-body.reduce-motion .mall-confetti-gif,
-body.reduce-motion .mall-horn-gif { display: none; }
-body.reduce-motion .mall-confetti-poster,
-body.reduce-motion .mall-horn-poster { display: block; }
+body.reduce-motion .mall-confetti-gif { display: none; }
+body.reduce-motion .mall-confetti-poster { display: block; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mall-confetti-gif,
-  .mall-horn-gif { display: none; }
-  .mall-confetti-poster,
-  .mall-horn-poster { display: block; }
+  .mall-confetti-gif { display: none; }
+  .mall-confetti-poster { display: block; }
 }
 
 @media (max-width: 430px) {
@@ -5773,7 +5793,7 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
 .order-export-panel > summary {
   display: flex;
   align-items: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 13px;
   color: #756961;
   cursor: pointer;
@@ -6492,7 +6512,7 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-machine > img {
   .panel-view[data-panel="orders"] .segmented button { min-width: 0; min-height: 38px; padding: 0 5px; font-size: 8px; line-height: 1.2; white-space: nowrap; }
   .order-export-actions { grid-template-columns: 1fr 1fr; }
   .order-export-panel { margin-bottom: 13px; }
-  .order-export-panel > summary { min-height: 40px; }
+  .order-export-panel > summary { min-height: 44px; }
   .panel-view[data-panel="orders"] .small-action { width: 100%; min-height: 36px; padding: 0 5px; }
   .panel-view[data-panel="orders"] .order-list { grid-template-columns: 1fr; gap: 12px; }
   .panel-view[data-panel="orders"] .order-ticket {
@@ -9202,6 +9222,17 @@ body.reduce-motion .hotspot-asset { transition: none; }
 .room-help-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .room-help-actions button { min-height: 46px; border: 1px solid #decfbe; border-radius: 13px; background: #fff; color: #4a3c32; cursor: pointer; font-size: 10px; font-weight: 900; }
 .room-help-actions button:first-child { border-color: #ea8a38; background: #fff1dc; }
+.room-help-actions #resetAllDataButton { grid-column: 1 / -1; border-color: #e0b7ae; background: #fff8f6; color: #9b3f30; }
+.room-help-actions #resetAllDataButton:hover,
+.room-help-actions #resetAllDataButton:focus-visible { border-color: #bd5544; background: #fff0ec; outline: 3px solid rgba(189, 85, 68, .2); outline-offset: 2px; }
+.reset-data-card > p { margin: 21px 0 0; color: #706258; font-size: 11px; line-height: 1.75; }
+.reset-data-card .reset-data-status { min-height: 20px; margin-top: 10px; color: #9b3f30; font-weight: 800; }
+.reset-data-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 18px; }
+.reset-data-actions button { min-height: 46px; border: 1px solid #decfbe; border-radius: 13px; background: #fff; color: #4a3c32; cursor: pointer; font-size: 10px; font-weight: 900; }
+.reset-data-actions #resetDataConfirmButton { border-color: #b74736; background: #a93f30; color: #fff; }
+.reset-data-actions button:focus-visible { outline: 3px solid rgba(215, 101, 27, .25); outline-offset: 2px; }
+.reset-data-actions button:disabled { cursor: wait; opacity: .65; }
+
 .site-confirm-dialog {
   width: min(500px, calc(100vw - 28px));
   max-height: calc(100dvh - 28px);
@@ -9524,44 +9555,6 @@ body.reduce-motion .site-confirm-card { animation: none; }
     border-radius: 0;
     box-shadow: none;
   }
-}
-
-/* Shopping success keeps GIFs when available and always has a static barrage
-   plus the fixed smile/cry pair requested by the design. */
-.mall-static-barrage {
-  position: absolute;
-  z-index: 1;
-  inset: 12% 0 auto;
-  display: grid;
-  gap: 14px;
-  pointer-events: none;
-}
-.mall-static-barrage span {
-  justify-self: start;
-  padding: 6px 11px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .78);
-  color: #9a4f22;
-  font-size: 8px;
-  font-weight: 900;
-  box-shadow: 0 5px 14px rgba(67, 40, 23, .1);
-}
-.mall-static-barrage span:nth-child(2) { justify-self: end; }
-.mall-static-barrage span:nth-child(3) { margin-left: 12%; }
-.mall-mood-icon {
-  position: absolute;
-  z-index: 4;
-  top: -21px;
-  right: 24px;
-  display: grid;
-  width: 50px;
-  height: 50px;
-  place-items: center;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  background: #ffd24b;
-  box-shadow: 0 8px 18px rgba(120, 67, 25, .2);
-  font-size: 25px;
 }
 
 /* Fixed three-scenario report and browser-local test history. */
@@ -10576,7 +10569,18 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 
 .clinic-report-header > div { display: none; }
 
-.clinic-report-view > .clinic-period-bar,
+.clinic-report-view > .clinic-period-bar {
+  position: static;
+  width: 100%;
+  height: auto;
+  margin: 0 0 16px;
+  padding: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border: 0;
+}
+
 .clinic-report-view > .clinic-ledger {
   position: absolute;
   width: 1px;
@@ -10643,14 +10647,10 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   .panel-view[data-panel="clinic"][data-clinic-view="start"] > .clinic-start-view > .ai-card .gachapon-caption { display: none; }
 }
 
-/* The 20:2 start frame is intentionally free of the report header and the
-   optional consent detail. The primary test remains local-first; existing
-   consent state and online fallback logic stay intact behind the same model. */
+/* The 20:2 start frame is intentionally free of the report header. The
+   inline consent choice remains visible when the user is eligible so an
+   online summary is never sent without an explicit, reachable opt-in. */
 .panel-view[data-panel="clinic"] > .panel-heading {
-  display: none !important;
-}
-
-.panel-view[data-panel="clinic"][data-clinic-view="start"] .ai-consent-inline {
   display: none !important;
 }
 
@@ -11389,7 +11389,6 @@ body.reduce-motion .shopping-intro-enter i { transition: none; }
 /* The successful simulated order can grow with locally generated advice.
    Scroll is kept inside the phone/modal rather than expanding the viewport. */
 .mall-success-modal {
-  --mall-success-offset: min(29.8%, 252px);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -11398,10 +11397,10 @@ body.reduce-motion .shopping-intro-enter i { transition: none; }
 
 .mall-success-card {
   align-content: start;
-  width: min(82.2%, 348px);
-  min-height: min(314px, calc(100% - var(--mall-success-offset) - 22px));
-  max-height: calc(100% - var(--mall-success-offset) - 22px);
-  margin-top: var(--mall-success-offset);
+  width: min(calc(100% - 4px), 348px);
+  min-height: 0;
+  max-height: min(620px, 100%);
+  margin: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -11626,12 +11625,11 @@ body.reduce-motion .shopping-intro-enter i { transition: none; }
   }
 
   .mall-success-modal {
-    --mall-success-offset: min(24%, 190px);
     border-radius: 0;
   }
 
   .mall-success-card {
-    width: min(86%, 348px);
+    width: min(calc(100% - 4px), 348px);
     padding-inline: 18px;
   }
 }

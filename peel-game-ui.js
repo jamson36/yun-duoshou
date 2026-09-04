@@ -120,6 +120,10 @@ function normalizedPointer(event, rect) {
   };
 }
 
+function isInteractivePointerTarget(target) {
+  return Boolean(target?.closest?.('button, a[href], input, select, textarea, summary, [role="button"]'));
+}
+
 function lineDistance(from, to) {
   return Math.hypot(to.x - from.x, to.y - from.y);
 }
@@ -1073,7 +1077,9 @@ export function createPeelGameController({
   }
 
   function pointerDown(event) {
-    if (event.button !== 0 || state?.status === PEEL_GAME_STATUS.SUMMARY) return;
+    if (event.button !== 0
+      || state?.status === PEEL_GAME_STATUS.SUMMARY
+      || isInteractivePointerTarget(event.target)) return;
     const point = normalizedPointer(event, elements.stage.getBoundingClientRect());
     pointer = { id: event.pointerId, point, moved: false };
     bladePoint = point;

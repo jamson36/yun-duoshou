@@ -141,6 +141,26 @@ test('减少动态时禁用连续旋转与缩放，但不禁用三个文字入�
   assert.equal(canManipulatePanorama({ interactionEnabled: false, reducedMotion: false }), false);
 });
 
+test('重置视角会返回相机动画完成信号供焦点恢复等待', () => {
+  const completion = Promise.resolve(true);
+  let target = null;
+  const element = {
+    classList: { remove() {} },
+  };
+  const room = {
+    hotspotElements: new Map([['hotspot', element]]),
+    idleView: { yaw: 1, pitch: 2, fov: 3 },
+    defaultView: { yaw: 4, pitch: 5, fov: 6 },
+    animateTo(nextTarget) {
+      target = nextTarget;
+      return completion;
+    },
+  };
+
+  assert.equal(PanoramaRoom.prototype.resetView.call(room), completion);
+  assert.equal(target, room.idleView);
+});
+
 test('统一相机输入约束环视和缩放，并在交互锁定时拒绝手势增量', () => {
   let renderCount = 0;
   const room = {

@@ -72,8 +72,8 @@ class FakeElement {
   getAttribute(name) { return this.attributes.get(name) || null; }
   removeAttribute(name) { this.attributes.delete(name); }
   getBoundingClientRect() { return this.rect; }
-  setPointerCapture() {}
-  releasePointerCapture() {}
+  setPointerCapture(pointerId) { this.capturedPointerId = pointerId; }
+  releasePointerCapture(pointerId) { this.releasedPointerId = pointerId; }
   focus() { this.focused = true; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = [...children]; }
@@ -200,6 +200,24 @@ test('首次开始用 RAF 从底部抛起无计时教学，skip 后沿用单一 
   assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);
   assert.equal(setup.elements.tutorial.hidden, true);
   assert.deepEqual(inputModes, ['pointer', 'pointer'], '重玩应重新建立上一局输入上下文');
+});
+
+test('舞台不会抢占教程与降级控件的指针，按钮点击可以完整触发', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'tutorial-control', tutorialCompleted: false });
+  setup.controller.start('pointer');
+  const control = { closest: () => control };
+
+  setup.elements.stage.dispatch('pointerdown', {
+    target: control,
+    pointerId: 7,
+    clientX: 100,
+    clientY: 100,
+  });
+
+  assert.equal(setup.elements.stage.capturedPointerId, undefined);
+  setup.elements.skipTutorialButton.dispatch('click');
+  assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.PLAYING);
 });
 
 test('教学悬停很久后再切开，也从新的时间基准开始正式 45 秒', async () => {

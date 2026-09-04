@@ -9,7 +9,7 @@ const appSource = await readFile(new URL('../app.js', import.meta.url), 'utf8');
 const overhaulCss = css.slice(css.indexOf('/* Figma route-scale overhaul'));
 
 test('浏览器标签栏使用最新确认的展示标题', () => {
-  assert.match(html, /<title>让你花个够爽！<\/title>/);
+  assert.match(html, /<title>让你花个爽！<\/title>/);
 });
 
 test('Figma 开屏使用正式标题、状态点和可见开始文案，房间热点采用资源尺寸', () => {
@@ -210,6 +210,18 @@ test('消费测试默认直达扭蛋起始态，报告是可返回的独立滚�
   assert.match(css, /\.panel-inner\s*\{[\s\S]*?overflow-y:\s*auto;/);
 });
 
+test('报告周期筛选保持可见可点击，不被人格卡或视觉隐藏规则覆盖', () => {
+  const finalClinicCss = css.slice(css.indexOf('/* The current semantic wrapper'));
+  assert.doesNotMatch(
+    finalClinicCss,
+    /\.clinic-report-view > \.clinic-period-bar,\s*\n\.clinic-report-view > \.clinic-ledger\s*\{[\s\S]*?clip:\s*rect\(0, 0, 0, 0\);/,
+  );
+  assert.match(
+    finalClinicCss,
+    /\.clinic-report-view > \.clinic-period-bar\s*\{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*auto;/,
+  );
+});
+
 test('业务页返回入口共用 Figma 左箭头语言，消费目标双列控件严格同高', () => {
   assert.match(html, /class="[^"]*app-back[^"]*" id="panelClose"[^>]*>[\s\S]*?figma-chevron-left\.svg/);
   assert.match(html, /class="[^"]*app-back[^"]*" id="commerceBackButton"[^>]*>[\s\S]*?figma-chevron-left\.svg/);
@@ -236,6 +248,11 @@ test('人格授权是扭蛋主界面内联勾选，不再切到覆盖式确认�
   assert.doesNotMatch(html, /id="allowAiButton"/);
   assert.doesNotMatch(appSource, /status:\s*['"]consent['"]|machineState\s*=\s*['"]confirm['"]/);
   assert.doesNotMatch(css, /data-gachapon-state="confirm"/);
+  assert.doesNotMatch(
+    css,
+    /\.panel-view\[data-panel="clinic"\]\[data-clinic-view="start"\] \.ai-consent-inline\s*\{[^}]*display:\s*none\s*!important/,
+    '首次授权入口不能被开始页样式强制隐藏',
+  );
 });
 
 test('实际位于 aiCard 外的人格报告使用 Figma 奶油卡而非旧黑边视觉', () => {
@@ -306,6 +323,11 @@ test('手机订单筛选独占整行并把导出操作收进次级面板', () =>
   assert.match(html, /<details class="order-export-panel">[\s\S]*?<summary>备份与导出<\/summary>[\s\S]*?id="exportButton"[\s\S]*?id="exportCsvButton"/);
   assert.match(overhaulCss, /\.order-filter-controls\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*1fr;/);
   assert.match(overhaulCss, /\.segmented\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\);/);
+  const exportSummaryRules = [...css.matchAll(/\.order-export-panel\s*>\s*summary\s*\{([^}]*)\}/g)];
+  assert.ok(exportSummaryRules.length >= 2, '桌面与移动样式都应明确约束导出摘要点击区');
+  exportSummaryRules.forEach(([, declarations]) => {
+    assert.match(declarations, /min-height:\s*44px;/, '备份与导出摘要点击区不得低于 44px');
+  });
 });
 
 test('商城入口在桌面与手机都可见，三个分类卡点击后直接进入对应商城', () => {

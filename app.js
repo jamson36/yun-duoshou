@@ -1,5 +1,5 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
-import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-1';
+import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-2';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260902-desire-peel-2-desk-hotspot-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
@@ -307,9 +307,7 @@ const commercePrefillButton = document.querySelector('#commercePrefillButton');
 const commerceBuyButton = document.querySelector('#commerceBuyButton');
 const mallSuccessModal = document.querySelector('#mallSuccessModal');
 const mallSuccessTitle = document.querySelector('#mallSuccessTitle');
-const mallMoodIcon = document.querySelector('#mallMoodIcon');
 const mallConfettiGif = document.querySelector('#mallConfettiGif');
-const mallHornGif = document.querySelector('#mallHornGif');
 const mallSuccessAdviceTitle = document.querySelector('#mallSuccessAdviceTitle');
 const mallSuccessAdviceList = document.querySelector('#mallSuccessAdviceList');
 const mallSuccessBackButton = document.querySelector('#mallSuccessBackButton');
@@ -384,6 +382,11 @@ const roomHelpDialog = document.querySelector('#roomHelpDialog');
 const roomHelpButton = document.querySelector('#roomHelpButton');
 const roomHelpCloseButton = document.querySelector('#roomHelpCloseButton');
 const resetRoomViewButton = document.querySelector('#resetRoomViewButton');
+const resetAllDataButton = document.querySelector('#resetAllDataButton');
+const resetDataDialog = document.querySelector('#resetDataDialog');
+const resetDataCancelButton = document.querySelector('#resetDataCancelButton');
+const resetDataConfirmButton = document.querySelector('#resetDataConfirmButton');
+const resetDataStatus = document.querySelector('#resetDataStatus');
 const siteConfirmDialog = document.querySelector('#siteConfirmDialog');
 const siteConfirmCard = siteConfirmDialog.querySelector('.site-confirm-card');
 const siteConfirmEyebrow = document.querySelector('#siteConfirmEyebrow');
@@ -495,6 +498,8 @@ let phoneView = 'intro';
 let phoneViewFocusTimer = null;
 let phoneViewFocusSequence = 0;
 let orderComposerReturnFocus = null;
+let orderComposerReturnContext = null;
+let orderComposerOpenTimer = null;
 let activeCommerceType = COMMERCE_TYPE_BY_CATEGORY[categoryCards[activeCategoryCardIndex]?.dataset.categoryShortcut] || 'shop';
 let activeCommerceFilter = COMMERCE_CATALOGS[activeCommerceType].filters[0];
 let activeCommerceProductId = null;
@@ -585,6 +590,7 @@ const mobileDockButtons = [...document.querySelectorAll('.mobile-dock button')];
 const roomBackgroundRegions = [
   document.querySelector('.topbar'),
   document.querySelector('.room-shell'),
+  document.querySelector('.mobile-dock'),
 ].filter(Boolean);
 
 function panelForMobileDockButton(button) {
@@ -630,6 +636,26 @@ function isAvailableFocusTarget(target) {
   if (!target || typeof target.focus !== 'function' || !document.contains(target)) return false;
   if (target.disabled || target.closest?.('[hidden], [inert], [aria-hidden="true"]')) return false;
   return typeof target.getClientRects !== 'function' || target.getClientRects().length > 0;
+}
+
+function focusFirstAvailableTarget(...targets) {
+  for (const target of targets) {
+    if (!isAvailableFocusTarget(target)) continue;
+    target.focus({ preventScroll: true });
+    if (document.activeElement === target) return true;
+  }
+  return false;
+}
+
+function restorePanelReturnFocus(returnTarget, resetComplete) {
+  window.requestAnimationFrame(() => {
+    if (focusFirstAvailableTarget(returnTarget)) return;
+    focusFirstAvailableTarget(sceneFrame);
+    Promise.resolve(resetComplete).then(() => {
+      if (document.activeElement !== sceneFrame && document.activeElement !== document.body) return;
+      focusFirstAvailableTarget(returnTarget, sceneFrame);
+    });
+  });
 }
 
 function setRoomUiInteractive(value) {
@@ -825,7 +851,10 @@ function handlePeelGameIntent(intent) {
 
 function peelActivityFocusableElements() {
   return [...peelGameRoot.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')]
-    .filter((element) => !element.disabled && !element.closest('[hidden]') && element.getClientRects().length > 0);
+    .filter((element) => element.tabIndex >= 0
+      && !element.disabled
+      && !element.closest('[hidden]')
+      && element.getClientRects().length > 0);
 }
 
 function handlePeelActivityKeydown(event) {
@@ -969,6 +998,75 @@ function requestSiteConfirmation({
   if (!siteConfirmDialog.open) siteConfirmDialog.showModal();
   window.requestAnimationFrame(() => siteConfirmCancelButton.focus({ preventScroll: true }));
   return confirmation;
+}
+
+function clearPersistedExperienceData({
+  local = localStorage,
+  session = sessionStorage,
+  cookieDocument = document,
+} = {}) {
+  const failures = [];
+  const clearKeys = (storage, keys, failureName) => {
+    let failed = false;
+    for (const key of keys) {
+      try {
+        storage.removeItem(key);
+      } catch {
+        failed = true;
+      }
+    }
+    if (failed) failures.push(failureName);
+  };
+  clearKeys(local, [
+    STORAGE_KEY,
+    ...LEGACY_STORAGE_KEYS,
+    AI_REVOCATION_STORAGE_KEY,
+    AI_DIAGNOSIS_STORAGE_KEY,
+    TEST_HISTORY_STORAGE_KEY,
+  ], 'local');
+  clearKeys(session, [
+    SESSION_AI_REVOCATION_KEY,
+    SESSION_AI_CONSENT_KEY,
+    SESSION_AI_DIAGNOSIS_INVALIDATED_KEY,
+    RETURN_TO_ROOM_ON_LOAD_KEY,
+  ], 'session');
+  try {
+    cookieDocument.cookie = `${AI_REVOCATION_COOKIE}=; Max-Age=0; Path=/; SameSite=Strict`;
+  } catch {
+    failures.push('cookie');
+  }
+  return { success: failures.length === 0, failures };
+}
+
+function openResetDataDialog() {
+  if (roomHelpDialog.open) roomHelpDialog.close();
+  resetDataStatus.textContent = '';
+  resetDataConfirmButton.disabled = false;
+  if (!resetDataDialog.open) resetDataDialog.showModal();
+  window.requestAnimationFrame(() => resetDataCancelButton.focus({ preventScroll: true }));
+}
+
+function closeResetDataDialog() {
+  if (resetDataDialog.open) resetDataDialog.close();
+  if (!roomHelpDialog.open) roomHelpDialog.showModal();
+  window.requestAnimationFrame(() => resetAllDataButton.focus({ preventScroll: true }));
+}
+
+function resetAllLocalData() {
+  resetDataConfirmButton.disabled = true;
+  resetDataStatus.textContent = '正在清理这台浏览器里的记录…';
+  cancelAiRequest('reset-all-data');
+  const result = clearPersistedExperienceData();
+  if (!result.success) {
+    resetDataConfirmButton.disabled = false;
+    resetDataStatus.textContent = '浏览器阻止了本地数据清理，请检查站点存储权限后重试。';
+    return false;
+  }
+  businessStateStorageDirty = false;
+  aiConsentChannel?.postMessage({ type: 'revoked' });
+  history.replaceState({}, '', `${location.pathname}${location.search}`);
+  location.reload();
+  return true;
 }
 
 function setAiConsentRevocationFallback(revoked) {
@@ -1728,6 +1826,7 @@ function applyPanel(panel, trigger = null) {
   const previousTrigger = activeTrigger;
   const nextPanel = PANEL_META[panel] ? panel : null;
   const triggerIsPersistent = Boolean(trigger?.closest && !trigger.closest('.panel-view'));
+  const previousTriggerIsPersistent = Boolean(previousTrigger?.closest && !previousTrigger.closest('.panel-view'));
 
   if (nextPanel) {
     gestureController.pauseForPanel();
@@ -1764,7 +1863,11 @@ function applyPanel(panel, trigger = null) {
   syncMobileDock(activePanel);
   if (activePanel === 'orders') setRecoveryTabState('orders');
   else if (activePanel === 'goals') setRecoveryTabState(activeGoalsView);
-  activeTrigger = activePanel ? (triggerIsPersistent ? trigger : panorama.getTriggerForPanel(activePanel)) : previousTrigger;
+  activeTrigger = activePanel
+    ? (triggerIsPersistent
+      ? trigger
+      : (previousTriggerIsPersistent ? previousTrigger : panorama.getTriggerForPanel(activePanel)))
+    : previousTrigger;
 
   document.querySelectorAll('.scene-hotspot.is-feature').forEach((object) => {
     const hotspot = sceneHotspots.find((item) => item.id === object.dataset.hotspotId);
@@ -1788,15 +1891,14 @@ function applyPanel(panel, trigger = null) {
     setRoomBackgroundSuppressed(false);
     const returnTarget = activeTrigger;
     activeTrigger = null;
-    if (returnTarget && document.contains(returnTarget)) returnTarget.focus({ preventScroll: true });
-    else sceneFrame.focus({ preventScroll: true });
     focusPanel.inert = true;
     focusPanel.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
-    panorama.resetView();
+    const resetComplete = panorama.resetView();
     if (previousPanel === 'goals') renderGoal();
     setMascotSpeech(idleSpeech());
     gestureController.resumeFromPanel();
+    restorePanelReturnFocus(returnTarget, resetComplete);
     return true;
   }
 
@@ -2316,9 +2418,42 @@ function navigateBackWithinClinic() {
   return true;
 }
 
+function captureOrderComposerReturnContext() {
+  if (!activePanel || activePanel === 'new') return null;
+  return {
+    route: currentRouteSnapshot(),
+    historyState: { ...(history.state || {}) },
+    hash: location.hash || `#${activePanel}`,
+  };
+}
+
+function restoreOrderComposerReturnContext(returnContext) {
+  if (!returnContext?.route?.panel || returnContext.route.panel === activePanel) return false;
+  history.replaceState({ ...(returnContext.historyState || {}) }, '', returnContext.hash);
+  syncRouteFromLocation(returnContext.route);
+  return true;
+}
+
 function orderComposerFocusableElements() {
   return [...orderComposerModal.querySelectorAll('button, input, select, summary, [tabindex]:not([tabindex="-1"])')]
     .filter((element) => !element.disabled && !element.closest('[hidden]'));
+}
+
+function cancelPendingOrderComposerOpen() {
+  if (orderComposerOpenTimer === null) return false;
+  window.clearTimeout(orderComposerOpenTimer);
+  orderComposerOpenTimer = null;
+  return true;
+}
+
+function scheduleOrderComposerOpen(trigger, { returnContext = null, delay = 0 } = {}) {
+  cancelPendingOrderComposerOpen();
+  orderComposerReturnFocus = trigger && document.contains(trigger) ? trigger : null;
+  orderComposerReturnContext = returnContext;
+  orderComposerOpenTimer = window.setTimeout(() => {
+    orderComposerOpenTimer = null;
+    openOrderComposer(trigger, { returnContext });
+  }, Math.max(0, Number(delay) || 0));
 }
 
 function syncTransientModalIsolation() {
@@ -2340,27 +2475,35 @@ function syncTransientModalIsolation() {
   app.classList.toggle('has-transient-modal', composerOpen || successOpen);
 }
 
-function openOrderComposer(trigger = document.activeElement) {
+function openOrderComposer(trigger = document.activeElement, { returnContext = null } = {}) {
   if (!orderComposerModal.hidden) return;
+  cancelPendingOrderComposerOpen();
   orderComposerReturnFocus = trigger && document.contains(trigger) ? trigger : null;
+  orderComposerReturnContext = returnContext;
   orderComposerModal.hidden = false;
   app.dataset.orderComposer = 'open';
   syncTransientModalIsolation();
   window.requestAnimationFrame(() => orderForm.elements.name.focus({ preventScroll: true }));
 }
 
-function closeOrderComposer({ restoreFocus = true, reset = true } = {}) {
-  if (orderComposerModal.hidden) return;
+function closeOrderComposer({ restoreFocus = true, restoreRoute = restoreFocus, reset = true } = {}) {
+  const pendingOpen = cancelPendingOrderComposerOpen();
+  if (orderComposerModal.hidden && !pendingOpen) return;
   const returnTarget = orderComposerReturnFocus;
+  const returnContext = orderComposerReturnContext;
   if (reset) resetOrderComposer();
   orderComposerModal.hidden = true;
   delete app.dataset.orderComposer;
   syncTransientModalIsolation();
   orderComposerReturnFocus = null;
+  orderComposerReturnContext = null;
+  if (restoreRoute) restoreOrderComposerReturnContext(returnContext);
   if (restoreFocus) {
     window.requestAnimationFrame(() => {
-      if (returnTarget && document.contains(returnTarget) && returnTarget.getClientRects().length) returnTarget.focus({ preventScroll: true });
-      else document.querySelector('#newPanelTitle')?.focus({ preventScroll: true });
+      const fallbackTarget = returnContext?.route?.panel === 'orders'
+        ? document.querySelector('#ordersPanelTitle')
+        : document.querySelector('#newPanelTitle');
+      focusFirstAvailableTarget(returnTarget, fallbackTarget);
     });
   }
 }
@@ -2408,11 +2551,6 @@ function mallSuccessAdviceItems(product, order, assessment = null) {
 function showMallSuccess(product, order) {
   if (!product || !order) return;
   lastCommerceProduct = product;
-  if (mallMoodIcon) {
-    const isSmiling = state.orders.length % 2 === 1;
-    mallMoodIcon.textContent = isSmiling ? '😂' : '😭';
-    mallMoodIcon.setAttribute('aria-label', isSmiling ? '笑着记录' : '哭着冷静');
-  }
   document.querySelector('#mallSuccessAmount').textContent = money(order.amount);
   document.querySelector('#mallSuccessTotal').textContent = money(totals().recordedToday);
   const adviceItems = mallSuccessAdviceItems(product, order);
@@ -2423,7 +2561,6 @@ function showMallSuccess(product, order) {
   mallSuccessModal.hidden = false;
   syncTransientModalIsolation();
   restartMallGif(mallConfettiGif, './assets/mall-confetti.gif');
-  restartMallGif(mallHornGif, './assets/mall-horn.gif');
   window.setTimeout(() => mallSuccessTitle.focus({ preventScroll: true }), document.body.classList.contains('reduce-motion') ? 20 : 180);
 }
 
@@ -3187,7 +3324,7 @@ function closePosterShare({ restoreFocus = true } = {}) {
   }
 }
 
-function openGachaponResult({ source = 'hybrid' } = {}) {
+function openGachaponResult({ source = 'hybrid', returnFocus = null } = {}) {
   if (!currentAssessment?.eligible || activePanel !== 'clinic') return false;
   closePosterShare({ restoreFocus: false });
   const resultWasOpen = Boolean(gachaponResultModal.open);
@@ -3214,7 +3351,7 @@ function openGachaponResult({ source = 'hybrid' } = {}) {
     ? `从近 ${currentAssessment.period} 天的 ${currentAssessment.orderCount} 笔有效记录中，以「${canonical.name}」为规则人格底座，结合聚合证据推演出${stageLabel}；综合置信度 ${Math.round(inference.confidence * 100)}%。`
     : `从近 ${currentAssessment.period} 天的 ${currentAssessment.orderCount} 笔有效记录中，以「${canonical.name}」为规则人格底座生成${stageLabel}。当前没有可用的综合推演，展示本地卡面。`;
   gachaponResultRetryButton.textContent = '再测一次';
-  gachaponResultReturnFocus = source === 'local' ? localOnlyButton : analyzeButton;
+  gachaponResultReturnFocus = returnFocus || analyzeButton;
   aiCard.classList.add('is-gachapon-result-open');
   if (!resultWasOpen) {
     if (typeof rememberTestResult === 'function') rememberTestResult(currentAssessment, presentation, source);
@@ -3230,7 +3367,7 @@ function openGachaponResult({ source = 'hybrid' } = {}) {
   return true;
 }
 
-function startLocalGachaponReveal() {
+function startLocalGachaponReveal(returnFocus = analyzeButton) {
   if (gachaponIsBusy() || activePanel !== 'clinic') return false;
   const assessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now: new Date() });
   if (!assessment.eligible) {
@@ -3270,7 +3407,7 @@ function startLocalGachaponReveal() {
     aiCard.setAttribute('aria-busy', 'false');
     clinicRenderPending = true;
     showToast('本地人格已经揭晓，全程没有发送消费摘要。');
-    if (!openGachaponResult({ source: 'local' })) {
+    if (!openGachaponResult({ source: 'local', returnFocus })) {
       clinicRenderPending = false;
       renderClinic(latestAssessment);
     }
@@ -3297,9 +3434,7 @@ function closeGachaponResult({ restoreFocus = true, flushPending = true } = {}) 
   if (shouldRenderClinic && flushPending && activePanel === 'clinic') renderClinic();
   const returnTarget = gachaponResultReturnFocus;
   gachaponResultReturnFocus = null;
-  if (restoreFocus && returnTarget && document.contains(returnTarget)) {
-    window.requestAnimationFrame(() => returnTarget.focus({ preventScroll: true }));
-  }
+  if (restoreFocus) window.requestAnimationFrame(() => focusFirstAvailableTarget(returnTarget, analyzeButton));
 }
 
 function clearPoster() {
@@ -3544,6 +3679,7 @@ function createOrder(formData, { showReceipt = true } = {}) {
     closeOrderComposer({ restoreFocus: false, reset: false });
     history.replaceState({ panel: 'orders', openedByApp: true }, '', '#orders');
     applyPanel('orders');
+    window.requestAnimationFrame(() => focusOrderAction(orderId, 'edit'));
     return null;
   }
 
@@ -3598,6 +3734,7 @@ function editOrder(id, trigger) {
     showToast('只有“冷静中”的订单可以编辑。');
     return;
   }
+  const returnContext = captureOrderComposerReturnContext();
   resetOrderComposer();
   editingOrderId = id;
   orderForm.elements.name.value = order.name;
@@ -3612,7 +3749,10 @@ function editOrder(id, trigger) {
   history.replaceState({ panel: 'new', phoneView: 'home', openedByApp: false }, '', buildNewHash({ phoneView: 'home' }));
   showPhoneView('home');
   applyPanel('new', trigger);
-  window.setTimeout(() => openOrderComposer(trigger), document.body.classList.contains('reduce-motion') ? 20 : 360);
+  scheduleOrderComposerOpen(trigger, {
+    returnContext,
+    delay: document.body.classList.contains('reduce-motion') ? 20 : 360,
+  });
 }
 
 async function deleteOrder(id, trigger = document.activeElement) {
@@ -3923,7 +4063,7 @@ function startAiDiagnosis() {
     if (!aiConsentCheckbox.checked) {
       aiUiState = { status: 'idle', message: '' };
       if (inlineConsentMessage) inlineConsentMessage.textContent = '未发送消费摘要，本次只使用本地规则测试。';
-      startLocalGachaponReveal();
+      startLocalGachaponReveal(analyzeButton);
       return;
     }
     setAiConsentRevocationFallback(false);
@@ -4355,10 +4495,13 @@ document.querySelectorAll('[data-open]:not(.scene-hotspot):not([data-recovery-vi
       if (activePanel !== 'new') applyPanel('new', trigger);
       return;
     }
+    const returnContext = trigger.dataset.open === 'new' && trigger.classList.contains('wishlist-add')
+      ? captureOrderComposerReturnContext()
+      : null;
     openPanel(trigger.dataset.open, trigger);
     if (trigger.dataset.open === 'new' && trigger.classList.contains('wishlist-add')) {
       resetOrderComposer();
-      openOrderComposer(trigger);
+      openOrderComposer(trigger, { returnContext });
     }
     if (trigger.dataset.scrollTarget) scrollToPanelTarget(trigger.dataset.scrollTarget);
   });
@@ -4446,7 +4589,7 @@ document.addEventListener('keydown', (event) => {
     closeMallSuccess({ restoreFocus: true });
     return;
   }
-  if (!orderComposerModal.hidden) {
+  if (!orderComposerModal.hidden || orderComposerOpenTimer !== null) {
     closeOrderComposer();
     return;
   }
@@ -4784,7 +4927,7 @@ aiConsentCheckbox.addEventListener('change', () => {
 localOnlyButton.addEventListener('click', () => {
   aiConsentCheckbox.checked = false;
   if (aiConsentMessage) aiConsentMessage.textContent = '';
-  startLocalGachaponReveal();
+  startLocalGachaponReveal(localOnlyButton);
 });
 revokeAiConsentButton.addEventListener('click', () => {
   cancelAiRequest('consent-revoked');
@@ -4823,8 +4966,9 @@ gachaponResultModal.addEventListener('click', (event) => {
   if (event.target === gachaponResultModal) closeGachaponResult();
 });
 gachaponResultRetryButton.addEventListener('click', () => {
+  const returnFocus = gachaponResultReturnFocus;
   closeGachaponResult({ restoreFocus: false });
-  if (gachaponResultSource === 'local') startLocalGachaponReveal();
+  if (gachaponResultSource === 'local') startLocalGachaponReveal(returnFocus);
   else startAiDiagnosis();
 });
 gachaponResultOpenButton.addEventListener('click', () => {
@@ -4854,6 +4998,16 @@ roomHelpButton.addEventListener('click', () => {
 roomHelpCloseButton.addEventListener('click', () => roomHelpDialog.close());
 roomHelpDialog.addEventListener('click', (event) => {
   if (event.target === roomHelpDialog) roomHelpDialog.close();
+});
+resetAllDataButton.addEventListener('click', openResetDataDialog);
+resetDataCancelButton.addEventListener('click', closeResetDataDialog);
+resetDataConfirmButton.addEventListener('click', resetAllLocalData);
+resetDataDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  closeResetDataDialog();
+});
+resetDataDialog.addEventListener('click', (event) => {
+  if (event.target === resetDataDialog) closeResetDataDialog();
 });
 siteConfirmCancelButton.addEventListener('click', () => finishSiteConfirmation(false));
 siteConfirmAcceptButton.addEventListener('click', () => finishSiteConfirmation(true));

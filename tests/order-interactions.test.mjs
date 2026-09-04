@@ -175,6 +175,25 @@ focusOrderAfterStatusChange('missing', 'saved');`, focusContext);
   assert.equal(focusedTarget, 'filter');
 });
 
+test('订单编辑保存后把焦点还到重绘后的同张小票编辑按钮', () => {
+  let focusedTarget = '';
+  const buttons = [
+    { dataset: { orderId: 'order-1', orderAction: 'saved' }, focus: () => { focusedTarget = 'saved'; } },
+    { dataset: { orderId: 'order-1', orderAction: 'edit' }, focus: () => { focusedTarget = 'edit'; } },
+  ];
+  const focusContext = {
+    activeFilter: 'all',
+    orderList: { querySelectorAll: () => buttons },
+    document: { querySelector: () => ({ focus: () => { focusedTarget = 'filter'; } }) },
+  };
+  vm.runInNewContext(`${functionSource('focusOrderAction', 'focusOrderAfterStatusChange')}
+focusOrderAction('order-1', 'edit');`, focusContext);
+  assert.equal(focusedTarget, 'edit');
+
+  const editSaveSource = functionSource('createOrder', 'resetOrderComposer');
+  assert.match(editSaveSource, /requestAnimationFrame\(\(\) => focusOrderAction\(orderId, 'edit'\)\)/);
+});
+
 test('确认删除订单后把焦点移到相邻小票，列表为空时退到当前筛选', () => {
   let focusedTarget = '';
   const buttons = [
@@ -225,6 +244,168 @@ test('从订单列表编辑时会退出残留商品详情并回到表单首页',
   const showHome = source.indexOf("showPhoneView('home')");
   const applyNewPanel = source.indexOf("applyPanel('new', trigger)");
   assert.ok(showHome >= 0 && applyNewPanel > showHome);
+});
+
+test('从订单页取消新增或编辑会恢复来源路由与触发按钮', () => {
+  const start = appSource.indexOf('function captureOrderComposerReturnContext(');
+  const end = appSource.indexOf('function prefillOrderFromCommerce(', start);
+  assert.ok(start >= 0 && end > start, '订单弹窗应提供来源上下文的捕获与恢复逻辑');
+  const source = appSource.slice(start, end);
+  const focused = [];
+  const trigger = {
+    getClientRects: () => [{}],
+    focus: () => focused.push('trigger'),
+  };
+  const fallback = { focus: () => focused.push('fallback') };
+  const isolationTarget = () => ({
+    inert: false,
+    setAttribute: () => {},
+    removeAttribute: () => {},
+  });
+  const newDeviceTabs = isolationTarget();
+  const replaced = [];
+  const appliedRoutes = [];
+  const context = {
+    activePanel: 'orders',
+    currentRouteSnapshot: () => ({ panel: 'orders', phoneView: 'intro' }),
+    location: { hash: '#orders' },
+    history: {
+      state: { panel: 'orders', openedByApp: false },
+      replaceState(state, _title, hash) {
+        this.state = state;
+        replaced.push({ state, hash });
+      },
+    },
+    orderComposerReturnFocus: null,
+    orderComposerReturnContext: null,
+    orderComposerOpenTimer: null,
+    orderComposerModal: { hidden: true, querySelectorAll: () => [] },
+    mallSuccessModal: { hidden: true },
+    app: { dataset: {}, classList: { toggle: () => {} } },
+    panelInner: isolationTarget(),
+    newPhoneScreen: isolationTarget(),
+    panelClose: isolationTarget(),
+    mobileDock: isolationTarget(),
+    document: {
+      activeElement: trigger,
+      contains: (element) => element === trigger,
+      querySelector: (selector) => (selector.includes('.device-tabs') ? newDeviceTabs : fallback),
+    },
+    orderForm: { elements: { name: { focus: () => {} } } },
+    window: {
+      requestAnimationFrame: (callback) => callback(),
+      clearTimeout: () => {},
+    },
+    resetOrderComposer: () => {},
+    syncRouteFromLocation: (route) => {
+      context.activePanel = route.panel;
+      appliedRoutes.push(route);
+    },
+    focusFirstAvailableTarget: (primary) => {
+      primary?.focus();
+      return Boolean(primary);
+    },
+  };
+  vm.runInNewContext(`${source}
+this.composerApi = { captureOrderComposerReturnContext, openOrderComposer, closeOrderComposer };`, context);
+
+  const returnContext = context.composerApi.captureOrderComposerReturnContext();
+  context.activePanel = 'new';
+  context.history.state = { panel: 'new', phoneView: 'home', openedByApp: false };
+  context.location.hash = '#new?view=home';
+  context.composerApi.openOrderComposer(trigger, { returnContext });
+  context.composerApi.closeOrderComposer();
+
+  assert.equal(context.orderComposerModal.hidden, true);
+  assert.equal(replaced.at(-1).hash, '#orders');
+  assert.equal(appliedRoutes.at(-1).panel, 'orders');
+  assert.deepEqual(focused, ['trigger']);
+
+  const addHandler = appSource.slice(
+    appSource.indexOf("document.querySelectorAll('[data-open]:not(.scene-hotspot):not([data-recovery-view])')"),
+    appSource.indexOf("document.querySelectorAll('[data-scroll-target]:not([data-open])"),
+  );
+  assert.match(addHandler, /captureOrderComposerReturnContext\(\)[\s\S]*?openOrderComposer\(trigger, \{ returnContext \}\)/);
+  assert.match(functionSource('editOrder', 'deleteOrder'), /captureOrderComposerReturnContext\(\)[\s\S]*?scheduleOrderComposerOpen\(trigger, \{[\s\S]*?returnContext/);
+});
+
+test('编辑面板动画期间按 Esc 会取消待打开弹窗并回到订单页', () => {
+  const start = appSource.indexOf('function captureOrderComposerReturnContext(');
+  const end = appSource.indexOf('function prefillOrderFromCommerce(', start);
+  assert.ok(start >= 0 && end > start, '订单弹窗应提供可取消的延迟打开逻辑');
+  const source = appSource.slice(start, end);
+  const scheduled = new Map();
+  let nextTimerId = 1;
+  const focused = [];
+  const trigger = {
+    getClientRects: () => [{}],
+    focus: () => focused.push('trigger'),
+  };
+  const fallback = { focus: () => focused.push('fallback') };
+  const isolationTarget = () => ({
+    inert: false,
+    setAttribute: () => {},
+    removeAttribute: () => {},
+  });
+  const context = {
+    activePanel: 'new',
+    location: { hash: '#new?view=home' },
+    history: {
+      state: { panel: 'new', phoneView: 'home', openedByApp: false },
+      replaceState(state, _title, hash) {
+        this.state = state;
+        context.location.hash = hash;
+      },
+    },
+    orderComposerReturnFocus: null,
+    orderComposerReturnContext: null,
+    orderComposerOpenTimer: null,
+    orderComposerModal: { hidden: true, querySelectorAll: () => [] },
+    mallSuccessModal: { hidden: true },
+    app: { dataset: {}, classList: { toggle: () => {} } },
+    panelInner: isolationTarget(),
+    newPhoneScreen: isolationTarget(),
+    panelClose: isolationTarget(),
+    mobileDock: isolationTarget(),
+    document: {
+      activeElement: trigger,
+      contains: (element) => element === trigger,
+      querySelector: (selector) => (selector.includes('.device-tabs') ? isolationTarget() : fallback),
+    },
+    orderForm: { elements: { name: { focus: () => {} } } },
+    window: {
+      requestAnimationFrame: (callback) => callback(),
+      setTimeout(callback) {
+        const id = nextTimerId++;
+        scheduled.set(id, callback);
+        return id;
+      },
+      clearTimeout(id) { scheduled.delete(id); },
+    },
+    resetOrderComposer: () => {},
+    syncRouteFromLocation: (route) => { context.activePanel = route.panel; },
+    focusFirstAvailableTarget: (primary) => {
+      primary?.focus();
+      return Boolean(primary);
+    },
+  };
+  vm.runInNewContext(`${source}
+this.composerApi = { scheduleOrderComposerOpen, closeOrderComposer };`, context);
+
+  const returnContext = {
+    route: { panel: 'orders', phoneView: 'intro' },
+    historyState: { panel: 'orders', openedByApp: false },
+    hash: '#orders',
+  };
+  context.composerApi.scheduleOrderComposerOpen(trigger, { returnContext, delay: 360 });
+  assert.equal(context.orderComposerModal.hidden, true);
+  assert.equal(scheduled.size, 1);
+
+  context.composerApi.closeOrderComposer();
+  assert.equal(scheduled.size, 0, '取消操作必须清除延迟打开回调');
+  assert.equal(context.location.hash, '#orders');
+  assert.equal(context.activePanel, 'orders');
+  assert.deepEqual(focused, ['trigger']);
 });
 
 test('商城延迟焦点可取消，且旧页面或已关闭面板的回调不能抢焦点', () => {
@@ -319,6 +500,153 @@ test('功能面板只把焦点送到内容标题，不在进入动画后再次�
   const source = functionSource('applyPanel', 'openPanel');
   assert.doesNotMatch(source, /panelClose\.focus/);
   assert.match(source, /requestAnimationFrame\([\s\S]*heading\?\.focus\(\{ preventScroll: true \}\)/);
+});
+
+test('功能面板内部切换后仍保留最初的房间触发器用于关闭时恢复焦点', () => {
+  const source = functionSource('applyPanel', 'openPanel');
+  assert.match(source, /previousTriggerIsPersistent\s*=\s*Boolean\(previousTrigger\?\.closest/);
+  assert.match(
+    source,
+    /triggerIsPersistent\s*\?\s*trigger[\s\S]*previousTriggerIsPersistent\s*\?\s*previousTrigger[\s\S]*panorama\.getTriggerForPanel\(activePanel\)/,
+  );
+});
+
+test('焦点恢复跳过隐藏或失效触发器，并使用可见后备入口', () => {
+  const source = `${functionSource('isAvailableFocusTarget', 'focusFirstAvailableTarget')}
+${functionSource('focusFirstAvailableTarget', 'setRoomUiInteractive')}`;
+  const focused = [];
+  const document = {
+    activeElement: null,
+    contains: () => true,
+  };
+  const target = (name, { visible = true, acceptsFocus = true } = {}) => ({
+    disabled: false,
+    closest: () => null,
+    getClientRects: () => (visible ? [{}] : []),
+    focus() {
+      focused.push(name);
+      if (acceptsFocus) document.activeElement = this;
+    },
+  });
+  const hidden = target('hidden', { visible: false });
+  const rejected = target('rejected', { acceptsFocus: false });
+  const fallback = target('fallback');
+  const context = { document };
+  vm.runInNewContext(`${source}\nthis.focusFirstAvailableTarget = focusFirstAvailableTarget;`, context);
+
+  assert.equal(context.focusFirstAvailableTarget(hidden, rejected, fallback), true);
+  assert.deepEqual(focused, ['rejected', 'fallback']);
+  assert.equal(document.activeElement, fallback);
+
+  const applyPanelSource = functionSource('applyPanel', 'openPanel');
+  assert.match(
+    applyPanelSource,
+    /focusPanel\.inert = true;[\s\S]*restorePanelReturnFocus\(returnTarget, resetComplete\)/,
+    '关闭面板应在解除房间隔离后延迟恢复焦点，并以全景容器兜底',
+  );
+});
+
+test('面板关闭时会等待全景投影再恢复原触发器焦点', async () => {
+  const source = `${functionSource('isAvailableFocusTarget', 'focusFirstAvailableTarget')}
+${functionSource('focusFirstAvailableTarget', 'restorePanelReturnFocus')}
+${functionSource('restorePanelReturnFocus', 'setRoomUiInteractive')}`;
+  const callbacks = [];
+  const focused = [];
+  let targetVisible = false;
+  let resolveReset;
+  const resetComplete = new Promise((resolve) => { resolveReset = resolve; });
+  const document = {
+    activeElement: null,
+    contains: () => true,
+  };
+  const returnTarget = {
+    disabled: false,
+    closest: () => null,
+    getClientRects: () => (targetVisible ? [{}] : []),
+    focus() {
+      focused.push('return');
+      document.activeElement = this;
+    },
+  };
+  const sceneFrame = {
+    disabled: false,
+    closest: () => null,
+    getClientRects: () => [{}],
+    focus() {
+      focused.push('scene');
+      document.activeElement = this;
+    },
+  };
+  const context = {
+    document,
+    sceneFrame,
+    window: { requestAnimationFrame: (callback) => callbacks.push(callback) },
+  };
+  vm.runInNewContext(`${source}\nrestorePanelReturnFocus(returnTarget, resetComplete);`, {
+    ...context,
+    resetComplete,
+    returnTarget,
+  });
+
+  assert.equal(callbacks.length, 1);
+  callbacks.shift()();
+  assert.deepEqual(focused, ['scene'], '投影动画期间先提供可操作的全景焦点');
+
+  targetVisible = true;
+  resolveReset();
+  await resetComplete;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(focused, ['scene', 'return']);
+
+  const applyPanelSource = functionSource('applyPanel', 'openPanel');
+  assert.match(applyPanelSource, /const resetComplete = panorama\.resetView\(\)/);
+  assert.match(applyPanelSource, /restorePanelReturnFocus\(returnTarget, resetComplete\)/);
+});
+
+test('打开的原生对话框会在首尾控件间双向循环焦点', () => {
+  let focusedTarget = '';
+  let prevented = false;
+  const focusTarget = (name) => ({
+    disabled: false,
+    closest: () => null,
+    getClientRects: () => [{}],
+    focus: () => { focusedTarget = name; },
+  });
+  const first = focusTarget('first');
+  const last = focusTarget('last');
+  const dialog = {
+    contains: (target) => target === first || target === last,
+    querySelectorAll: () => [first, last],
+  };
+  const focusContext = {
+    document: {
+      activeElement: last,
+      contains: (target) => target === first || target === last,
+      querySelectorAll: () => [dialog],
+    },
+  };
+  vm.runInNewContext(`${functionSource('isAvailableFocusTarget', 'focusFirstAvailableTarget')}
+${functionSource('trapOpenDialogFocus', 'completeRoomEntry')}
+this.trapOpenDialogFocus = trapOpenDialogFocus;`, focusContext);
+
+  assert.equal(focusContext.trapOpenDialogFocus({
+    key: 'Tab',
+    shiftKey: false,
+    preventDefault: () => { prevented = true; },
+  }), true);
+  assert.equal(prevented, true);
+  assert.equal(focusedTarget, 'first');
+
+  focusContext.document.activeElement = first;
+  prevented = false;
+  assert.equal(focusContext.trapOpenDialogFocus({
+    key: 'Tab',
+    shiftKey: true,
+    preventDefault: () => { prevented = true; },
+  }), true);
+  assert.equal(prevented, true);
+  assert.equal(focusedTarget, 'last');
+  assert.match(appSource, /document\.addEventListener\('keydown', \(event\) => \{\s*if \(trapOpenDialogFocus\(event\)\) return;/);
 });
 
 test('生成冷静小票后把键盘焦点移到新小票标题', () => {
@@ -443,10 +771,13 @@ test('未勾选主按钮直接走本地测试且不请求，勾选后同一次�
     let revokeCleared = 0;
     let requestCalls = 0;
     let localRevealCalls = 0;
+    let localRevealTarget = null;
     let renderCalls = 0;
     const state = { settings: { aiConsent: false } };
+    const analyzeButton = { id: 'analyze-button' };
     const context = {
       state,
+      analyzeButton,
       activeClinicPeriod: 30,
       currentAssessment: null,
       clockClinicAssessmentFingerprint: '',
@@ -468,7 +799,10 @@ test('未勾选主按钮直接走本地测试且不请求，勾选后同一次�
         return true;
       },
       requestAiDiagnosis: () => { requestCalls += 1; },
-      startLocalGachaponReveal: () => { localRevealCalls += 1; },
+      startLocalGachaponReveal: (returnFocus) => {
+        localRevealCalls += 1;
+        localRevealTarget = returnFocus;
+      },
       renderClinic: () => { renderCalls += 1; },
       window: { setTimeout: (callback) => callback() },
       document: { querySelector: () => null },
@@ -481,6 +815,8 @@ test('未勾选主按钮直接走本地测试且不请求，勾选后同一次�
       revokeCleared,
       requestCalls,
       localRevealCalls,
+      localRevealTarget,
+      analyzeButton,
       renderCalls,
       status: context.aiUiState.status,
     };
@@ -492,6 +828,7 @@ test('未勾选主按钮直接走本地测试且不请求，勾选后同一次�
   assert.equal(unchecked.revokeCleared, 0);
   assert.equal(unchecked.requestCalls, 0);
   assert.equal(unchecked.localRevealCalls, 1);
+  assert.equal(unchecked.localRevealTarget, unchecked.analyzeButton);
   assert.equal(unchecked.status, 'idle');
 
   const checked = runStart({ checked: true });
@@ -1031,6 +1368,7 @@ function createLocalGachaponHarness({ reducedMotion = false } = {}) {
     localGachaponSpinSequence: 0,
     localGachaponSpinTimer: null,
     localGachaponSpinning: false,
+    analyzeButton: { id: 'analyze-button' },
     state: { dataRevision: 7, orders: [] },
     assessmentReportFingerprint: (value) => value.fingerprint,
     closeGachaponResult: () => {},
@@ -1088,11 +1426,24 @@ test('本地人格先进入碰撞旋转，常规 1400ms 与减弱动效 0ms 后�
   }
 });
 
-test('关闭本地人格结果后把焦点还给本地抽取按钮', () => {
+test('关闭本地人格结果后把焦点还给实际发起抽取的按钮', () => {
   const focused = [];
   const classNames = new Set();
-  const localOnlyButton = { focus: () => focused.push('local-only') };
-  const analyzeButton = { focus: () => focused.push('hybrid') };
+  const document = {
+    activeElement: null,
+    contains: () => true,
+  };
+  const focusTarget = (name) => ({
+    disabled: false,
+    closest: () => null,
+    getClientRects: () => [{}],
+    focus() {
+      focused.push(name);
+      document.activeElement = this;
+    },
+  });
+  const localOnlyButton = focusTarget('local-only');
+  const analyzeButton = focusTarget('hybrid');
   const modal = {
     open: false,
     dataset: {},
@@ -1123,7 +1474,7 @@ test('关闭本地人格结果后把焦点还给本地抽取按钮', () => {
     gachaponResultArt: {},
     gachaponResultFlair: { textContent: '' },
     gachaponResultTags: { innerHTML: '' },
-    gachaponResultTitle: { textContent: '', focus: () => focused.push('title') },
+    gachaponResultTitle: focusTarget('title'),
     gachaponResultDescription: { textContent: '' },
     gachaponResultRetryButton: { textContent: '' },
     localOnlyButton,
@@ -1140,18 +1491,20 @@ test('关闭本地人格结果后把焦点还给本地抽取按钮', () => {
     personaArtUrl: (art) => `./assets/${art}`,
     escapeHtml: (value) => String(value),
     renderClinic: () => {},
-    document: { contains: (target) => target === localOnlyButton || target === analyzeButton },
+    document,
     window: { requestAnimationFrame: (callback) => callback() },
   };
-  vm.runInNewContext(`${functionSource('openGachaponResult', 'startLocalGachaponReveal')}
+  vm.runInNewContext(`${functionSource('isAvailableFocusTarget', 'focusFirstAvailableTarget')}
+${functionSource('focusFirstAvailableTarget', 'setRoomUiInteractive')}
+${functionSource('openGachaponResult', 'startLocalGachaponReveal')}
 ${functionSource('closeGachaponResult', 'clearPoster')}
 this.resultApi = { openGachaponResult, closeGachaponResult };`, context);
 
-  assert.equal(context.resultApi.openGachaponResult({ source: 'local' }), true);
+  assert.equal(context.resultApi.openGachaponResult({ source: 'local', returnFocus: analyzeButton }), true);
   assert.equal(context.gachaponResultRetryButton.textContent, '再测一次');
   assert.equal(classNames.has('is-gachapon-result-open'), true);
   context.resultApi.closeGachaponResult();
-  assert.deepEqual(focused, ['title', 'local-only']);
+  assert.deepEqual(focused, ['title', 'hybrid']);
   assert.equal(classNames.has('is-gachapon-result-open'), false);
 });
 
@@ -1163,13 +1516,19 @@ test('本地结果的“再抽一次”继续走本地路径，不误触在线�
   let closeCalls = 0;
   let localCalls = 0;
   let hybridCalls = 0;
+  const returnFocus = { id: 'original-trigger' };
+  let localReturnFocus = null;
   const context = {
     gachaponResultSource: 'local',
+    gachaponResultReturnFocus: returnFocus,
     gachaponResultRetryButton: {
       addEventListener: (_event, handler) => { retryHandler = handler; },
     },
     closeGachaponResult: () => { closeCalls += 1; },
-    startLocalGachaponReveal: () => { localCalls += 1; },
+    startLocalGachaponReveal: (target) => {
+      localCalls += 1;
+      localReturnFocus = target;
+    },
     startAiDiagnosis: () => { hybridCalls += 1; },
   };
   vm.runInNewContext(appSource.slice(start, end), context);
@@ -1177,6 +1536,7 @@ test('本地结果的“再抽一次”继续走本地路径，不误触在线�
   retryHandler();
   assert.equal(closeCalls, 1);
   assert.equal(localCalls, 1);
+  assert.equal(localReturnFocus, returnFocus);
   assert.equal(hybridCalls, 0);
 
   context.gachaponResultSource = 'hybrid';

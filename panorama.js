@@ -690,7 +690,7 @@ export class PanoramaRoom {
 
   resetView() {
     this.hotspotElements.forEach((element) => element.classList.remove('is-active', 'is-group-active', 'is-revealed'));
-    this.animateTo(this.idleView || this.defaultView);
+    return this.animateTo(this.idleView || this.defaultView);
   }
 
   animateTo(target, { duration = 460, updateIdle = false } = {}) {

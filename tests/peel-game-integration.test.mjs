@@ -47,6 +47,20 @@ test('游戏打开后与业务面板互斥，关闭、Esc 与浏览器后退都�
   assert.match(keydownSource, /activeActivity !== 'peel'[\s\S]*?event\.key === 'Escape'/);
 });
 
+test('游戏作为模态 activity 时也从辅助技术中隐藏顶部语义入口', () => {
+  const start = appSource.indexOf('const roomBackgroundRegions = [');
+  const end = appSource.indexOf('function panelForMobileDockButton', start);
+  const source = appSource.slice(start, end);
+
+  assert.match(source, /document\.querySelector\('\.mobile-dock'\)/);
+});
+
+test('游戏焦点循环跳过仅用于点击遮罩的负 tabindex 按钮', () => {
+  const source = functionSource('peelActivityFocusableElements', 'handlePeelActivityKeydown');
+
+  assert.match(source, /element\.tabIndex >= 0/);
+});
+
 test('体感帧只经过剥壳映射器，丢手暂停，恢复后继续', () => {
   const consumerSource = functionSource('consumePeelGestureFrame', 'handlePeelInputMode');
   const inputSource = functionSource('handlePeelInputMode', 'peelRoundSeed');
