@@ -120,6 +120,7 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/gesture-controls.js`),
       fetch(`${baseUrl}/gesture-ui.js`),
       fetch(`${baseUrl}/gesture-recognizer.worker.js`),
+      fetch(`${baseUrl}/desire-observatory.js`),
       fetch(`${baseUrl}/peel-copy-catalog.js`),
       fetch(`${baseUrl}/peel-game.js`),
       fetch(`${baseUrl}/peel-game-ui.js`),
@@ -128,6 +129,7 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/orientation-controls.js`),
       fetch(`${baseUrl}/orientation-ui.js`),
       fetch(`${baseUrl}/styles.css`),
+      fetch(`${baseUrl}/desire-observatory.css`),
       fetch(`${baseUrl}/peel-game-refined.css`),
       fetch(`${baseUrl}/persona-presentations.js`),
       fetch(`${baseUrl}/route-sync.js`),
@@ -185,9 +187,10 @@ test('手势与体感控制模块、Worker 与本地模型只通过同源白名�
   });
 });
 
-test('欲望剥壳机运行模块只通过同源白名单提供', async () => {
+test('欲望观察舱与兼容活动模块只通过同源白名单提供', async () => {
   await withServer({}, async (baseUrl) => {
     const moduleNames = [
+      'desire-observatory.js',
       'peel-copy-catalog.js',
       'peel-game.js',
       'peel-game-ui.js',
@@ -202,9 +205,9 @@ test('欲望剥壳机运行模块只通过同源白名单提供', async () => {
   });
 });
 
-test('精品解构舱样式只通过同源白名单提供', async () => {
+test('欲望观察舱样式只通过同源白名单提供', async () => {
   await withServer({}, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/peel-game-refined.css`);
+    const response = await fetch(`${baseUrl}/desire-observatory.css`);
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') || '', /text\/css/);
@@ -237,6 +240,8 @@ test('生产镜像包含手势与体感控制的根级运行模块', async () =>
     'gesture-controls.js',
     'gesture-recognizer.worker.js',
     'gesture-ui.js',
+    'desire-observatory.js',
+    'desire-observatory.css',
     'peel-copy-catalog.js',
     'peel-game.js',
     'peel-game-ui.js',

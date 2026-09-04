@@ -4,42 +4,52 @@ import test from 'node:test';
 
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const peelUiSource = readFileSync(new URL('../peel-game-ui.js', import.meta.url), 'utf8');
+const observatorySource = readFileSync(new URL('../desire-observatory.js', import.meta.url), 'utf8');
+const observatoryCss = readFileSync(new URL('../desire-observatory.css', import.meta.url), 'utf8');
 
-test('精品解构舱通过独立样式层加载，便于审查与回退', () => {
-  const refinementCss = readFileSync(new URL('../peel-game-refined.css', import.meta.url), 'utf8');
-
-  assert.match(indexSource, /peel-game-refined\.css\?v=20260903-warm-feedback-1/);
-  assert.match(refinementCss, /\.peel-game-card/);
-  assert.match(refinementCss, /\.peel-game-stage/);
-  assert.match(refinementCss, /\.peel-intro-shell/);
-  assert.match(refinementCss, /backdrop-filter/);
-  assert.match(refinementCss, /--peel-gallery-ink:\s*#f4f0e7/);
-  assert.match(
-    refinementCss,
-    /\.peel-intro-shell\.is-front\s*\{[\s\S]*?background:\s*rgba\(215, 255, 67, \.014\)/,
-  );
-  assert.doesNotMatch(refinementCss, /#ffb23f|#ff7b42|#7e5cff/i);
+test('欲望观察舱通过独立视觉与运行模块加载，便于审查与回退', () => {
+  assert.match(indexSource, /desire-observatory\.css\?v=20260904-observatory-3/);
+  assert.match(appSource, /desire-observatory\.js\?v=20260904-observatory-3/);
+  assert.match(observatoryCss, /\.observatory-shell/);
+  assert.match(observatoryCss, /\.observatory-stage/);
+  assert.match(observatoryCss, /\.observatory-signal-list/);
+  assert.match(observatoryCss, /backdrop-filter/);
+  assert.match(observatoryCss, /--observatory-ink:\s*#f2eadb/);
 });
 
-test('引导文案使用营销信号隐喻，不再称作贴纸或话术样本', () => {
+test('顶层信息使用文字标识而非装饰 icon，商品信息保持静止可读', () => {
   const start = indexSource.indexOf('<!-- PEEL_GAME_START -->');
   const end = indexSource.indexOf('<!-- PEEL_GAME_END -->', start);
-  const peelMarkup = indexSource.slice(start, end);
+  const markup = indexSource.slice(start, end);
 
-  assert.match(peelMarkup, /把营销噪声留在玻璃外/);
-  assert.match(peelMarkup, /信号膜/);
-  assert.doesNotMatch(peelMarkup, /促销贴纸|话术样本/);
+  assert.match(markup, /SPREE LAB/);
+  assert.match(markup, /OBS \/ 01/);
+  assert.match(markup, /OBJECT FILE/);
+  assert.match(markup, /id="observatoryProductName"/);
+  assert.match(markup, /id="observatoryProductPrice"/);
+  assert.doesNotMatch(markup, /<img|<svg|😀|🎧|📦/);
 });
 
-test('局内状态与辅助操作统一使用信号语言', () => {
-  assert.match(peelUiSource, /single:\s*'单信号'/);
-  assert.match(peelUiSource, /mixed:\s*'双信号'/);
-  assert.doesNotMatch(peelUiSource, /当前空中目标[^\n]*外壳/);
+test('催促信号保持短句，并以关闭信号而不是切割商品表达', () => {
+  const signalLabels = [...observatorySource.matchAll(/label:\s*'([^']+)'/g)].map((match) => match[1]);
+
+  assert.ok(signalLabels.length >= 6);
+  assert.ok(signalLabels.every((label) => [...label].length <= 6));
+  assert.match(indexSource, /催促信号/);
+  assert.match(indexSource, /商品留下，催促信号一条条关掉/);
+  assert.doesNotMatch(indexSource.slice(indexSource.indexOf('<!-- PEEL_GAME_START -->'), indexSource.indexOf('<!-- PEEL_GAME_END -->')), /切开|刀锋|剥壳|信号膜/);
 });
 
-test('入口与游戏控制器使用精品解构舱缓存版本', () => {
-  assert.match(indexSource, /app\.js\?v=[^"']*warm-feedback-1/);
-  assert.match(appSource, /peel-game-ui\.js\?v=[^"']*warm-feedback-1/);
-  assert.match(peelUiSource, /peel-product-visuals\.js\?v=20260902-gallery-glass-1/);
+test('视觉状态会随信号降噪，并为 WebGL、慢帧和减少动态提供回退', () => {
+  assert.match(observatoryCss, /data-calm-level="2"/);
+  assert.match(observatoryCss, /data-render-mode="fallback"/);
+  assert.match(observatoryCss, /data-quality="essential"/);
+  assert.match(observatoryCss, /prefers-reduced-motion:\s*reduce/);
+  assert.match(observatorySource, /MAX_OBSERVATORY_DPR\s*=\s*1\.75/);
+  assert.match(observatorySource, /slowFrameDebt/);
+});
+
+test('入口与观察舱控制器使用同一缓存版本', () => {
+  assert.match(indexSource, /app\.js\?v=20260904-observatory-3-mall-receipt-stub-1/);
+  assert.match(appSource, /desire-observatory\.js\?v=20260904-observatory-3/);
 });

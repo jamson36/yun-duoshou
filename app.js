@@ -13,7 +13,7 @@ import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stage
 import { RoomGestureController } from './gesture-ui.js?v=20260903-gesture-smooth-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
-import { createPeelGameController } from './peel-game-ui.js?v=20260903-warm-feedback-1';
+import { createDesireObservatoryController } from './desire-observatory.js?v=20260904-observatory-3';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -553,11 +553,10 @@ const orientationController = new RoomOrientationController({
   isReducedMotion: () => document.body.classList.contains('reduce-motion'),
 });
 const peelGestureMapper = createPeelGestureMapper();
-peelGameController = createPeelGameController({
+peelGameController = createDesireObservatoryController({
   root: peelGameRoot,
   reducedMotion: () => document.body.classList.contains('reduce-motion'),
   onInputMode: handlePeelInputMode,
-  onSummary: () => gestureController.finishActivityForSummary(),
   onIntent: handlePeelGameIntent,
   onClose: finalizePeelActivityClose,
 });
@@ -724,9 +723,10 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
   panorama.setInteractionEnabled(false);
   orientationController.stop('panel');
   document.body.style.overflow = 'hidden';
-  setMascotSpeech('商品不用碎，先把催你立刻买的话术剥开看看。');
+  setMascotSpeech('商品先别下结论。转一圈，再把催你立刻买的信号关掉。');
   peelGestureMapper.reset();
-  if (gestureController.canContinueIntoActivity()) {
+  const continueGesture = gestureController.canContinueIntoActivity();
+  if (continueGesture) {
     gestureController.continueIntoActivity(consumePeelGestureFrame);
   }
   if (updateHistory) {
@@ -737,6 +737,7 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
     orders: state.orders,
     tutorialCompleted: false,
     portalOrigin,
+    inputMode: continueGesture ? 'gesture' : 'pointer',
   });
   return true;
 }
@@ -812,10 +813,9 @@ function focusPeelOrder(orderId) {
 }
 
 function handlePeelGameIntent(intent) {
-  if (intent?.type === 'replay') return false;
   if (intent?.type === 'dismiss') {
     closePeelActivity();
-    showToast('这一局只留在这一局，商品和看穿层数都没有保存。');
+    showToast('观察角度和关掉的信号都没有保存，商品记录也没有变化。');
     return true;
   }
   if (intent?.type !== 'cool') return false;

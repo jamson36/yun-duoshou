@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const appSource = await readFile(new URL('../app.js', import.meta.url), 'utf8');
-const uiSource = await readFile(new URL('../peel-game-ui.js', import.meta.url), 'utf8');
+const uiSource = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
 
 function functionSource(name, nextName) {
   const start = appSource.indexOf(`function ${name}(`);
@@ -12,9 +12,9 @@ function functionSource(name, nextName) {
   return appSource.slice(start, end);
 }
 
-test('主页把掌机注册为独立 activity 并交给唯一游戏协调器', () => {
+test('主页把掌机注册为独立 activity 并交给唯一观察舱协调器', () => {
   assert.match(appSource, /import \{[^}]*ACTIVITY_HOTSPOTS[^}]*\} from '.\/scene-config\.js/);
-  assert.match(appSource, /import \{ createPeelGameController \} from '.\/peel-game-ui\.js/);
+  assert.match(appSource, /import \{ createDesireObservatoryController \} from '.\/desire-observatory\.js/);
   assert.match(appSource, /import \{ createPeelGestureMapper \} from '.\/peel-gesture-controls\.js/);
   assert.match(appSource, /const sceneHotspots = \[\.\.\.FEATURE_HOTSPOTS, \.\.\.ACTIVITY_HOTSPOTS, \.\.\.createPackageHotspots\(\)\]/);
   assert.match(appSource, /hotspot\.activity === 'peel'[\s\S]*?openPeelActivity\(trigger\)/);
@@ -32,7 +32,7 @@ test('房间 activity 深链可在启动、后退与当前界面签名之间往�
   assert.match(appSource, /initialActivity[\s\S]*?buildRoomHash\(\{ activity: initialActivity \}\)/);
 });
 
-test('游戏打开后与业务面板互斥，关闭、Esc 与浏览器后退都回到房间层', () => {
+test('观察舱打开后与业务面板互斥，关闭、Esc 与浏览器后退都回到房间层', () => {
   const openSource = functionSource('openPeelActivity', 'finalizePeelActivityClose');
   const closeSource = functionSource('finalizePeelActivityClose', 'closePeelActivity');
 
@@ -47,7 +47,7 @@ test('游戏打开后与业务面板互斥，关闭、Esc 与浏览器后退都�
   assert.match(keydownSource, /activeActivity !== 'peel'[\s\S]*?event\.key === 'Escape'/);
 });
 
-test('游戏作为模态 activity 时也从辅助技术中隐藏顶部语义入口', () => {
+test('观察舱作为模态 activity 时也从辅助技术中隐藏顶部语义入口', () => {
   const start = appSource.indexOf('const roomBackgroundRegions = [');
   const end = appSource.indexOf('function panelForMobileDockButton', start);
   const source = appSource.slice(start, end);
@@ -55,13 +55,13 @@ test('游戏作为模态 activity 时也从辅助技术中隐藏顶部语义入�
   assert.match(source, /document\.querySelector\('\.mobile-dock'\)/);
 });
 
-test('游戏焦点循环跳过仅用于点击遮罩的负 tabindex 按钮', () => {
+test('观察舱焦点循环跳过仅用于点击遮罩的负 tabindex 按钮', () => {
   const source = functionSource('peelActivityFocusableElements', 'handlePeelActivityKeydown');
 
   assert.match(source, /element\.tabIndex >= 0/);
 });
 
-test('体感帧只经过剥壳映射器，丢手暂停，恢复后继续', () => {
+test('体感帧经过平滑映射器后只旋转商品，丢手暂停，恢复后继续', () => {
   const consumerSource = functionSource('consumePeelGestureFrame', 'handlePeelInputMode');
   const inputSource = functionSource('handlePeelInputMode', 'peelRoundSeed');
 
@@ -73,7 +73,7 @@ test('体感帧只经过剥壳映射器，丢手暂停，恢复后继续', () =>
   assert.match(inputSource, /pauseActivityForPointer\(\)/);
 });
 
-test('结算意图只能复用现有订单页或预填表单，不直接改业务事实', () => {
+test('观察意图只能复用现有订单页或预填表单，不直接改业务事实', () => {
   const resolverSource = functionSource('resolvePeelFocusAction', 'openPeelBusinessPanel');
   const handlerSource = functionSource('handlePeelGameIntent', 'peelActivityFocusableElements');
 
@@ -81,15 +81,13 @@ test('结算意图只能复用现有订单页或预填表单，不直接改业�
   assert.match(handlerSource, /focusPeelOrder/);
   assert.match(handlerSource, /prefillOrderFromCommerce/);
   assert.match(handlerSource, /intent\?\.type === 'dismiss'/);
-  assert.match(handlerSource, /intent\?\.type === 'replay'/);
   assert.doesNotMatch(handlerSource, /createOrder|simulateCommerceOrder|mutate\(|localStorage|startAiDiagnosis|requestAiDiagnosis/);
 });
 
-test('重玩会重新建立上一局输入模式，但不会从结果页绑定业务手势', () => {
-  const replayStart = uiSource.indexOf('function replay()');
-  const replayEnd = uiSource.indexOf('async function open(', replayStart);
-  const replaySource = uiSource.slice(replayStart, replayEnd);
-
-  assert.match(replaySource, /onInputMode\(inputMode\)/);
+test('观察舱只保留可丢弃交互状态，并通过 intent 交接业务', () => {
+  assert.match(uiSource, /createDesireObservatoryController/);
+  assert.match(uiSource, /onIntent\(\{ type: 'cool', focusItem: currentProduct\(\) \}\)/);
+  assert.match(uiSource, /dismissedSignalIds\s*=\s*new Set/);
+  assert.doesNotMatch(uiSource, /localStorage|sessionStorage|fetch\(|XMLHttpRequest/);
   assert.doesNotMatch(uiSource, /data-gesture-target/);
 });

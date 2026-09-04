@@ -8,11 +8,13 @@ COPY --chown=node:node server ./server
 COPY --chown=node:node \
   index.html \
   styles.css \
+  desire-observatory.css \
   peel-game-refined.css \
   app.js \
   analysis-stages.js \
   budget-goals.js \
   budget-whiteboard.js \
+  desire-observatory.js \
   gachapon-motion.js \
   gesture-controls.js \
   gesture-recognizer.worker.js \

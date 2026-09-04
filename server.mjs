@@ -9,7 +9,7 @@ import { DEEPSEEK_DEFAULTS, ServiceError, requestDeepSeekDiagnosis } from './ser
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const ASSETS_ROOT = resolve(ROOT, 'assets');
 const MAX_BODY_BYTES = 64 * 1024;
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'peel-game-refined.css', 'app.js', 'analysis-stages.js', 'budget-goals.js', 'budget-whiteboard.js', 'gachapon-motion.js', 'gesture-controls.js', 'gesture-recognizer.worker.js', 'gesture-ui.js', 'goal-date-picker.js', 'intro-transition.js', 'orientation-controls.js', 'orientation-ui.js', 'panorama.js', 'peel-copy-catalog.js', 'peel-game.js', 'peel-game-ui.js', 'peel-product-visuals.js', 'peel-gesture-controls.js', 'persona-presentations.js', 'route-sync.js', 'scene-config.js', 'personality-scoring.js', 'share-poster.js']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'styles.css', 'desire-observatory.css', 'peel-game-refined.css', 'app.js', 'analysis-stages.js', 'budget-goals.js', 'budget-whiteboard.js', 'desire-observatory.js', 'gachapon-motion.js', 'gesture-controls.js', 'gesture-recognizer.worker.js', 'gesture-ui.js', 'goal-date-picker.js', 'intro-transition.js', 'orientation-controls.js', 'orientation-ui.js', 'panorama.js', 'peel-copy-catalog.js', 'peel-game.js', 'peel-game-ui.js', 'peel-product-visuals.js', 'peel-gesture-controls.js', 'persona-presentations.js', 'route-sync.js', 'scene-config.js', 'personality-scoring.js', 'share-poster.js']);
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
