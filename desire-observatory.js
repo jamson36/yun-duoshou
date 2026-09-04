@@ -1,4 +1,6 @@
-export const MAX_OBSERVATORY_DPR = 1.75;
+import { createObservatoryScene } from './desire-observatory-scene.js?v=20260904-night-window-5';
+
+export const MAX_OBSERVATORY_DPR = 1.6;
 export const MAX_OBSERVATORY_VISIBLE_PRODUCTS = 3;
 
 const TAU = Math.PI * 2;
@@ -23,6 +25,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '无线降噪耳机 Air',
     amount: 1299,
     category: '数码家居',
+    image: './assets/figma-commerce-20260901/shop-30-977/raw-image-12.jpeg',
     model: 'headphones',
     code: 'AUDIO / 01',
     accent: Object.freeze([0.84, 1, 0.25]),
@@ -34,6 +37,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '芝士芋泥啵啵奶茶',
     amount: 22,
     category: '餐饮饮品',
+    image: './assets/figma-commerce-20260901/food-30-1334/product-milk-tea.jpg',
     model: 'milk-tea',
     code: 'DRINK / 02',
     accent: Object.freeze([1, 0.44, 0.19]),
@@ -45,6 +49,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '客制化机械键盘',
     amount: 899,
     category: '数码家居',
+    image: './assets/figma-commerce-20260901/shop-30-977/raw-image-03.jpeg',
     model: 'keyboard',
     code: 'DESK / 03',
     accent: Object.freeze([0.44, 0.91, 0.86]),
@@ -56,6 +61,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '城市跑步鞋 Flow',
     amount: 599,
     category: '服饰美妆',
+    image: './assets/figma-commerce-20260901/shop-30-977/raw-image-02.jpeg',
     model: 'sneakers',
     code: 'MOVE / 04',
     accent: Object.freeze([1, 0.76, 0.28]),
@@ -67,6 +73,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '复古胶片相机',
     amount: 2380,
     category: '数码家居',
+    image: './assets/figma-commerce-20260901/shop-30-977/raw-image-16.jpeg',
     model: 'camera',
     code: 'IMAGE / 05',
     accent: Object.freeze([1, 0.38, 0.2]),
@@ -78,6 +85,7 @@ export const OBSERVATORY_PRODUCTS = Object.freeze([
     name: '盲盒潮玩 · 星际系列',
     amount: 239,
     category: '娱乐社交',
+    image: './assets/figma-commerce-20260901/shop-30-977/raw-image-14.jpeg',
     model: 'blind-box',
     code: 'SERIES / 06',
     accent: Object.freeze([0.84, 1, 0.25]),
@@ -143,6 +151,8 @@ function signalsForOrder(order = {}) {
 function productFromOrder(order) {
   const normalized = normalizedName(order.name);
   const preset = OBSERVATORY_PRODUCTS.find((product) => normalizedName(product.name) === normalized);
+  const model = preset?.model || modelForOrder(order);
+  const visualPreset = OBSERVATORY_PRODUCTS.find((product) => product.model === model) || OBSERVATORY_PRODUCTS[0];
   return Object.freeze({
     id: preset?.id || `order-${String(order.id || stableHash(normalized)).replace(/[^a-zA-Z0-9_-]/g, '')}`,
     commerceProductId: preset?.commerceProductId || null,
@@ -151,7 +161,8 @@ function productFromOrder(order) {
     name: String(order.name || '未拆封的商品').trim() || '未拆封的商品',
     amount: Number(order.amount) || 0,
     category: String(order.category || '其他'),
-    model: preset?.model || modelForOrder(order),
+    image: preset?.image || visualPreset?.image || '',
+    model,
     code: preset?.code || 'YOUR ITEM / 00',
     accent: preset?.accent || Object.freeze([0.84, 1, 0.25]),
     signals: Object.freeze(signalsForOrder(order)),
@@ -207,557 +218,6 @@ export function rotationDeltaForSegment(segment, { yaw = 4.6, pitch = 3.2 } = {}
   };
 }
 
-function rgbMix(left, right, amount) {
-  const t = clamp(amount, 0, 1);
-  return left.map((value, index) => value + (right[index] - value) * t);
-}
-
-function mat4Identity() {
-  return new Float32Array([
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-  ]);
-}
-
-function mat4Multiply(left, right) {
-  const out = new Float32Array(16);
-  for (let column = 0; column < 4; column += 1) {
-    for (let row = 0; row < 4; row += 1) {
-      let value = 0;
-      for (let index = 0; index < 4; index += 1) {
-        value += left[index * 4 + row] * right[column * 4 + index];
-      }
-      out[column * 4 + row] = value;
-    }
-  }
-  return out;
-}
-
-function mat4Translation(x, y, z) {
-  const out = mat4Identity();
-  out[12] = x;
-  out[13] = y;
-  out[14] = z;
-  return out;
-}
-
-function mat4Scale(x, y, z) {
-  const out = mat4Identity();
-  out[0] = x;
-  out[5] = y;
-  out[10] = z;
-  return out;
-}
-
-function mat4RotationX(angle) {
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  return new Float32Array([
-    1, 0, 0, 0,
-    0, cosine, sine, 0,
-    0, -sine, cosine, 0,
-    0, 0, 0, 1,
-  ]);
-}
-
-function mat4RotationY(angle) {
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  return new Float32Array([
-    cosine, 0, -sine, 0,
-    0, 1, 0, 0,
-    sine, 0, cosine, 0,
-    0, 0, 0, 1,
-  ]);
-}
-
-function mat4RotationZ(angle) {
-  const cosine = Math.cos(angle);
-  const sine = Math.sin(angle);
-  return new Float32Array([
-    cosine, sine, 0, 0,
-    -sine, cosine, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-  ]);
-}
-
-function mat4Perspective(fov, aspect, near, far) {
-  const f = 1 / Math.tan(fov / 2);
-  const range = 1 / (near - far);
-  return new Float32Array([
-    f / Math.max(0.01, aspect), 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, (far + near) * range, -1,
-    0, 0, far * near * 2 * range, 0,
-  ]);
-}
-
-function composeTransform({ position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1] } = {}, parent = null) {
-  let matrix = mat4Translation(position[0], position[1], position[2]);
-  matrix = mat4Multiply(matrix, mat4RotationX(rotation[0]));
-  matrix = mat4Multiply(matrix, mat4RotationY(rotation[1]));
-  matrix = mat4Multiply(matrix, mat4RotationZ(rotation[2]));
-  matrix = mat4Multiply(matrix, mat4Scale(scale[0], scale[1], scale[2]));
-  return parent ? mat4Multiply(parent, matrix) : matrix;
-}
-
-function createBoxGeometry() {
-  const faces = [
-    [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1], [0, 0, 1]],
-    [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1], [0, 0, -1]],
-    [[-1, 1, 1], [1, 1, 1], [1, 1, -1], [-1, 1, -1], [0, 1, 0]],
-    [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1], [0, -1, 0]],
-    [[1, -1, 1], [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, 0, 0]],
-    [[-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, 0, 0]],
-  ];
-  const positions = [];
-  const normals = [];
-  const indices = [];
-  faces.forEach((face, faceIndex) => {
-    const normal = face[4];
-    for (let index = 0; index < 4; index += 1) {
-      positions.push(...face[index]);
-      normals.push(...normal);
-    }
-    const offset = faceIndex * 4;
-    indices.push(offset, offset + 1, offset + 2, offset, offset + 2, offset + 3);
-  });
-  return { positions, normals, indices };
-}
-
-function createCylinderGeometry(segments = 24) {
-  const positions = [];
-  const normals = [];
-  const indices = [];
-  for (let index = 0; index <= segments; index += 1) {
-    const angle = (index / segments) * TAU;
-    const x = Math.cos(angle);
-    const z = Math.sin(angle);
-    positions.push(x, -1, z, x, 1, z);
-    normals.push(x, 0, z, x, 0, z);
-  }
-  for (let index = 0; index < segments; index += 1) {
-    const offset = index * 2;
-    indices.push(offset, offset + 1, offset + 2, offset + 1, offset + 3, offset + 2);
-  }
-  const sideCount = positions.length / 3;
-  positions.push(0, 1, 0);
-  normals.push(0, 1, 0);
-  const topCenter = sideCount;
-  for (let index = 0; index <= segments; index += 1) {
-    const angle = (index / segments) * TAU;
-    positions.push(Math.cos(angle), 1, Math.sin(angle));
-    normals.push(0, 1, 0);
-    if (index < segments) indices.push(topCenter, topCenter + index + 1, topCenter + index + 2);
-  }
-  const bottomCenter = positions.length / 3;
-  positions.push(0, -1, 0);
-  normals.push(0, -1, 0);
-  for (let index = 0; index <= segments; index += 1) {
-    const angle = (index / segments) * TAU;
-    positions.push(Math.cos(angle), -1, Math.sin(angle));
-    normals.push(0, -1, 0);
-    if (index < segments) indices.push(bottomCenter, bottomCenter + index + 2, bottomCenter + index + 1);
-  }
-  return { positions, normals, indices };
-}
-
-function createSphereGeometry(latitudeSegments = 12, longitudeSegments = 18) {
-  const positions = [];
-  const normals = [];
-  const indices = [];
-  for (let latitude = 0; latitude <= latitudeSegments; latitude += 1) {
-    const theta = (latitude / latitudeSegments) * Math.PI;
-    for (let longitude = 0; longitude <= longitudeSegments; longitude += 1) {
-      const phi = (longitude / longitudeSegments) * TAU;
-      const x = Math.sin(theta) * Math.cos(phi);
-      const y = Math.cos(theta);
-      const z = Math.sin(theta) * Math.sin(phi);
-      positions.push(x, y, z);
-      normals.push(x, y, z);
-    }
-  }
-  const stride = longitudeSegments + 1;
-  for (let latitude = 0; latitude < latitudeSegments; latitude += 1) {
-    for (let longitude = 0; longitude < longitudeSegments; longitude += 1) {
-      const offset = latitude * stride + longitude;
-      indices.push(offset, offset + stride, offset + 1, offset + 1, offset + stride, offset + stride + 1);
-    }
-  }
-  return { positions, normals, indices };
-}
-
-function createTorusGeometry({ arch = false, radialSegments = 28, tubeSegments = 10 } = {}) {
-  const positions = [];
-  const normals = [];
-  const indices = [];
-  const major = 0.78;
-  const tube = 0.19;
-  const radialLimit = arch ? Math.PI : TAU;
-  for (let radial = 0; radial <= radialSegments; radial += 1) {
-    const u = (radial / radialSegments) * radialLimit;
-    for (let tubular = 0; tubular <= tubeSegments; tubular += 1) {
-      const v = (tubular / tubeSegments) * TAU;
-      const cv = Math.cos(v);
-      const sv = Math.sin(v);
-      if (arch) {
-        positions.push((major + tube * cv) * Math.cos(u), (major + tube * cv) * Math.sin(u), tube * sv);
-        normals.push(cv * Math.cos(u), cv * Math.sin(u), sv);
-      } else {
-        positions.push((major + tube * cv) * Math.cos(u), tube * sv, (major + tube * cv) * Math.sin(u));
-        normals.push(cv * Math.cos(u), sv, cv * Math.sin(u));
-      }
-    }
-  }
-  const stride = tubeSegments + 1;
-  for (let radial = 0; radial < radialSegments; radial += 1) {
-    for (let tubular = 0; tubular < tubeSegments; tubular += 1) {
-      const offset = radial * stride + tubular;
-      indices.push(offset, offset + stride, offset + 1, offset + 1, offset + stride, offset + stride + 1);
-    }
-  }
-  return { positions, normals, indices };
-}
-
-function part(mesh, position, scale, tone = 'base', rotation = [0, 0, 0], emissive = 0) {
-  return { mesh, position, scale, tone, rotation, emissive };
-}
-
-function keyboardParts() {
-  const parts = [part('box', [0, -0.12, 0], [1.5, 0.15, 0.72], 'dark')];
-  for (let row = 0; row < 4; row += 1) {
-    for (let column = 0; column < 8; column += 1) {
-      const isAccent = (row === 0 && column === 7) || (row === 3 && column > 5);
-      parts.push(part(
-        'box',
-        [-1.19 + column * 0.34, 0.12, -0.47 + row * 0.31],
-        [0.135, 0.075, 0.115],
-        isAccent ? 'accent' : 'light',
-      ));
-    }
-  }
-  return parts;
-}
-
-const MODEL_PARTS = Object.freeze({
-  headphones: Object.freeze([
-    part('arch', [0, 0.08, 0], [1.38, 1.38, 1.15], 'light'),
-    part('box', [-1.02, -0.48, 0], [0.28, 0.48, 0.42], 'dark', [0, 0, -0.05]),
-    part('box', [1.02, -0.48, 0], [0.28, 0.48, 0.42], 'dark', [0, 0, 0.05]),
-    part('box', [-1.02, -0.48, 0.43], [0.23, 0.34, 0.08], 'accent', [0, 0, -0.05], 0.08),
-    part('box', [1.02, -0.48, 0.43], [0.23, 0.34, 0.08], 'accent', [0, 0, 0.05], 0.08),
-  ]),
-  'milk-tea': Object.freeze([
-    part('cylinder', [0, -0.05, 0], [0.72, 1.02, 0.72], 'warm'),
-    part('cylinder', [0, 1.02, 0], [0.78, 0.12, 0.78], 'light'),
-    part('cylinder', [0.18, 1.65, 0], [0.08, 0.72, 0.08], 'accent', [0, 0, -0.12], 0.06),
-    part('sphere', [-0.28, -0.56, 0.55], [0.12, 0.12, 0.12], 'dark'),
-    part('sphere', [0.06, -0.69, 0.61], [0.12, 0.12, 0.12], 'dark'),
-    part('sphere', [0.34, -0.45, 0.54], [0.11, 0.11, 0.11], 'dark'),
-  ]),
-  keyboard: Object.freeze(keyboardParts()),
-  sneakers: Object.freeze([
-    part('box', [0.1, -0.68, 0], [1.42, 0.18, 0.58], 'light', [0, 0, -0.05]),
-    part('box', [-0.18, -0.22, 0], [0.92, 0.35, 0.52], 'warm', [0, 0, 0.12]),
-    part('box', [-0.98, 0.06, 0], [0.38, 0.66, 0.5], 'warm', [0, 0, -0.2]),
-    part('box', [0.86, -0.43, 0], [0.48, 0.2, 0.54], 'accent', [0, 0, -0.08], 0.05),
-    part('box', [0.13, -0.2, 0.54], [0.68, 0.055, 0.035], 'accent', [0, 0, 0.08], 0.08),
-  ]),
-  camera: Object.freeze([
-    part('box', [0, 0, 0], [1.32, 0.82, 0.48], 'dark'),
-    part('box', [-0.62, 0.78, 0], [0.38, 0.22, 0.4], 'light'),
-    part('box', [0.72, 0.75, 0], [0.24, 0.12, 0.34], 'accent', [0, 0, 0], 0.07),
-    part('cylinder', [0.18, -0.02, 0.73], [0.65, 0.56, 0.65], 'warm', [Math.PI / 2, 0, 0]),
-    part('cylinder', [0.18, -0.02, 1.06], [0.42, 0.24, 0.42], 'accent', [Math.PI / 2, 0, 0], 0.05),
-    part('sphere', [0.18, -0.02, 1.25], [0.28, 0.13, 0.28], 'dark'),
-  ]),
-  'blind-box': Object.freeze([
-    part('box', [0, -0.05, 0], [0.88, 1.05, 0.72], 'warm'),
-    part('box', [0, 1.08, 0], [0.95, 0.11, 0.78], 'dark'),
-    part('box', [0, -0.04, 0.74], [0.14, 1.08, 0.03], 'accent', [0, 0, 0], 0.08),
-    part('box', [0, 0.18, 0.78], [0.9, 0.12, 0.035], 'accent', [0, 0, 0], 0.08),
-    part('sphere', [0, 0.18, 0.87], [0.27, 0.27, 0.08], 'light'),
-  ]),
-  package: Object.freeze([
-    part('box', [0, -0.08, 0], [1.05, 0.86, 0.8], 'warm'),
-    part('box', [0, -0.08, 0.82], [0.17, 0.87, 0.025], 'accent', [0, 0, 0], 0.07),
-    part('box', [0.34, 0.18, 0.85], [0.34, 0.2, 0.03], 'light'),
-  ]),
-});
-
-const VERTEX_SHADER = `
-  attribute vec3 aPosition;
-  attribute vec3 aNormal;
-  uniform mat4 uModel;
-  uniform mat4 uViewProjection;
-  varying vec3 vNormal;
-  varying vec3 vWorldPosition;
-  void main() {
-    vec4 worldPosition = uModel * vec4(aPosition, 1.0);
-    vWorldPosition = worldPosition.xyz;
-    vNormal = normalize(mat3(uModel) * aNormal);
-    gl_Position = uViewProjection * worldPosition;
-  }
-`;
-
-const FRAGMENT_SHADER = `
-  precision mediump float;
-  uniform vec3 uColor;
-  uniform vec3 uRimColor;
-  uniform vec3 uFogColor;
-  uniform vec3 uViewPosition;
-  uniform float uEmissive;
-  uniform float uFogDensity;
-  varying vec3 vNormal;
-  varying vec3 vWorldPosition;
-  void main() {
-    vec3 normal = normalize(vNormal);
-    vec3 lightDirection = normalize(vec3(-2.4, 4.8, 4.2) - vWorldPosition);
-    vec3 viewDirection = normalize(uViewPosition - vWorldPosition);
-    float diffuse = max(dot(normal, lightDirection), 0.0);
-    float halfLambert = diffuse * 0.72 + 0.28;
-    float rim = pow(1.0 - max(dot(normal, viewDirection), 0.0), 2.2);
-    float specular = pow(max(dot(reflect(-lightDirection, normal), viewDirection), 0.0), 24.0);
-    vec3 color = uColor * (halfLambert + uEmissive) + uRimColor * rim * 0.46 + vec3(specular * 0.24);
-    float distanceFromView = length(uViewPosition - vWorldPosition);
-    float fog = clamp((distanceFromView - 4.8) * uFogDensity, 0.0, 0.72);
-    gl_FragColor = vec4(mix(color, uFogColor, fog), 1.0);
-  }
-`;
-
-function compileShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader) || '着色器编译失败';
-    gl.deleteShader(shader);
-    throw new Error(message);
-  }
-  return shader;
-}
-
-function createProgram(gl) {
-  const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-  const program = gl.createProgram();
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const message = gl.getProgramInfoLog(program) || '着色器链接失败';
-    gl.deleteProgram(program);
-    throw new Error(message);
-  }
-  return program;
-}
-
-function uploadGeometry(gl, geometry) {
-  const position = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, position);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.positions), gl.STATIC_DRAW);
-  const normal = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normal);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.normals), gl.STATIC_DRAW);
-  const index = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
-  return { position, normal, index, count: geometry.indices.length };
-}
-
-function createObservatoryRenderer(canvas, { devicePixelRatio = globalThis.devicePixelRatio || 1 } = {}) {
-  const gl = canvas?.getContext?.('webgl', {
-    alpha: true,
-    antialias: true,
-    depth: true,
-    powerPreference: 'high-performance',
-    preserveDrawingBuffer: false,
-  }) || canvas?.getContext?.('experimental-webgl');
-  if (!gl) throw new Error('WebGL 不可用');
-
-  const program = createProgram(gl);
-  const locations = {
-    position: gl.getAttribLocation(program, 'aPosition'),
-    normal: gl.getAttribLocation(program, 'aNormal'),
-    model: gl.getUniformLocation(program, 'uModel'),
-    viewProjection: gl.getUniformLocation(program, 'uViewProjection'),
-    color: gl.getUniformLocation(program, 'uColor'),
-    rimColor: gl.getUniformLocation(program, 'uRimColor'),
-    fogColor: gl.getUniformLocation(program, 'uFogColor'),
-    viewPosition: gl.getUniformLocation(program, 'uViewPosition'),
-    emissive: gl.getUniformLocation(program, 'uEmissive'),
-    fogDensity: gl.getUniformLocation(program, 'uFogDensity'),
-  };
-  const geometries = {
-    box: uploadGeometry(gl, createBoxGeometry()),
-    cylinder: uploadGeometry(gl, createCylinderGeometry()),
-    sphere: uploadGeometry(gl, createSphereGeometry()),
-    torus: uploadGeometry(gl, createTorusGeometry()),
-    arch: uploadGeometry(gl, createTorusGeometry({ arch: true })),
-  };
-  let quality = 'full';
-  let dpr = 1;
-  let width = 1;
-  let height = 1;
-  let destroyed = false;
-  let drawCalls = 0;
-
-  gl.useProgram(program);
-  gl.enable(gl.DEPTH_TEST);
-  gl.enable(gl.CULL_FACE);
-  gl.cullFace(gl.BACK);
-
-  function setQuality(nextQuality) {
-    quality = ['full', 'balanced', 'essential'].includes(nextQuality) ? nextQuality : 'full';
-  }
-
-  function resize() {
-    if (destroyed) return;
-    const rect = canvas.getBoundingClientRect?.() || { width: canvas.clientWidth || 1, height: canvas.clientHeight || 1 };
-    const ceiling = quality === 'full' ? MAX_OBSERVATORY_DPR : quality === 'balanced' ? 1.25 : 1;
-    dpr = clamp(Number(devicePixelRatio) || 1, 1, ceiling);
-    width = Math.max(1, Math.round((rect.width || 1) * dpr));
-    height = Math.max(1, Math.round((rect.height || 1) * dpr));
-    if (canvas.width !== width) canvas.width = width;
-    if (canvas.height !== height) canvas.height = height;
-    gl.viewport(0, 0, width, height);
-  }
-
-  function paletteFor(product, dimmed = false) {
-    const accent = product?.accent || [0.84, 1, 0.25];
-    const amount = dimmed ? 0.72 : 0;
-    return {
-      accent: rgbMix(accent, [0.18, 0.19, 0.17], amount),
-      base: rgbMix([0.72, 0.69, 0.62], accent, dimmed ? 0.04 : 0.13),
-      light: rgbMix([0.92, 0.88, 0.78], accent, dimmed ? 0.02 : 0.08),
-      dark: rgbMix([0.105, 0.11, 0.1], accent, dimmed ? 0.02 : 0.09),
-      warm: rgbMix([0.57, 0.25, 0.14], accent, dimmed ? 0.08 : 0.19),
-    };
-  }
-
-  function bindGeometry(geometry) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, geometry.position);
-    gl.enableVertexAttribArray(locations.position);
-    gl.vertexAttribPointer(locations.position, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, geometry.normal);
-    gl.enableVertexAttribArray(locations.normal);
-    gl.vertexAttribPointer(locations.normal, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, geometry.index);
-  }
-
-  function drawPart(item, parent, palette, { fogColor, fogDensity, dimmed = false } = {}) {
-    const geometry = geometries[item.mesh] || geometries.box;
-    const model = composeTransform(item, parent);
-    const color = palette[item.tone] || palette.base;
-    bindGeometry(geometry);
-    gl.uniformMatrix4fv(locations.model, false, model);
-    gl.uniform3fv(locations.color, color);
-    gl.uniform3fv(locations.rimColor, dimmed ? [0.2, 0.22, 0.2] : palette.accent);
-    gl.uniform3fv(locations.fogColor, fogColor);
-    gl.uniform1f(locations.fogDensity, fogDensity);
-    gl.uniform1f(locations.emissive, dimmed ? 0 : Number(item.emissive) || 0);
-    gl.drawElements(gl.TRIANGLES, geometry.count, gl.UNSIGNED_SHORT, 0);
-    drawCalls += 1;
-  }
-
-  function drawProduct(product, parent, scene, { dimmed = false, partLimit = Infinity } = {}) {
-    const palette = paletteFor(product, dimmed);
-    const parts = MODEL_PARTS[product?.model] || MODEL_PARTS.package;
-    parts.slice(0, partLimit).forEach((item) => drawPart(item, parent, palette, { ...scene, dimmed }));
-  }
-
-  function render({ products, selectedIndex, rotationX, rotationY, dismissedCount = 0, time = 0, reducedMotion = false } = {}) {
-    if (destroyed) return { drawCalls: 0, dpr, quality };
-    resize();
-    drawCalls = 0;
-    const product = products?.[selectedIndex] || OBSERVATORY_PRODUCTS[0];
-    const calm = clamp(Number(dismissedCount) / 3, 0, 1);
-    const fogColor = rgbMix([0.15, 0.038, 0.022], [0.035, 0.09, 0.082], calm);
-    const background = rgbMix([0.045, 0.018, 0.012], [0.012, 0.025, 0.023], calm);
-    gl.clearColor(background[0], background[1], background[2], 0.92);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(program);
-
-    const aspect = width / Math.max(1, height);
-    const projection = mat4Perspective((aspect < 0.82 ? 43 : 37) * Math.PI / 180, aspect, 0.1, 50);
-    const view = mat4Translation(0, aspect < 0.82 ? -0.04 : 0.02, aspect < 0.82 ? -7.2 : -6.4);
-    const viewProjection = mat4Multiply(projection, view);
-    gl.uniformMatrix4fv(locations.viewProjection, false, viewProjection);
-    gl.uniform3fv(locations.viewPosition, [0, 0, aspect < 0.82 ? 7.2 : 6.4]);
-
-    const scene = { fogColor, fogDensity: quality === 'essential' ? 0.1 : 0.16 };
-    const stageScale = aspect < 0.82 ? 0.86 : 1;
-    const hover = reducedMotion ? 0 : Math.sin(time * 0.0013) * 0.055;
-    const productParent = composeTransform({
-      position: [0, -0.02 + hover, 0],
-      rotation: [rotationX, rotationY, 0],
-      scale: [stageScale, stageScale, stageScale],
-    });
-    drawProduct(product, productParent, scene);
-
-    const platformPalette = paletteFor(product);
-    drawPart(
-      part('cylinder', [0, -1.48, 0], [1.48, 0.105, 1.48], 'dark'),
-      null,
-      platformPalette,
-      scene,
-    );
-    drawPart(
-      part('torus', [0, -1.32, 0], [1.56, 0.22, 1.56], 'accent', [0, 0, 0], 0.05 + calm * 0.04),
-      null,
-      platformPalette,
-      scene,
-    );
-
-    const signals = signalsForProduct(product);
-    signals.forEach((signal, index) => {
-      if (index < dismissedCount || quality === 'essential') return;
-      const angle = time * (reducedMotion ? 0 : 0.00018) + index * (TAU / 3);
-      const radius = 2.08 + index * 0.08;
-      const signalParent = composeTransform({
-        position: [Math.cos(angle) * radius, 0.2 + Math.sin(angle * 1.7) * 0.22, Math.sin(angle) * 0.5],
-        rotation: [0.55, angle, angle * 0.45],
-        scale: [0.12, 0.12, 0.12],
-      });
-      drawPart(part('box', [0, 0, 0], [1, 1, 1], index === 1 ? 'accent' : 'warm', [0.4, 0.2, 0.3], 0.12), signalParent, platformPalette, scene);
-    });
-
-    if (quality === 'full' && aspect > 0.9 && products?.length > 1) {
-      [-1, 1].forEach((direction) => {
-        const neighborIndex = nextObservatoryIndex(selectedIndex, direction, products.length);
-        const neighbor = products[neighborIndex];
-        const parent = composeTransform({
-          position: [direction * 3.45, -0.42, -0.65],
-          rotation: [0, rotationY * 0.25 + direction * 0.4, 0],
-          scale: [0.42, 0.42, 0.42],
-        });
-        drawProduct(neighbor, parent, scene, { dimmed: true, partLimit: 6 });
-      });
-    }
-
-    return { drawCalls, dpr, quality };
-  }
-
-  function destroy() {
-    if (destroyed) return;
-    destroyed = true;
-    Object.values(geometries).forEach((geometry) => {
-      gl.deleteBuffer(geometry.position);
-      gl.deleteBuffer(geometry.normal);
-      gl.deleteBuffer(geometry.index);
-    });
-    gl.deleteProgram(program);
-  }
-
-  resize();
-  return { render, resize, setQuality, destroy, gl };
-}
-
 function defaultNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
@@ -779,6 +239,7 @@ function queryElements(root) {
     stage: query('observatoryStage'),
     canvas: query('observatoryCanvas'),
     fallback: query('observatoryFallback'),
+    fallbackImage: query('observatoryFallbackImage'),
     fallbackObject: query('observatoryFallbackObject'),
     productName: query('observatoryProductName'),
     productCategory: query('observatoryProductCategory'),
@@ -906,6 +367,14 @@ export function createDesireObservatoryController({
     if (elements.productIndex) elements.productIndex.textContent = visibleProductNumber(selectedIndex, products.length);
     if (elements.fallbackObject?.dataset) elements.fallbackObject.dataset.model = product.model;
     if (elements.fallbackObject) elements.fallbackObject.textContent = product.code.split('/')[0].trim();
+    if (elements.fallbackImage) {
+      elements.fallbackImage.src = product.image || '';
+      elements.fallbackImage.alt = '';
+    }
+    if (root.style) {
+      const accent = Array.isArray(product.accent) ? product.accent : [1, 0.43, 0.25];
+      root.style.setProperty('--observatory-current-accent', `rgb(${accent.map((value) => Math.round(value * 255)).join(' ')})`);
+    }
     if (elements.stage) elements.stage.setAttribute('aria-label', `查看${product.name}。拖动旋转，方向键切换或调整角度。`);
     if (elements.coolButton) {
       elements.coolButton.textContent = product.source === 'order' ? '查看这笔冷静单' : '放进冷静单';
@@ -974,7 +443,10 @@ export function createDesireObservatoryController({
     const response = direct ? 1 : 1 - Math.exp(-deltaMs / (inputMode === 'gesture' ? 42 : 76));
     rotation.x += (targetRotation.x - rotation.x) * response;
     rotation.y += (targetRotation.y - rotation.y) * response;
-    if (!motionIsReduced() && !pointer && inputMode !== 'gesture') targetRotation.y += deltaMs * 0.00016;
+    if (!motionIsReduced() && !pointer && inputMode !== 'gesture') {
+      targetRotation.y += (0 - targetRotation.y) * Math.min(1, deltaMs / 1600);
+      targetRotation.x += (-0.04 - targetRotation.x) * Math.min(1, deltaMs / 1800);
+    }
     lastDiagnostics = renderer.render({
       products,
       selectedIndex,
@@ -1000,7 +472,7 @@ export function createDesireObservatoryController({
     }
     try {
       renderer?.destroy?.();
-      renderer = createObservatoryRenderer(elements.canvas, { devicePixelRatio });
+      renderer = createObservatoryScene(elements.canvas, { devicePixelRatio });
       renderer.setQuality(motionIsReduced() ? 'essential' : 'full');
       setRenderMode('webgl');
       drawStaticFrame();
@@ -1051,6 +523,7 @@ export function createDesireObservatoryController({
 
   function pointerDown(event) {
     if (!opened || event.button > 0) return;
+    if (event.target?.closest?.('button, a, input, select, textarea, [role="button"]')) return;
     pointer = { id: event.pointerId, x: Number(event.clientX), y: Number(event.clientY) };
     elements.stage?.setPointerCapture?.(event.pointerId);
     if (root.dataset) root.dataset.dragging = 'true';

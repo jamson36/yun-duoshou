@@ -63,11 +63,17 @@ test('观察舱没有倒计时、分数或胜负，并让用户主动关闭催�
 
 test('Canvas 只负责 3D 视觉，键盘和屏幕阅读器使用持久语义控制器', () => {
   assert.match(gameMarkup, /<canvas[^>]*id="observatoryCanvas"[^>]*aria-hidden="true"/);
-  assert.match(gameMarkup, /方向键可切换商品或调整视角/);
+  assert.match(gameMarkup, /左右方向键切换商品，上下方向键调整视角/);
   assert.match(gameMarkup, /id="observatoryPreviousProduct"/);
   assert.match(gameMarkup, /id="observatoryNextProduct"/);
   assert.match(gameMarkup, /id="observatoryCoolButton"/);
   assert.doesNotMatch(gameMarkup, /3×3|3x3|九宫格/i);
+});
+
+test('展牌拖动不会吞掉左右商品按钮的点击', async () => {
+  const observatory = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
+
+  assert.match(observatory, /event\.target\?\.closest\?\.\('button, a, input, select, textarea, \[role="button"\]'\)/);
 });
 
 test('观察状态与业务交接具备可播报、无业务手势目标的完整结构', () => {
@@ -82,11 +88,15 @@ test('观察状态与业务交接具备可播报、无业务手势目标的完�
 });
 
 test('观察舱不包含水果、支付、抽奖、排行或在线模型文案', async () => {
-  const observatory = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
-  const inspected = `${gameMarkup}\n${observatory}`;
+  const [observatory, scene] = await Promise.all([
+    readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8'),
+    readFile(new URL('../desire-observatory-scene.js', import.meta.url), 'utf8'),
+  ]);
+  const inspected = `${gameMarkup}\n${observatory}\n${scene}`;
 
   assert.doesNotMatch(inspected, /水果|西瓜|苹果|香蕉|抽奖|排行榜|真实支付|OpenAI|DeepSeek|provider|api[_-]?key/i);
-  assert.match(observatory, /createBoxGeometry/);
+  assert.match(scene, /TextureLoader/);
+  assert.match(scene, /PerspectiveCamera/);
   assert.match(refinedCss, /observatory-fallback-object/);
 });
 

@@ -13,13 +13,14 @@ import {
   signalsForProduct,
 } from '../desire-observatory.js';
 
-test('观察舱提供六类确定性程序化商品且复用现有商城映射', () => {
+test('观察舱提供六类确定性商品展牌且复用现有商城映射', () => {
   assert.equal(OBSERVATORY_PRODUCTS.length, 6);
   assert.equal(new Set(OBSERVATORY_PRODUCTS.map((product) => product.id)).size, 6);
   assert.equal(new Set(OBSERVATORY_PRODUCTS.map((product) => product.model)).size, 6);
   assert.ok(OBSERVATORY_PRODUCTS.every((product) => product.commerceProductId));
+  assert.ok(OBSERVATORY_PRODUCTS.every((product) => product.image?.startsWith('./assets/')));
   assert.ok(OBSERVATORY_PRODUCTS.every((product) => signalsForProduct(product).length === 3));
-  assert.equal(MAX_OBSERVATORY_DPR, 1.75);
+  assert.equal(MAX_OBSERVATORY_DPR, 1.6);
   assert.equal(MAX_OBSERVATORY_VISIBLE_PRODUCTS, 3);
 });
 
@@ -69,13 +70,17 @@ test('手势片段只产生有上限的连续旋转量，非法输入保持静�
   );
 });
 
-test('WebGL 实现不依赖外部模型、纹理、网络或 Canvas 文字', async () => {
-  const source = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
+test('3D 展陈使用本地 Three.js、现有商品图和固定镜头，不依赖外部模型或网络', async () => {
+  const [controllerSource, sceneSource] = await Promise.all([
+    readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8'),
+    readFile(new URL('../desire-observatory-scene.js', import.meta.url), 'utf8'),
+  ]);
 
-  assert.match(source, /getContext\?\.\('webgl'/);
-  assert.match(source, /createBoxGeometry/);
-  assert.match(source, /createCylinderGeometry/);
-  assert.match(source, /createSphereGeometry/);
-  assert.match(source, /createTorusGeometry/);
-  assert.doesNotMatch(source, /from\s+['"]three|\.glb|\.gltf|https?:\/\/|fetch\(|fillText|strokeText/);
+  assert.match(controllerSource, /createObservatoryScene/);
+  assert.match(sceneSource, /assets\/vendor\/three\/three\.module\.min\.js/);
+  assert.match(sceneSource, /TextureLoader/);
+  assert.match(sceneSource, /FogExp2/);
+  assert.match(sceneSource, /PointLight/);
+  assert.match(sceneSource, /ACESFilmicToneMapping/);
+  assert.doesNotMatch(sceneSource, /\.glb|\.gltf|https?:\/\/|fetch\(|fillText|strokeText/);
 });

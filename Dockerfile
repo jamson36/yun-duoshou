@@ -15,6 +15,7 @@ COPY --chown=node:node \
   budget-goals.js \
   budget-whiteboard.js \
   desire-observatory.js \
+  desire-observatory-scene.js \
   gachapon-motion.js \
   gesture-controls.js \
   gesture-recognizer.worker.js \

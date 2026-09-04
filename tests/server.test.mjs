@@ -121,6 +121,7 @@ test('公开静态资源不暴露复诊服务商或模型名称', async () => {
       fetch(`${baseUrl}/gesture-ui.js`),
       fetch(`${baseUrl}/gesture-recognizer.worker.js`),
       fetch(`${baseUrl}/desire-observatory.js`),
+      fetch(`${baseUrl}/desire-observatory-scene.js`),
       fetch(`${baseUrl}/peel-copy-catalog.js`),
       fetch(`${baseUrl}/peel-game.js`),
       fetch(`${baseUrl}/peel-game-ui.js`),
@@ -191,6 +192,9 @@ test('欲望观察舱与兼容活动模块只通过同源白名单提供', async
   await withServer({}, async (baseUrl) => {
     const moduleNames = [
       'desire-observatory.js',
+      'desire-observatory-scene.js',
+      'assets/vendor/three/three.module.min.js',
+      'assets/vendor/three/three.core.min.js',
       'peel-copy-catalog.js',
       'peel-game.js',
       'peel-game-ui.js',
@@ -241,6 +245,7 @@ test('生产镜像包含手势与体感控制的根级运行模块', async () =>
     'gesture-recognizer.worker.js',
     'gesture-ui.js',
     'desire-observatory.js',
+    'desire-observatory-scene.js',
     'desire-observatory.css',
     'peel-copy-catalog.js',
     'peel-game.js',

@@ -8,8 +8,8 @@
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css?v=20260904-mall-receipt-stub-1" />
-    <link rel="stylesheet" href="./desire-observatory.css?v=20260904-observatory-3" />
-    <script type="module" src="./app.js?v=20260904-observatory-3-mall-receipt-stub-1"></script>
+    <link rel="stylesheet" href="./desire-observatory.css?v=20260904-night-window-5" />
+    <script type="module" src="./app.js?v=20260904-night-window-5-mall-receipt-stub-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -229,13 +229,16 @@
         <button class="peel-game-backdrop observatory-backdrop" type="button" data-peel-close tabindex="-1" aria-label="关闭欲望观察舱"></button>
         <div class="peel-game-card observatory-shell">
           <header class="observatory-header">
-            <div class="observatory-brand" aria-hidden="true"><span>SPREE LAB</span><b>OBS / 01</b></div>
+            <div class="observatory-brand" aria-hidden="true"><span>NIGHT WINDOW</span><b>欲望展陈 / 01</b></div>
             <div class="observatory-heading">
-              <small>OBJECT OVER IMPULSE · 本地体验</small>
+              <small>看清商品，再决定去留</small>
               <h2 id="observatoryTitle" tabindex="-1">欲望观察舱</h2>
-              <p id="observatoryDescription">商品留下，催促信号一条条关掉。没有倒计时。</p>
+              <p id="observatoryDescription">先逛一圈，把催促声关小。没有倒计时。</p>
             </div>
-            <button class="observatory-exit" id="peelGameCloseButton" type="button" data-peel-close><span>返回房间</span><kbd>ESC</kbd></button>
+            <div class="observatory-header-actions">
+              <button class="observatory-gesture" id="observatoryGestureButton" type="button" aria-pressed="false"><b>手势浏览</b><small>可选 · 本地识别</small></button>
+              <button class="observatory-exit" id="peelGameCloseButton" type="button" data-peel-close aria-label="返回房间"><span>返回</span><kbd>ESC</kbd></button>
+            </div>
           </header>
 
           <div class="observatory-layout">
@@ -243,52 +246,41 @@
               <div class="observatory-stage" id="observatoryStage" tabindex="0" role="group" aria-describedby="observatoryControlsHelp">
                 <canvas id="observatoryCanvas" aria-hidden="true"></canvas>
                 <div class="observatory-fallback" id="observatoryFallback" aria-hidden="true">
+                  <img id="observatoryFallbackImage" src="./assets/figma-commerce-20260901/shop-30-977/raw-image-12.jpeg" alt="" />
                   <span class="observatory-fallback-object" id="observatoryFallbackObject" data-model="package">OBJECT</span>
                 </div>
                 <div class="observatory-stage-chrome" aria-hidden="true">
-                  <span>LIVE OBJECT</span>
+                  <span>LOCAL EXHIBITION · 不联网</span>
                   <output id="observatoryProductIndex">01 / 06</output>
-                  <i></i>
                 </div>
-                <div class="observatory-axis" aria-hidden="true"><i>X</i><i>Y</i><i>Z</i></div>
-                <p class="observatory-render-note" aria-hidden="true"><span>LOCAL WEBGL</span><b>DRAG TO INSPECT</b></p>
+                <div class="observatory-product-copy" aria-live="polite">
+                  <div><p id="observatoryProductCategory">数码家居</p><span id="observatoryProductCode">AUDIO / 01</span></div>
+                  <h3 id="observatoryProductName">无线降噪耳机 Air</h3>
+                  <strong id="observatoryProductPrice">¥1,299</strong>
+                </div>
+                <button class="observatory-product-nav is-previous" id="observatoryPreviousProduct" type="button"><small>PREV</small><b>上一件</b></button>
+                <button class="observatory-product-nav is-next" id="observatoryNextProduct" type="button"><small>NEXT</small><b>下一件</b></button>
+                <p class="observatory-render-note" aria-hidden="true"><span>拖动展牌微调视角</span><b>← → 切换商品</b></p>
               </div>
-
-              <div class="observatory-view-controls" aria-label="商品切换和输入方式">
-                <button id="observatoryPreviousProduct" type="button"><small>PREV</small><b>上一件</b></button>
-                <button class="observatory-gesture" id="observatoryGestureButton" type="button" aria-pressed="false"><b>手势旋转</b><small>可选 · 本地识别</small></button>
-                <button id="observatoryNextProduct" type="button"><small>NEXT</small><b>下一件</b></button>
-              </div>
-              <p class="observatory-help" id="observatoryControlsHelp">拖动商品查看角度；方向键可切换商品或调整视角。手势只在主动开启后本地识别，画面不保存、不发送。</p>
+              <p class="sr-only" id="observatoryControlsHelp">拖动展牌查看厚度；左右方向键切换商品，上下方向键调整视角。手势只在主动开启后本地识别，画面不保存、不发送。</p>
             </section>
 
-            <aside class="observatory-record" aria-label="当前商品档案">
-              <div class="observatory-record-head">
-                <small>OBJECT FILE</small>
-                <span id="observatoryProductCode">AUDIO / 01</span>
-              </div>
-              <div class="observatory-product-copy" aria-live="polite">
-                <p id="observatoryProductCategory">数码家居</p>
-                <h3 id="observatoryProductName">无线降噪耳机 Air</h3>
-                <strong id="observatoryProductPrice">¥1,299</strong>
-              </div>
-
+            <aside class="observatory-record" aria-label="当前商品的催促信号和操作">
               <section class="observatory-signals" aria-labelledby="observatorySignalsTitle">
                 <header>
-                  <div><small>NOISE LAYER</small><h4 id="observatorySignalsTitle">催促信号</h4></div>
-                  <p><b id="observatorySignalCount">3</b><span>ACTIVE</span></p>
+                  <div><small>它们不是商品本身</small><h4 id="observatorySignalsTitle">把催促声关小</h4></div>
+                  <p><b id="observatorySignalCount">3</b><span>条还在响</span></p>
                 </header>
-                <p>点一下，把不属于商品本身的推力关掉。</p>
                 <div class="observatory-signal-list" id="observatorySignals"></div>
               </section>
 
-              <p class="observatory-question" id="observatoryQuestion" hidden><small>CALM CHECK</small><strong>没有倒计时。24 小时后，你还会想起它吗？</strong></p>
+              <p class="observatory-question" id="observatoryQuestion" hidden><small>声音小了，再问一次</small><strong>24 小时后，你还会主动想起它吗？</strong></p>
 
               <div class="observatory-actions">
                 <button class="observatory-primary" id="observatoryCoolButton" type="button" data-peel-intent="cool">放进冷静单</button>
                 <button class="observatory-secondary" id="observatoryDismissButton" type="button" data-peel-intent="dismiss">先离开</button>
               </div>
-              <p class="observatory-boundary">这里只帮你争取决定时间。只有你在下一页确认保存，才会产生一条“欲望冷却中”记录。</p>
+              <p class="observatory-boundary">只有下一页确认保存，才会新增“欲望冷却中”记录。</p>
             </aside>
           </div>
 
