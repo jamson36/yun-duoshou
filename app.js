@@ -1,9 +1,9 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
-import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-2';
+import { PanoramaRoom } from './panorama.js?v=20260905-interaction-audit-1';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260902-desire-peel-2-desk-hotspot-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
-import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260830-date-picker-3';
+import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
 import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
@@ -639,6 +639,8 @@ function setClinicView(view, { focus = false, scroll = true } = {}) {
 function isAvailableFocusTarget(target) {
   if (!target || typeof target.focus !== 'function' || !document.contains(target)) return false;
   if (target.disabled || target.closest?.('[hidden], [inert], [aria-hidden="true"]')) return false;
+  const closedDetails = target.closest?.('details:not([open])');
+  if (closedDetails && !closedDetails.querySelector('summary')?.contains(target)) return false;
   return typeof target.getClientRects !== 'function' || target.getClientRects().length > 0;
 }
 
@@ -2061,6 +2063,17 @@ function currentRouteSnapshot() {
   };
 }
 
+function closeRouteOverlays() {
+  closeMallSuccess();
+  closeOrderComposer({ restoreFocus: false });
+  closePosterShare({ restoreFocus: false });
+  closeGachaponResult({ restoreFocus: false, flushPending: false });
+  if (siteConfirmDialog.open) finishSiteConfirmation(false);
+  if (roomHelpDialog.open) roomHelpDialog.close();
+  if (resetDataDialog.open) resetDataDialog.close();
+  goalDatePicker.close({ restoreFocus: false });
+}
+
 function syncRouteFromLocation(route) {
   if (!roomEntered) {
     pendingPanel = route.panel;
@@ -2068,6 +2081,7 @@ function syncRouteFromLocation(route) {
     return;
   }
 
+  closeRouteOverlays();
   if (route.activity === 'peel') {
     if (activePanel) applyPanel(null);
     if (activeActivity !== 'peel') openPeelActivity(null, { updateHistory: false });
@@ -2085,9 +2099,6 @@ function syncRouteFromLocation(route) {
   }
 
   const panelChanged = route.panel !== activePanel;
-  closeMallSuccess();
-  if (route.panel !== 'new') closeOrderComposer({ restoreFocus: false });
-
   if (route.panel === 'goals') {
     setGoalsView(route.goalsView, { focus: !panelChanged });
     history.replaceState({ ...(history.state || {}), panel: 'goals', goalsView: route.goalsView }, '', goalsHash(route.goalsView));
@@ -2465,8 +2476,8 @@ function restoreOrderComposerReturnContext(returnContext) {
 }
 
 function orderComposerFocusableElements() {
-  return [...orderComposerModal.querySelectorAll('button, input, select, summary, [tabindex]:not([tabindex="-1"])')]
-    .filter((element) => !element.disabled && !element.closest('[hidden]'));
+  return [...orderComposerModal.querySelectorAll('button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    .filter(isAvailableFocusTarget);
 }
 
 function cancelPendingOrderComposerOpen() {
@@ -4183,19 +4194,20 @@ function setMonthlyGoalPreset(rawAmount) {
   if (!amountValidation.valid) return false;
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const goalId = `goal-monthly-${monthKey}`;
+  let goalId = `goal-monthly-${monthKey}`;
   const deadline = localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   const timestamp = now.toISOString();
   mutate((draft) => {
-    const existing = draft.goals.find((goal) => goal.id === goalId);
+    const existing = activeBudgetGoal(draft);
+    goalId = existing?.id || goalId;
     const savedGoal = normalizeBudgetGoal({
       id: goalId,
-      name: `${now.getMonth() + 1} 月消费缓冲`,
+      name: existing?.name ?? `${now.getMonth() + 1} 月消费缓冲`,
       amount: amountValidation.amount,
-      deadline,
-      noteText: '本月先冷静，再决定。',
+      deadline: existing?.deadline ?? deadline,
+      noteText: existing?.noteText ?? '本月先冷静，再决定。',
       note: existing?.note || nextGoalNote(draft.goals, 'yellow'),
-      demo: false,
+      demo: Boolean(existing?.demo),
       createdAt: existing?.createdAt || timestamp,
       updatedAt: timestamp,
     }, goalId);
@@ -4205,7 +4217,7 @@ function setMonthlyGoalPreset(rawAmount) {
   goalFormMode = 'edit';
   renderedGoalId = null;
   renderGoal();
-  showToast(`本月额度已设为 ${money(amountValidation.amount)}，进度只累计之后确认“幸好没买”的记录。`);
+  showToast(`本月额度已设为 ${money(amountValidation.amount)}，已有目标内容和确认省下进度会保留。`);
   return true;
 }
 
@@ -5089,8 +5101,14 @@ sceneFrame.addEventListener('panoramaerror', (event) => {
   sceneStatus.textContent = event.detail;
 });
 
-window.addEventListener('popstate', (event) => routeSyncCoordinator.request(event.state || {}));
-window.addEventListener('hashchange', () => routeSyncCoordinator.request(history.state || {}));
+window.addEventListener('popstate', (event) => {
+  closeRouteOverlays();
+  routeSyncCoordinator.request(event.state || {});
+});
+window.addEventListener('hashchange', () => {
+  closeRouteOverlays();
+  routeSyncCoordinator.request(history.state || {});
+});
 
 window.addEventListener('beforeunload', () => {
   if (posterUrl) URL.revokeObjectURL(posterUrl);

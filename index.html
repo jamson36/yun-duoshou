@@ -9,7 +9,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css?v=20260904-mall-receipt-stub-1-interaction-flow-2" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260903-warm-feedback-1" />
-  <script type="module" src="./app.js?v=20260903-warm-feedback-1-mall-receipt-stub-1-interaction-flow-2"></script>
+  <script type="module" src="./app.js?v=20260905-interaction-audit-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -399,7 +399,7 @@
                 </div>
                 <form class="order-form" id="orderForm">
                   <div class="order-form-visual" aria-hidden="true"><span>▣</span><b>商品图片</b><small>按分类自动配图</small></div>
-                  <label><span>你刚刚想买什么？</span><input name="name" maxlength="30" required placeholder="商品名称，例如：Longchamp 包" /></label>
+                  <label><span>你刚刚想买什么？</span><input name="name" maxlength="30" pattern=".*\S.*" title="请填写商品名称，不能只输入空格" required placeholder="商品名称，例如：Longchamp 包" /></label>
                   <div class="form-grid order-form-main-grid">
                     <label><span>差点花多少钱？</span><span class="money-input"><b>¥</b><input name="amount" type="number" min="0.01" max="99999" step="0.01" required placeholder="金额" /></span></label>
                     <label><span>分类</span><select name="category" required><option value="">请选择</option><option>餐饮饮品</option><option>服饰美妆</option><option>数码家居</option><option>娱乐社交</option><option>学习成长</option><option>旅行交通</option><option>其他</option></select></label>
@@ -680,7 +680,7 @@
               <div class="goals-main-grid">
                 <form class="goal-form goal-note-editor" id="goalForm">
                   <div class="goal-form-heading"><span class="goal-form-heading-visible">设定当前月度目标</span><span id="goalFormTitle" hidden>设定当前月度目标</span><small>只记录当前目标，不连接账户</small></div>
-                  <label><span>本月目标名称</span><input name="goalName" maxlength="20" required placeholder="例如：换台新相机" /></label>
+                  <label><span>本月目标名称</span><input name="goalName" maxlength="20" pattern=".*\S.*" title="请填写目标名称，不能只输入空格" required placeholder="例如：换台新相机" /></label>
                   <div class="goal-form-row">
                     <label><span>目标金额</span><span class="money-input"><b>¥</b><input id="goalAmountInput" name="goalAmount" type="number" min="1" max="10000" step="1" required placeholder="8000" aria-describedby="goalAmountHint goalAmountError" /></span><small class="goal-field-hint" id="goalAmountHint">最高 ¥10,000；也可以点击右侧珠子快速选择</small><small class="goal-field-error" id="goalAmountError" role="alert" hidden>目标金额最多为 ¥10,000</small></label>
                     <label><span>已确认回血</span><output class="goal-current-saved" id="goalCurrentSaved">¥0</output></label>

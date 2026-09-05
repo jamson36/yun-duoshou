@@ -38,8 +38,8 @@ test('局内状态与辅助操作统一使用信号语言', () => {
   assert.doesNotMatch(peelUiSource, /当前空中目标[^\n]*外壳/);
 });
 
-test('入口与游戏控制器使用精品解构舱缓存版本', () => {
-  assert.match(indexSource, /app\.js\?v=[^"']*warm-feedback-1/);
+test('入口与游戏控制器保留各自更新后的缓存版本', () => {
+  assert.match(indexSource, /app\.js\?v=20260905-interaction-audit-1/);
   assert.match(appSource, /peel-game-ui\.js\?v=[^"']*warm-feedback-1/);
   assert.match(peelUiSource, /peel-product-visuals\.js\?v=20260902-gallery-glass-1/);
 });
