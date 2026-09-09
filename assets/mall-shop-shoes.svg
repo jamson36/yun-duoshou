@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" role="img" aria-labelledby="title">
+  <title id="title">无品牌城市跑步鞋插图</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe16b"/><stop offset="1" stop-color="#ff9a58"/></linearGradient></defs>
+  <rect width="500" height="500" rx="44" fill="url(#bg)"/>
+  <circle cx="398" cy="98" r="66" fill="#fff7da" opacity=".72"/>
+  <path d="M72 292c52 1 91-13 123-51l47-56 56 30 27 64c13 31 48 53 91 57 19 2 31 14 31 31v31H79c-25 0-42-12-42-32 0-28 13-54 35-74Z" fill="#fffaf0" stroke="#1a2136" stroke-width="12" stroke-linejoin="round"/>
+  <path d="m191 248 53 38 74-11M168 274l51 36M142 299l43 31" fill="none" stroke="#ff6547" stroke-width="12" stroke-linecap="round"/>
+  <path d="M45 366h399" stroke="#31589c" stroke-width="18" stroke-linecap="round"/>
+  <path d="M84 402h327" stroke="#1a2136" stroke-width="10" stroke-linecap="round" opacity=".36"/>
+</svg>
