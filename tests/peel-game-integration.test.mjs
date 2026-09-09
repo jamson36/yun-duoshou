@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { matchingMissionOrder, validateMissionDraft } from '../desire-mission.js';
 
 const appSource = await readFile(new URL('../app.js', import.meta.url), 'utf8');
-const uiSource = await readFile(new URL('../desire-observatory.js', import.meta.url), 'utf8');
+const uiSource = await readFile(new URL('../desire-mission-ui.js', import.meta.url), 'utf8');
 
 function functionSource(name, nextName) {
   const start = appSource.indexOf(`function ${name}(`);
@@ -12,9 +13,26 @@ function functionSource(name, nextName) {
   return appSource.slice(start, end);
 }
 
+test('明确保存只传递用户确认的商品事实，不把广告情节写成评分证据', () => {
+  const source = functionSource('saveDesireMissionOrder', 'handlePeelGameIntent');
+  const orders = [], calls = [];
+  const save = new Function('validateMissionDraft', 'matchingMissionOrder', 'state', 'staticCommerceProduct', 'createOrder',
+    `const editingOrderId = null, businessStateStorageDirty = false; ${source}; return saveDesireMissionOrder;`)(
+    validateMissionDraft, matchingMissionOrder, { orders }, () => ({ category: '数码家居', reason: '被种草' }),
+    (form, options) => { calls.push({ values: Object.fromEntries(form), options }); return { id: 'actual', status: 'cooling' }; });
+  assert.equal(save({ focusItem: { id: 'other' }, draft: { name: '耳机', amount: 1 } }), false);
+  assert.equal(save({ focusItem: { id: 'headphones' }, draft: { name: '耳机', amount: -1 } }), false);
+  assert.equal(calls.length, 0);
+  assert.equal(save({ focusItem: { id: 'headphones' }, draft: { name: '我的耳机', amount: '899.50' } }).order.id, 'actual');
+  assert.deepEqual(calls, [{ values: { name: '我的耳机', amount: '899.5', category: '数码家居', reason: '其他' }, options: { showReceipt: false } }]);
+  orders.push({ id: 'existing', status: 'cooling', name: '我的耳机', amount: 899.5 });
+  assert.equal(save({ focusItem: { id: 'headphones' }, draft: { name: '我的耳机', amount: '899.50' } }).order.id, 'existing');
+  assert.equal(calls.length, 1);
+});
+
 test('主页把掌机注册为独立 activity 并交给唯一观察舱协调器', () => {
   assert.match(appSource, /import \{[^}]*ACTIVITY_HOTSPOTS[^}]*\} from '.\/scene-config\.js/);
-  assert.match(appSource, /import \{ createDesireObservatoryController \} from '.\/desire-observatory\.js/);
+  assert.match(appSource, /import \{ createDesireMissionController \} from '.\/desire-mission-ui\.js/);
   assert.match(appSource, /import \{ createPeelGestureMapper \} from '.\/peel-gesture-controls\.js/);
   assert.match(appSource, /const sceneHotspots = \[\.\.\.FEATURE_HOTSPOTS, \.\.\.ACTIVITY_HOTSPOTS, \.\.\.createPackageHotspots\(\)\]/);
   assert.match(appSource, /hotspot\.activity === 'peel'[\s\S]*?openPeelActivity\(trigger\)/);
@@ -61,11 +79,11 @@ test('观察舱焦点循环跳过仅用于点击遮罩的负 tabindex 按钮', (
   assert.match(source, /element\.tabIndex >= 0/);
 });
 
-test('体感帧经过平滑映射器后只移动观察镜头，丢手暂停，恢复后继续', () => {
+test('任务体感帧优先交给离散抓放控制器，失败可返回普通输入', () => {
   const consumerSource = functionSource('consumePeelGestureFrame', 'handlePeelInputMode');
   const inputSource = functionSource('handlePeelInputMode', 'peelRoundSeed');
 
-  assert.match(consumerSource, /peelGestureMapper\.update/);
+  assert.match(consumerSource, /applyGestureFrame\(frame\)/);
   assert.match(consumerSource, /command\?\.type === 'segment'[\s\S]*?applySegment/);
   assert.match(consumerSource, /command\?\.type === 'pause'[\s\S]*?\.pause\('hand-lost'\)/);
   assert.match(consumerSource, /command\?\.type === 'resume'[\s\S]*?\.resume\(\)/);
@@ -85,9 +103,9 @@ test('观察意图只能复用现有订单页或预填表单，不直接改业�
 });
 
 test('观察舱只保留可丢弃交互状态，并通过 intent 交接业务', () => {
-  assert.match(uiSource, /createDesireObservatoryController/);
-  assert.match(uiSource, /onIntent\(\{ type: 'cool', focusItem: currentProduct\(\) \}\)/);
-  assert.match(uiSource, /dismissedSignalIds\s*=\s*new Set/);
+  assert.match(uiSource, /createDesireMissionController/);
+  assert.match(uiSource, /onIntent\(\{ type: 'mission-save'/);
+  assert.match(uiSource, /transitionMission/);
   assert.doesNotMatch(uiSource, /localStorage|sessionStorage|fetch\(|XMLHttpRequest/);
   assert.doesNotMatch(uiSource, /data-gesture-target/);
 });

@@ -9,6 +9,10 @@ COPY --chown=node:node \
   index.html \
   styles.css \
   desire-observatory.css \
+  desire-mission.css \
+  desire-mission.js \
+  desire-mission-ui.js \
+  desire-mission-scene.js \
   peel-game-refined.css \
   app.js \
   analysis-stages.js \

@@ -1,6 +1,6 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
 import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-2';
-import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260902-desire-peel-2-desk-hotspot-1';
+import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260905-mission-wasd-2';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260830-date-picker-3';
@@ -10,10 +10,11 @@ import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from '.
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260902-desire-peel-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
-import { RoomGestureController } from './gesture-ui.js?v=20260903-gesture-smooth-1';
+import { RoomGestureController } from './gesture-ui.js?v=20260905-mission-wasd-2';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
-import { createDesireObservatoryController } from './desire-observatory.js?v=20260904-tech-arcade-4';
+import { createDesireMissionController } from './desire-mission-ui.js?v=20260905-mission-wasd-2';
+import { matchingMissionOrder, validateMissionDraft } from './desire-mission.js?v=20260905-mission-wasd-2';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -553,7 +554,7 @@ const orientationController = new RoomOrientationController({
   isReducedMotion: () => document.body.classList.contains('reduce-motion'),
 });
 const peelGestureMapper = createPeelGestureMapper();
-peelGameController = createDesireObservatoryController({
+peelGameController = createDesireMissionController({
   root: peelGameRoot,
   reducedMotion: () => document.body.classList.contains('reduce-motion'),
   onInputMode: handlePeelInputMode,
@@ -674,6 +675,10 @@ function setRoomBackgroundSuppressed(suppressed) {
 
 function consumePeelGestureFrame(frame) {
   if (activeActivity !== 'peel' || !peelGameController) return;
+  if (peelGameController.applyGestureFrame) {
+    peelGameController.applyGestureFrame(frame);
+    return;
+  }
   const command = peelGestureMapper.update(frame, frame?.at);
   if (command?.type === 'segment') peelGameController.applySegment(command);
   else if (command?.type === 'pause') peelGameController.pause('hand-lost');
@@ -686,12 +691,12 @@ function handlePeelInputMode(mode) {
     gestureController.pauseActivityForPointer();
     return true;
   }
-  void gestureController.startForActivity(consumePeelGestureFrame).then((started) => {
+  return gestureController.startForActivity(consumePeelGestureFrame).then((started) => {
     if (!started && activeActivity === 'peel') {
       showToast('体感暂时没有开启，触摸、鼠标和键盘仍可继续。');
     }
+    return started;
   });
-  return true;
 }
 
 function peelRoundSeed() {
@@ -723,7 +728,7 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
   panorama.setInteractionEnabled(false);
   orientationController.stop('panel');
   document.body.style.overflow = 'hidden';
-  setMascotSpeech('商品先放在橱窗里。沿轨道逛一圈，再把催促信号一座座关掉。');
+  setMascotSpeech('跟上夜城的光路，把催促外壳甩开，再给商品一个冷静的位置。');
   peelGestureMapper.reset();
   const continueGesture = gestureController.canContinueIntoActivity();
   if (continueGesture) {
@@ -735,6 +740,8 @@ function openPeelActivity(trigger = null, { updateHistory = true } = {}) {
   void peelGameController.open({
     seed: peelRoundSeed(),
     orders: state.orders,
+    goal: currentGoal(),
+    persisted: !businessStateStorageDirty,
     tutorialCompleted: false,
     portalOrigin,
     inputMode: continueGesture ? 'gesture' : 'pointer',
@@ -812,10 +819,30 @@ function focusPeelOrder(orderId) {
   return Boolean(action);
 }
 
+function saveDesireMissionOrder(intent) {
+  const draft = validateMissionDraft(intent.draft);
+  if (draft.error || intent.focusItem?.id !== 'headphones') return false;
+  const existing = matchingMissionOrder(state.orders, draft);
+  if (existing) return { order: existing, persisted: !businessStateStorageDirty };
+  // A deliberate confirmation is the only task action allowed to create an order.
+  const product = staticCommerceProduct('shop-headphones');
+  if (!product) return false;
+  if (editingOrderId) resetOrderComposer();
+  const form = new FormData();
+  form.set('name', draft.name);
+  form.set('amount', String(draft.amount));
+  form.set('category', product.category);
+  // Playing a fictional advertising task is not evidence of the user's motive.
+  form.set('reason', '其他');
+  const order = createOrder(form, { showReceipt: false });
+  return order ? { order, persisted: !businessStateStorageDirty } : false;
+}
+
 function handlePeelGameIntent(intent) {
+  if (intent?.type === 'mission-save') return saveDesireMissionOrder(intent);
   if (intent?.type === 'dismiss') {
     closePeelActivity();
-    showToast('观察角度和关掉的信号都没有保存，商品记录也没有变化。');
+    showToast('已离开夜城，本次试玩没有新增或改变商品记录。');
     return true;
   }
   if (intent?.type !== 'cool') return false;
@@ -4996,6 +5023,16 @@ roomHelpButton.addEventListener('click', () => {
   window.requestAnimationFrame(() => roomHelpCloseButton.focus({ preventScroll: true }));
 });
 roomHelpCloseButton.addEventListener('click', () => roomHelpDialog.close());
+const peelHelpButton = document.querySelector('#peelHelpButton');
+const registeredPeelActivity = ACTIVITY_HOTSPOTS.find((hotspot) => hotspot.activity === 'peel');
+if (registeredPeelActivity && peelHelpButton) {
+  peelHelpButton.textContent = `进入${registeredPeelActivity.label}`;
+  peelHelpButton.hidden = false;
+  peelHelpButton.addEventListener('click', () => {
+    roomHelpDialog.close();
+    openPeelActivity(roomHelpButton);
+  });
+}
 roomHelpDialog.addEventListener('click', (event) => {
   if (event.target === roomHelpDialog) roomHelpDialog.close();
 });

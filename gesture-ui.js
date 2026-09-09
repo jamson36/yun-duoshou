@@ -239,7 +239,7 @@ export class RoomGestureController {
       : this.isRoomAvailable();
     if (!contextAvailable) {
       this.setState('error', requestedContext === 'activity'
-        ? '打开欲望剥壳机后才能为游戏开启体感。'
+        ? '打开欲望追踪任务后才能开启手势。'
         : '进入房间后才能开启手势控制。');
       return;
     }
@@ -330,7 +330,7 @@ export class RoomGestureController {
       this.mapper.reset();
       this.motionInterpolator?.reset?.();
       this.setState('active', requestedContext === 'activity'
-        ? '体感已开启：伸出食指，在空中划过商品外壳。'
+        ? '手势已开启：指向物件，捏合抓取，松开放下。'
         : '举起一只手，保持在预览框中。');
       this.frameRequest = window.requestAnimationFrame((now) => this.captureLoop(now, session));
     } catch (error) {
@@ -532,7 +532,7 @@ export class RoomGestureController {
     this.mapper.reset();
     this.motionInterpolator?.reset?.();
     this.updatePointer(null);
-    this.setState('active', '体感已接入欲望剥壳机：伸出食指划过商品外壳。');
+    this.setState('active', '手势已接入欲望追踪任务：指向物件，捏合抓取，松开放下。');
     return true;
   }
 
@@ -652,7 +652,7 @@ export class RoomGestureController {
       panel: '已暂停手势控制，回到房间将自动恢复。',
       'activity-pointer': '已切换为触摸、鼠标或键盘，摄像头已关闭。',
       'activity-summary': '本局已结算，摄像头已关闭。',
-      'activity-return': '已退出欲望剥壳机。',
+      'activity-return': '已退出欲望追踪任务。',
       hidden: '页面离开前台，摄像头已自动关闭。',
       'reduced-motion': '已开启减少动态效果，手势控制已自动关闭。',
       'stream-ended': '摄像头已停止，请重新开启手势控制。',
