@@ -102,9 +102,9 @@ export const ACTIVITY_HOTSPOTS = Object.freeze([
     id: 'desire-peel',
     kind: 'activity',
     activity: 'peel',
-    label: '欲望剥壳机',
+    label: '切一刀',
     eyebrow: '书桌 · 掌机',
-    description: '剥开催你下单的信号，看看商品本身',
+    description: '划过蹦起来的商品，来一局切一刀',
     // The physical handheld on the desk in room-panorama-hd.webp.
     // Source anchor: approximately (6124, 2226) in the 8192×4096 image.
     yaw: degrees(-89.12),

@@ -1,4 +1,4 @@
-export const PEEL_GALLERY_VISUAL_VERSION = 'gallery-glass-v1';
+export const PEEL_GALLERY_VISUAL_VERSION = 'slice-stickers-v1';
 
 const PRODUCT_VISUALS = Object.freeze({
   'milk-tea': Object.freeze({ kind: 'milk-tea', label: '商品本体' }),
@@ -45,7 +45,7 @@ function roundedRectPath(context, x, y, width, height, radius) {
   context.closePath();
 }
 
-function fillAndStroke(context, fill = 'rgba(246, 242, 233, .08)') {
+function fillAndStroke(context, fill = context.fillStyle) {
   context.fillStyle = fill;
   context.fill();
   context.stroke();
@@ -176,7 +176,7 @@ function drawCandle(context) {
   context.quadraticCurveTo(-11, -22, 0, -36);
   context.quadraticCurveTo(11, -22, 0, -12);
   context.closePath();
-  fillAndStroke(context, 'rgba(215, 255, 67, .22)');
+  fillAndStroke(context, '#ee743d');
   line(context, [[-15, 8], [15, 8]]);
 }
 
@@ -191,7 +191,7 @@ function drawLamp(context) {
   context.lineTo(20, 27);
   context.lineTo(-20, 27);
   context.closePath();
-  fillAndStroke(context, 'rgba(215, 255, 67, .13)');
+  fillAndStroke(context, '#f4c34d');
   line(context, [[-18, 10], [18, 10]]);
   line(context, [[0, -17], [0, 23]]);
 }
@@ -239,8 +239,8 @@ const DRAWERS = Object.freeze({
 export function drawPeelProductVisual(context, item = {}, {
   scale = 1,
   revealed = false,
-  color = '#f4f0e7',
-  accent = '#d7ff43',
+  color = '#4d3c32',
+  accent = '#efb940',
 } = {}) {
   const visual = resolvePeelProductVisual(item);
   if (!context?.save) return visual;
@@ -250,17 +250,26 @@ export function drawPeelProductVisual(context, item = {}, {
   context.scale(safeScale, safeScale);
   context.lineCap = 'round';
   context.lineJoin = 'round';
-  context.lineWidth = revealed ? 2.1 : 1.7;
+  const palette = {
+    food: '#f1b541', digital: '#71a393', fashion: '#ee947f',
+    interest: '#a7b875', home: '#d9a2bd',
+  };
+  context.lineWidth = 3;
   context.strokeStyle = color;
-  context.fillStyle = revealed ? 'rgba(215, 255, 67, .2)' : 'rgba(244, 240, 231, .08)';
-  context.shadowColor = revealed ? accent : 'rgba(244, 240, 231, .34)';
-  context.shadowBlur = revealed ? 18 : 8;
-
-  context.beginPath();
-  context.arc(0, 0, 44, 0, Math.PI * 2);
-  context.fill();
+  context.fillStyle = palette[item.category] || accent;
+  context.shadowColor = '#75472e38';
+  context.shadowBlur = 5;
+  context.shadowOffsetY = 4;
+  const drawer = DRAWERS[visual.kind] || drawGenericObject;
+  // A broad cream contour gives every silhouette its own die-cut sticker edge.
+  context.save();
+  context.strokeStyle = '#fffaf0';
+  context.lineWidth = 12;
+  drawer(context);
+  context.restore();
   context.shadowBlur = 0;
-  (DRAWERS[visual.kind] || drawGenericObject)(context);
+  context.shadowOffsetY = 0;
+  drawer(context);
   context.restore();
   return visual;
 }

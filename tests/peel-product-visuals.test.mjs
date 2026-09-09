@@ -27,7 +27,7 @@ function recordingContext() {
   return { context, calls };
 }
 
-test('精品解构舱为商品选择可复现的矢量陈列类型而不是 Emoji 卡片', () => {
+test('切一刀为商品选择可复现的矢量陈列类型而不是 Emoji 卡片', () => {
   const visuals = PRODUCT_CATALOG.map((item) => resolvePeelProductVisual(item));
 
   assert.ok(new Set(visuals.map((visual) => visual.kind)).size >= 8);
@@ -48,7 +48,7 @@ test('商品陈列使用 Canvas 轮廓绘制且不会把 Emoji 当成商品图',
   }
 });
 
-test('游戏舞台把短诱因绘制为环绕信号膜而不是带标签的实心纸牌', () => {
+test('游戏舞台把短诱因绘制为商品上方的小标签', () => {
   const start = peelUiSource.indexOf('function drawProduct(');
   const end = peelUiSource.indexOf('function drawShellShard(', start);
   const productRenderer = peelUiSource.slice(start, end);
@@ -60,7 +60,7 @@ test('游戏舞台把短诱因绘制为环绕信号膜而不是带标签的实�
   assert.doesNotMatch(productRenderer, /话术样本/);
 });
 
-test('切开反馈使用玻璃碎光与无底板文字回声', () => {
+test('切开反馈裁切同一商品的左右两半并保留文字提醒', () => {
   const shardStart = peelUiSource.indexOf('function drawShellShard(');
   const revealStart = peelUiSource.indexOf('function drawRevealCard(', shardStart);
   const drawStart = peelUiSource.indexOf('function draw()', revealStart);
@@ -68,7 +68,9 @@ test('切开反馈使用玻璃碎光与无底板文字回声', () => {
   const revealRenderer = peelUiSource.slice(revealStart, drawStart);
 
   assert.doesNotMatch(shardRenderer, /fillRect|strokeRect/);
-  assert.match(shardRenderer, /globalCompositeOperation\s*=\s*'screen'/);
+  assert.match(shardRenderer, /context\.clip\(\)/);
+  assert.match(shardRenderer, /shard\.side/);
+  assert.match(shardRenderer, /drawPeelProductVisual/);
   assert.doesNotMatch(revealRenderer, /drawRoundedRect/);
   assert.doesNotMatch(revealRenderer, /#302924/);
   assert.match(revealRenderer, /fillText/);

@@ -81,7 +81,7 @@ class FakeElement {
 
 function drawingContext(calls = []) {
   const methods = new Set([
-    'arc', 'beginPath', 'clearRect', 'closePath', 'ellipse', 'fill', 'fillRect', 'fillText',
+    'arc', 'beginPath', 'clearRect', 'closePath', 'clip', 'rect', 'ellipse', 'fill', 'fillRect', 'fillText',
     'lineTo', 'moveTo', 'quadraticCurveTo', 'restore', 'rotate', 'save', 'scale', 'stroke',
     'strokeRect', 'translate',
   ]);
@@ -251,6 +251,10 @@ test('触屏轻点与拖动都走同一线段入口，商品本体不会被重�
   setup.elements.stage.dispatch('pointerup', { clientX, clientY });
   assert.equal(setup.controller.getState().score.peeledShells, 1);
   assert.equal(setup.controller.getDiagnostics().shellShards, 2);
+  const halves = setup.drawCalls.filter(([method]) => method === 'rect');
+  assert.equal(halves.length, 2, '命中后绘制两半商品');
+  assert.ok(halves[0][1] < 0 && halves[1][1] === 0, '左右半片互补');
+  assert.equal(setup.drawCalls.filter(([method]) => method === 'clip').length, 2);
   assert.equal(setup.controller.getDiagnostics().revealCards, 1);
 
   const afterFirst = setup.controller.getState();

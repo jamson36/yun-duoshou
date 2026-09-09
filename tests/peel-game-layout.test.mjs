@@ -13,7 +13,7 @@ const gameMarkup = gameStart >= 0 && gameEnd > gameStart
   ? html.slice(gameStart, gameEnd)
   : '';
 
-test('欲望剥壳机是独立掌机 activity，不会变成第四个顶部核心入口', () => {
+test('切一刀是独立掌机 activity，不会变成第四个顶部核心入口', () => {
   assert.equal(FEATURE_HOTSPOTS.length, 3);
   assert.equal(ACTIVITY_HOTSPOTS.length, 1);
 
@@ -31,7 +31,7 @@ test('掌机热点使用独立可读标记和视觉结构', () => {
 
   assert.match(markup, /activity-hotspot-device/);
   assert.match(markup, /activity-hotspot-screen/);
-  assert.match(markup, /欲望剥壳机/);
+  assert.match(markup, /切一刀/);
   assert.match(markup, /小游戏/);
 });
 
@@ -54,8 +54,8 @@ test('游戏对话层同时提供普通开始、可选体感和明确本地隐�
   assert.match(gameMarkup, /data-focus-return="desire-peel"/);
 });
 
-test('教程说明移除推动信号但保留商品，并能直接开始正式回合', () => {
-  assert.match(gameMarkup, /划过信号膜，商品会完整保留/);
+test('教程说明切开商品，并能直接开始正式回合', () => {
+  assert.match(gameMarkup, /划过商品，看它切成两半/);
   assert.match(gameMarkup, /id="peelSkipTutorialButton"[^>]*>\s*直接开始/);
 });
 
@@ -83,12 +83,12 @@ test('局内状态与结算选择具备可播报、无业务手势目标的完�
   assert.doesNotMatch(gameMarkup, /data-gesture-target/);
 });
 
-test('游戏区不包含水果、支付、抽奖、排行或在线模型文案', async () => {
+test('游戏区不包含水果商品、支付、抽奖、排行或在线模型文案', async () => {
   const manifest = await readFile(new URL('../assets/peel-game/ASSET-MANIFEST.md', import.meta.url), 'utf8');
   const catalog = await readFile(new URL('../peel-game.js', import.meta.url), 'utf8');
   const inspected = `${gameMarkup}\n${manifest}\n${catalog}`;
 
-  assert.doesNotMatch(inspected, /水果|西瓜|苹果|香蕉|抽奖|排行榜|真实支付|OpenAI|DeepSeek|provider|api[_-]?key/i);
+  assert.doesNotMatch(inspected, /西瓜|苹果|香蕉|抽奖|排行榜|真实支付|OpenAI|DeepSeek|provider|api[_-]?key/i);
   assert.match(manifest, /程序化绘制/);
   assert.match(manifest, /CSS 文字降级/);
 });

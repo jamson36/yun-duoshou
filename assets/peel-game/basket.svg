@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 640" fill="none">
+<defs>
+ <linearGradient id="rim" x2=".4" y2="1"><stop stop-color="#ff805e"/><stop offset=".45" stop-color="#e14c34"/><stop offset="1" stop-color="#aa392b"/></linearGradient>
+ <pattern id="mesh" width="65" height="56" patternUnits="userSpaceOnUse"><path d="M0 0H65V56" stroke="#d95e40" stroke-width="5" opacity=".42"/></pattern>
+ <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feDropShadow dx="0" dy="16" stdDeviation="12" flood-color="#884528" flood-opacity=".22"/></filter>
+</defs>
+<g filter="url(#shadow)">
+ <path d="M124 54Q450 14 776 54Q812 59 812 91L846 541Q849 585 803 593Q450 633 97 593Q51 585 54 541L88 91Q88 59 124 54Z" fill="#f9d8ac" fill-opacity=".76" stroke="url(#rim)" stroke-width="19"/>
+ <path d="M167 151Q450 121 733 151L770 505Q450 548 130 505Z" fill="url(#mesh)" stroke="#c96643" stroke-width="8"/>
+ <g stroke="#dc684a" stroke-width="6" opacity=".75">
+ <path d="M124 64L167 151M255 45L275 137M385 38L390 126M515 38L510 126M645 45L625 137M776 64L733 151M808 160L741 219M820 288L754 331M830 417L766 443M806 584L770 505M663 605L632 522M520 615L510 534M380 615L390 534M237 605L268 522M94 584L130 505M70 417L134 443M80 288L146 331M92 160L159 219"/>
+ </g>
+ <path d="M126 47Q450 8 774 47" stroke="#ffb497" stroke-width="5" stroke-linecap="round"/>
+ <path d="M56 542Q53 585 99 591Q450 633 801 591Q847 585 844 542" stroke="#f97850" stroke-width="8"/>
+ <rect x="370" y="52" width="160" height="16" rx="8" fill="#b34e35"/><rect x="370" y="568" width="160" height="16" rx="8" fill="#b34e35"/>
+</g></svg>

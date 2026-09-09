@@ -9,7 +9,7 @@ import {
   skipTutorial,
   startRound,
 } from './peel-game.js';
-import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260902-gallery-glass-1';
+import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260909-slice-2';
 
 export const MAX_PEEL_DPR = 2;
 export const MAX_PEEL_ENTITIES = 8;
@@ -29,9 +29,9 @@ const SIGNAL_REVEAL_GLYPHS = Object.freeze(Array.from('￥％◇╱╲＋×·░
 
 const CONTROLLERS = new WeakMap();
 const PHASE_LABELS = Object.freeze({
-  single: '单信号',
-  mixed: '双信号',
-  focus: '焦点商品',
+  single: '好物起飞',
+  mixed: '双切加料',
+  focus: '最后一件',
   complete: '本局结束',
 });
 const REMINDERS = Object.freeze({
@@ -143,49 +143,26 @@ function drawRoundedRect(context, x, y, width, height, radius) {
   context.closePath?.();
 }
 
-const SIGNAL_FILM_COLORS = Object.freeze([
-  Object.freeze({ line: 'rgba(215, 255, 67, .78)', fill: 'rgba(215, 255, 67, .12)' }),
-  Object.freeze({ line: 'rgba(112, 231, 218, .72)', fill: 'rgba(112, 231, 218, .11)' }),
-]);
-
 function drawSignalFilm(context, shell, shellIndex, scale, {
   front = false,
   showLabel = false,
 } = {}) {
-  const palette = SIGNAL_FILM_COLORS[shellIndex % SIGNAL_FILM_COLORS.length];
-  const angle = (shellIndex % 2 === 0 ? -0.19 : 0.22) + shellIndex * 0.025;
-  const radiusX = (72 + shellIndex * 7) * scale;
-  const radiusY = (27 + shellIndex * 3) * scale;
+  if (!front || !showLabel) return;
+  const lure = String(shell?.copy?.lure || '先等等');
+  const labelWidth = clamp(28 + lure.length * 11, 75, 135) * scale;
   context.save();
-  context.rotate(angle);
-  context.lineCap = 'round';
-  context.strokeStyle = palette.line;
-  context.lineWidth = (front ? 2 : 1.2) * scale;
-  context.shadowColor = palette.line;
-  context.shadowBlur = front ? 12 * scale : 5 * scale;
-  context.beginPath();
-  context.ellipse?.(0, 0, radiusX, radiusY, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2);
+  context.rotate(-0.12);
+  drawRoundedRect(context, -labelWidth / 2, -65 * scale, labelWidth, 23 * scale, 5 * scale);
+  context.fillStyle = shellIndex % 2 ? '#dbe7c1' : '#ffe399';
+  context.strokeStyle = '#fffaf0';
+  context.lineWidth = 3 * scale;
+  context.fill();
   context.stroke();
-
-  if (front && showLabel) {
-    const lure = String(shell?.copy?.lure || '先等等');
-    const labelWidth = clamp(40 + lure.length * 11, 82, 128) * scale;
-    const labelHeight = 25 * scale;
-    const labelX = radiusX * 0.3 - labelWidth / 2;
-    const labelY = -radiusY - labelHeight * 0.18;
-    drawRoundedRect(context, labelX, labelY, labelWidth, labelHeight, labelHeight / 2);
-    context.fillStyle = palette.fill;
-    context.fill();
-    context.strokeStyle = palette.line;
-    context.lineWidth = 0.8 * scale;
-    context.stroke();
-    context.shadowBlur = 8 * scale;
-    context.fillStyle = '#f4f0e7';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.font = `600 ${10 * scale}px "PingFang SC", sans-serif`;
-    context.fillText(lure, labelX + labelWidth / 2, labelY + labelHeight / 2);
-  }
+  context.fillStyle = '#654a32';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.font = `700 ${10 * scale}px "PingFang SC", sans-serif`;
+  context.fillText(lure, 0, -53.5 * scale);
   context.restore();
 }
 
@@ -252,7 +229,7 @@ export function createPeelGameController({
   reducedMotion = false,
   documentRef = root?.ownerDocument || globalThis.document || null,
 } = {}) {
-  if (!root) throw new TypeError('欲望剥壳机需要根节点');
+  if (!root) throw new TypeError('切一刀需要根节点');
   if (CONTROLLERS.has(root)) return CONTROLLERS.get(root);
 
   const elements = { ...queryElements(root), ...(providedElements || {}) };
@@ -416,7 +393,7 @@ export function createPeelGameController({
     if (elements.roundPhase) {
       elements.roundPhase.textContent = state.status === PEEL_GAME_STATUS.TUTORIAL
         ? '教学不计时'
-        : PHASE_LABELS[phaseForElapsed(state.elapsedMs)] || '准备剥壳';
+        : PHASE_LABELS[phaseForElapsed(state.elapsedMs)] || '准备开切';
     }
     if (elements.tutorial) elements.tutorial.hidden = state.status !== PEEL_GAME_STATUS.TUTORIAL;
     if (elements.pauseNotice) elements.pauseNotice.hidden = state.status !== PEEL_GAME_STATUS.PAUSED;
@@ -428,16 +405,16 @@ export function createPeelGameController({
     renderFallbackTargets();
   }
 
+  function productScale(entity, width, height) {
+    // Use the same normalized radius as hit detection on every viewport.
+    return Math.max(0.45 * appliedDpr, entity.radius * Math.min(width, height) / 43);
+  }
+
   function drawProduct(entity, width, height) {
     if (!context) return;
     const x = entity.x * width;
     const y = entity.y * height;
-    const flightDepth = clamp(0.98 + (entity.y - 0.45) * 0.12, 0.96, 1.08);
-    const scale = clamp(
-      clamp(entity.radius / 0.082, 0.82, 1.42) * 1.18 * flightDepth,
-      0.92,
-      1.64,
-    ) * appliedDpr;
+    const scale = productScale(entity, width, height);
     const price = entity.coreRevealed ? formatCny(entity.item.amount) : '';
     const unpeeledShells = entity.shells
       .map((shell, index) => ({ shell, index }))
@@ -450,21 +427,11 @@ export function createPeelGameController({
       drawSignalFilm(context, shell, index, scale, { front: false });
     });
 
-    context.beginPath();
-    context.fillStyle = entity.coreRevealed
-      ? 'rgba(215, 255, 67, .16)'
-      : 'rgba(244, 240, 231, .055)';
-    context.shadowColor = entity.coreRevealed ? 'rgba(215, 255, 67, .72)' : 'rgba(244, 240, 231, .2)';
-    context.shadowBlur = entity.coreRevealed ? 28 * scale : 12 * scale;
-    context.arc?.(0, 0, 50 * scale, 0, Math.PI * 2);
-    context.fill();
-    context.shadowBlur = 0;
-
-    drawPeelProductVisual(context, entity.item, {
+    if (!entity.coreRevealed || motionIsReduced() || effectQuality === PEEL_EFFECT_QUALITY.ESSENTIAL) drawPeelProductVisual(context, entity.item, {
       scale,
       revealed: entity.coreRevealed,
-      color: '#f4f0e7',
-      accent: '#d7ff43',
+      color: '#4d3c32',
+      accent: '#efb940',
     });
 
     unpeeledShells.forEach(({ shell, index }, visibleIndex) => {
@@ -476,11 +443,11 @@ export function createPeelGameController({
 
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillStyle = entity.coreRevealed ? '#f4f0e7' : 'rgba(244, 240, 231, .82)';
+    context.fillStyle = '#5e402b';
     context.font = `600 ${10 * scale}px "PingFang SC", sans-serif`;
     context.fillText(entity.item.name, 0, (price ? 53 : 48) * scale);
     if (price) {
-      context.fillStyle = '#d7ff43';
+      context.fillStyle = '#d56735';
       context.font = `650 ${8.5 * scale}px ui-monospace, SFMono-Regular, monospace`;
       context.fillText(price, 0, 64 * scale);
     }
@@ -502,7 +469,7 @@ export function createPeelGameController({
     const lineCount = effectQuality === PEEL_EFFECT_QUALITY.FULL ? 3 : 1;
     const trailLength = clamp(speed * 0.034, 22 * appliedDpr, 58 * appliedDpr);
     context.save();
-    context.globalCompositeOperation = 'screen';
+    context.globalCompositeOperation = 'source-over';
     context.lineCap = 'round';
     for (let index = 0; index < lineCount; index += 1) {
       const side = index - (lineCount - 1) / 2;
@@ -518,8 +485,8 @@ export function createPeelGameController({
         y - unitY * (10 * appliedDpr + stagger * 0.25) + normalY * offset,
       );
       context.strokeStyle = index % 2
-        ? 'rgba(112, 231, 218, .18)'
-        : 'rgba(215, 255, 67, .22)';
+        ? 'rgba(72, 133, 107, .18)'
+        : 'rgba(232, 112, 54, .22)';
       context.lineWidth = (index === 1 ? 1.4 : 0.8) * appliedDpr;
       context.stroke();
     }
@@ -532,7 +499,7 @@ export function createPeelGameController({
     const progress = clamp(elapsed / 520, 0, 1);
     const radius = (24 + progress * 72) * appliedDpr * ring.intensity;
     context.save();
-    context.globalCompositeOperation = 'screen';
+    context.globalCompositeOperation = 'source-over';
     context.globalAlpha = (1 - progress) * 0.72;
     context.strokeStyle = ring.color;
     context.lineWidth = (2.2 - progress * 1.2) * appliedDpr;
@@ -557,7 +524,7 @@ export function createPeelGameController({
     context.save();
     context.translate(glyph.x * width, glyph.y * height);
     context.rotate(glyph.rotation + progress * glyph.rotationVelocity);
-    context.globalCompositeOperation = 'screen';
+    context.globalCompositeOperation = 'source-over';
     context.globalAlpha = (1 - progress) * 0.72;
     context.fillStyle = glyph.color;
     context.font = `650 ${glyph.size * appliedDpr}px ui-monospace, SFMono-Regular, monospace`;
@@ -569,26 +536,14 @@ export function createPeelGameController({
 
   function drawShellShard(shard, width, height) {
     if (!context) return;
-    const shardWidth = 66 * appliedDpr;
-    const shardHeight = 24 * appliedDpr;
     context.save();
     context.translate(shard.x * width, shard.y * height);
     context.rotate(shard.rotation);
-    context.globalCompositeOperation = 'screen';
-    context.globalAlpha = 0.72;
-    context.fillStyle = shard.color;
-    context.strokeStyle = 'rgba(244, 240, 231, .58)';
-    context.lineWidth = 0.8 * appliedDpr;
-    context.shadowColor = shard.color;
-    context.shadowBlur = 12 * appliedDpr;
+    const scale = productScale(shard.entity, width, height);
     context.beginPath();
-    context.moveTo(-shardWidth / 2, 0);
-    context.lineTo(-shardWidth * 0.08, -shardHeight / 2);
-    context.lineTo(shardWidth / 2, -shardHeight * 0.08);
-    context.lineTo(shardWidth * 0.12, shardHeight / 2);
-    context.closePath();
-    context.fill();
-    context.stroke();
+    context.rect(shard.side < 0 ? -80 * scale : 0, -80 * scale, 80 * scale, 160 * scale);
+    context.clip();
+    drawPeelProductVisual(context, shard.entity.item, { scale });
     context.restore();
   }
 
@@ -603,10 +558,10 @@ export function createPeelGameController({
     });
     const lines = text.length > 16 ? [text.slice(0, 16), text.slice(16, 32)] : [text];
     context.save();
-    context.globalCompositeOperation = 'screen';
-    context.strokeStyle = 'rgba(215, 255, 67, .72)';
+    context.globalCompositeOperation = 'source-over';
+    context.strokeStyle = 'rgba(232, 112, 54, .72)';
     context.lineWidth = 0.8 * appliedDpr;
-    context.shadowColor = 'rgba(215, 255, 67, .38)';
+    context.shadowColor = 'rgba(232, 112, 54, .38)';
     context.shadowBlur = 10 * appliedDpr;
     context.beginPath();
     context.moveTo(x - echoWidth * 0.28, y - 13 * appliedDpr);
@@ -614,9 +569,9 @@ export function createPeelGameController({
     context.stroke();
     context.beginPath();
     context.arc(x - echoWidth * 0.32, y - 13 * appliedDpr, 1.8 * appliedDpr, 0, Math.PI * 2);
-    context.fillStyle = '#d7ff43';
+    context.fillStyle = '#d56735';
     context.fill();
-    context.fillStyle = 'rgba(244, 240, 231, .94)';
+    context.fillStyle = '#69412b';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.font = `550 ${10.5 * appliedDpr}px "PingFang SC", system-ui, sans-serif`;
@@ -625,13 +580,13 @@ export function createPeelGameController({
       if (elapsed < PEEL_REVEAL_DURATION_MS && effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
         const chromaFade = 1 - elapsed / PEEL_REVEAL_DURATION_MS;
         context.globalAlpha = chromaFade * 0.32;
-        context.fillStyle = '#70e7da';
+        context.fillStyle = '#45886e';
         context.fillText(line, x - 1.4 * appliedDpr, y + lineOffset);
-        context.fillStyle = '#d7ff43';
+        context.fillStyle = '#d56735';
         context.fillText(line, x + 1.4 * appliedDpr, y + lineOffset);
       }
       context.globalAlpha = 1;
-      context.fillStyle = 'rgba(244, 240, 231, .94)';
+      context.fillStyle = '#69412b';
       context.fillText(line, x, y + lineOffset);
     });
     context.restore();
@@ -655,15 +610,15 @@ export function createPeelGameController({
       context.beginPath();
       context.moveTo(trail.from.x * width, trail.from.y * height);
       context.lineTo(trail.to.x * width, trail.to.y * height);
-      context.strokeStyle = `rgba(215, 255, 67, ${0.11 + intensity * 0.08})`;
+      context.strokeStyle = `rgba(232, 112, 54, ${0.11 + intensity * 0.08})`;
       context.lineWidth = (8 + intensity * 7) * appliedDpr;
       context.stroke();
       if (effectQuality === PEEL_EFFECT_QUALITY.FULL) {
-        context.strokeStyle = `rgba(112, 231, 218, ${0.08 + intensity * 0.08})`;
+        context.strokeStyle = `rgba(72, 133, 107, ${0.08 + intensity * 0.08})`;
         context.lineWidth = (3.2 + intensity * 2) * appliedDpr;
         context.stroke();
       }
-      context.strokeStyle = 'rgba(244, 240, 231, .94)';
+      context.strokeStyle = '#69412b';
       context.lineWidth = (1.5 + intensity * 0.8) * appliedDpr;
       context.stroke();
     }
@@ -694,15 +649,15 @@ export function createPeelGameController({
       if (!motionIsReduced()) {
         const shellIndex = entity.shells.findIndex((shell) => shell.copy.id === reveal.copyId);
         const shellColor = shellIndex % 2 === 0
-          ? 'rgba(215, 255, 67, .28)'
-          : 'rgba(112, 231, 218, .24)';
+          ? 'rgba(232, 112, 54, .28)'
+          : 'rgba(72, 133, 107, .24)';
         if (!motionIsReduced()) {
           impactRings.push({
             x: entity.x,
             y: entity.y,
             bornAt: at,
             intensity: clamp(Number(intensity) || 1, 0.68, 1.3),
-            color: shellIndex % 2 === 0 ? '#d7ff43' : '#70e7da',
+            color: shellIndex % 2 === 0 ? '#d56735' : '#45886e',
           });
         }
         if (effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
@@ -710,12 +665,14 @@ export function createPeelGameController({
             shellShards.push({
               x: entity.x + side * 0.018,
               y: entity.y,
-              vx: side * (0.03 + intensity * 0.01),
-              vy: -(0.055 + intensity * 0.012),
+              vx: side * (0.006 + intensity * 0.003),
+              vy: -(0.008 + intensity * 0.003),
               rotation: side * 0.08,
-              rotationVelocity: side * 0.12,
+              rotationVelocity: side * 0.025,
               bornAt: at,
               color: shellColor,
+              side,
+              entity,
             });
           });
           Array.from(String(reveal.lure || '信号')).slice(0, 4).forEach((character, index) => {
@@ -730,7 +687,7 @@ export function createPeelGameController({
               rotationVelocity: direction * (0.4 + index * 0.08),
               bornAt: at,
               size: index === 0 ? 10 : 8,
-              color: index % 2 ? 'rgba(112, 231, 218, .78)' : 'rgba(215, 255, 67, .86)',
+              color: index % 2 ? 'rgba(72, 133, 107, .78)' : 'rgba(232, 112, 54, .86)',
             });
           });
         }
@@ -745,12 +702,12 @@ export function createPeelGameController({
             vy: -0.05 - (index % 3) * 0.012,
             bornAt: at,
             radius: index % 3 === 0 ? 2.1 : 1.35,
-            color: index % 2 ? 'rgba(215, 255, 67, .86)' : 'rgba(244, 240, 231, .7)',
+            color: index % 2 ? 'rgba(232, 112, 54, .86)' : 'rgba(244, 240, 231, .7)',
           });
         }
       }
       if (elements.liveStatus) {
-        elements.liveStatus.textContent = `已识别“${reveal.lure}”。降噪提示：${reveal.text}。商品完整保留。`;
+        elements.liveStatus.textContent = `切中了！“${reveal.lure}”。小提醒：${reveal.text}。`;
       }
     }
     particles = particles.slice(-MAX_PEEL_PARTICLES);
@@ -777,7 +734,7 @@ export function createPeelGameController({
         ...shard,
         x: shard.x + shard.vx * delta * 60,
         y: shard.y + shard.vy * delta * 60,
-        vy: shard.vy + 0.008 * delta * 60,
+        vy: shard.vy + 0.0008 * delta * 60,
         rotation: shard.rotation + shard.rotationVelocity * delta * 60,
       }))
       .slice(-MAX_PEEL_SHARDS);

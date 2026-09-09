@@ -8,8 +8,8 @@
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css?v=20260904-mall-receipt-stub-1-interaction-flow-2" />
-  <link rel="stylesheet" href="./peel-game-refined.css?v=20260903-warm-feedback-1" />
-  <script type="module" src="./app.js?v=20260905-interaction-audit-1"></script>
+  <link rel="stylesheet" href="./peel-game-refined.css?v=20260909-slice-2" />
+  <script type="module" src="./app.js?v=20260909-slice-2"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -226,81 +226,82 @@
 
       <!-- PEEL_GAME_START -->
       <section class="peel-game-dialog" id="peelGameDialog" role="dialog" aria-modal="true" aria-labelledby="peelGameTitle" aria-describedby="peelGameDescription" data-focus-return="desire-peel" hidden>
-        <button class="peel-game-backdrop" type="button" data-peel-close tabindex="-1" aria-label="关闭欲望剥壳机"></button>
+        <button class="peel-game-backdrop" type="button" data-peel-close tabindex="-1" aria-label="关闭切一刀"></button>
         <div class="peel-game-card">
           <header class="peel-game-heading">
             <div>
-              <small>OBJECT / SIGNAL · 本地体验</small>
-              <h2 id="peelGameTitle" tabindex="-1">欲望剥壳机</h2>
+              <small>SLICE & CHILL · 45 秒小游戏</small>
+              <h2 id="peelGameTitle" tabindex="-1">切一刀</h2>
             </div>
-            <button class="peel-game-close" id="peelGameCloseButton" type="button" data-peel-close aria-label="关闭欲望剥壳机"><span aria-hidden="true">×</span></button>
+            <button class="peel-game-close" id="peelGameCloseButton" type="button" data-peel-close aria-label="关闭切一刀"><span aria-hidden="true">×</span></button>
           </header>
 
           <section class="peel-game-intro" id="peelGameIntroView">
             <div class="peel-game-intro-copy">
-              <p class="peel-game-kicker">把营销噪声留在玻璃外</p>
-              <p id="peelGameDescription">商品会从展舱底部升入视野。划过环绕它的促销信号膜，先拿掉限时、从众和凑单的推力，再看这件东西本身还值不值得。</p>
+              <p class="peel-game-kicker">想买的，先切个痛快。</p>
+              <p id="peelGameDescription">像切水果一样，划过从购物篮里蹦出的商品！外卖、购物、兴趣好物轮番上场，用鼠标、手指或摄像头体感切个痛快，给想买的心情放个小假。</p>
+              <div class="peel-category-tags" aria-label="本局商品分类"><span>01 外卖</span><span>02 购物</span><span>03 兴趣</span></div>
               <ol class="peel-game-rules">
-                <li><b>捕捉信号</b><span>库存、时限和热度，是围绕商品出现的推动力。</span></li>
-                <li><b>一划降噪</b><span>鼠标、触摸、键盘都能玩；漏掉不扣分。</span></li>
-                <li><b>商品留场</b><span>划过信号膜，商品仍然完整，决定权也仍然在你。</span></li>
+                <li><b>好物起飞</b><span>奶茶、耳机、相机……看准蹦起来的商品。</span></li>
+                <li><b>划过就切</b><span>按住拖动或用手指划过，连切更过瘾；漏掉不扣分。</span></li>
+                <li><b>轻松收尾</b><span>加料商品再补一刀。玩满 45 秒，再决定要不要买。</span></li>
               </ol>
               <p class="peel-game-privacy">摄像头只在你主动开启体感后用于本地识别；画面不保存、不发送。普通模式无需摄像头，结算时会关闭摄像头。</p>
               <div class="peel-game-intro-actions">
-                <button class="peel-game-primary" id="peelStartButton" type="button">手动进入展舱</button>
-                <button class="peel-game-secondary" id="peelGestureStartButton" type="button">体感进入 <small>可选</small></button>
+                <button class="peel-game-primary" id="peelStartButton" type="button">开始切一刀 ↗</button>
+                <button class="peel-game-secondary" id="peelGestureStartButton" type="button">挥手来切 <small>摄像头</small></button>
               </div>
             </div>
             <div class="peel-game-intro-art" aria-hidden="true">
-              <span class="peel-intro-product">🎧</span>
-              <span class="peel-intro-shell is-back">全网都在入</span>
-              <span class="peel-intro-shell is-front">今晚恢复原价</span>
+              <img class="peel-intro-stickers" src="./assets/peel-game/sticker-preview.svg" alt="" />
+              <span class="peel-intro-shell is-back">快乐 +1</span>
+              <span class="peel-intro-shell is-front">想买？先切！</span>
               <i class="peel-intro-swipe"></i>
-              <small>FILTER THE PUSH<br />KEEP THE OBJECT</small>
+              <small>A LITTLE BREAK<br />BEFORE YOU BUY</small>
             </div>
           </section>
 
           <section class="peel-game-play" id="peelGamePlayView" hidden>
             <div class="peel-game-statusbar" aria-label="本局状态">
-              <span><small>已降噪</small><strong id="peelShellCount">0</strong></span>
-              <b id="peelRoundPhase">等待信号</b>
+              <span><small>切中</small><strong id="peelShellCount">0</strong></span>
+              <b id="peelRoundPhase">好物即将起飞</b>
               <span><small>剩余时间</small><strong id="peelTimeLeft">45</strong><i>秒</i></span>
             </div>
 
             <div class="peel-game-stage" id="peelGameStage" tabindex="0" role="application" aria-describedby="peelKeyboardHelp">
               <canvas id="peelGameCanvas" aria-hidden="true"></canvas>
               <div class="peel-game-blade" id="peelGameBlade" aria-hidden="true"><i></i></div>
-              <div class="peel-game-basket" aria-hidden="true"><span>决定权在你</span></div>
+              <div class="peel-game-basket" aria-hidden="true"><span>SLICE & CHILL</span></div>
               <div class="peel-game-tutorial" id="peelGameTutorial" hidden>
                 <span aria-hidden="true">☝</span>
-                <div><b>先试一划</b><p>划过信号膜，商品会完整保留。教学不计时。</p></div>
+                <div><b>先试一划</b><p>划过商品，看它切成两半！教学不计时。</p></div>
                 <button id="peelSkipTutorialButton" type="button">直接开始</button>
               </div>
-              <ol class="peel-game-fallback-targets" id="peelFallbackTargets" aria-label="当前可剥开的商品" hidden></ol>
+              <ol class="peel-game-fallback-targets" id="peelFallbackTargets" aria-label="当前可切开的商品" hidden></ol>
             </div>
 
-            <p class="peel-keyboard-help" id="peelKeyboardHelp">方向键移动刀锋，按 Enter 或 Space 剥离当前信号；触屏轻点商品也可以操作。</p>
+            <p class="peel-keyboard-help" id="peelKeyboardHelp">方向键移动刀锋，按 Enter 或 Space 切开当前商品；触屏轻点商品也可以操作。</p>
             <div class="peel-game-a11y-controls" aria-label="屏幕阅读器目标控制">
               <button id="peelPreviousTargetButton" type="button">上一个目标</button>
               <output id="peelCurrentTarget">当前空中目标：等待商品</output>
-              <button id="peelCurrentTargetButton" type="button">剥离当前信号</button>
+              <button id="peelCurrentTargetButton" type="button">切开当前商品</button>
               <button id="peelNextTargetButton" type="button">下一个目标</button>
             </div>
             <p class="peel-pause-notice" id="peelPauseNotice" role="status" hidden>游戏已暂停，回到这里可以继续。</p>
-            <p class="sr-only" id="peelLiveStatus" role="status" aria-live="polite">欲望剥壳机准备完成。</p>
+            <p class="sr-only" id="peelLiveStatus" role="status" aria-live="polite">切一刀准备完成。</p>
           </section>
 
           <section class="peel-game-summary" id="peelGameSummaryView" aria-labelledby="peelSummaryTitle" hidden>
             <div class="peel-summary-score">
-              <small>本局识别</small>
+              <small>本局切中</small>
               <strong id="peelSummaryCount">0</strong>
-              <span>条推动信号</span>
+              <span>次 · 切得痛快</span>
             </div>
             <div class="peel-summary-content">
-              <p class="peel-game-kicker">把推力还原成一句话</p>
-              <h3 id="peelSummaryTitle" tabindex="-1">哪条信号，最容易让你加速下单？</h3>
+              <p class="peel-game-kicker">切完啦，心情轻一点。</p>
+              <h3 id="peelSummaryTitle" tabindex="-1">刚才哪句话，让你有点想买？</h3>
               <fieldset class="peel-summary-copy-choices">
-                <legend class="sr-only">选择本局出现过的一条推动信号</legend>
+                <legend class="sr-only">选择本局出现过的一句话</legend>
                 <div id="peelSummaryCopyChoices"></div>
               </fieldset>
               <p class="peel-summary-reminder">如果再遇到 <strong id="peelReminderTrigger">让我加速下单的信号</strong>，那么我先 <strong id="peelReminderText">离开页面十分钟，再决定</strong>。</p>
