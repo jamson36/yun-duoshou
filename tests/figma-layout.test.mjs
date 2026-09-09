@@ -53,7 +53,7 @@ test('开始买吧按 5:25 先展示介绍页，再进入共享的模拟手机�
   assert.match(appSource, /enterShoppingPhoneButton\.addEventListener\('click',[\s\S]*?pushPhoneView\('home'/);
   assert.match(appSource, /shoppingIntroView\.hidden = phoneView !== 'intro'/);
   assert.match(appSource, /const panelBackLabel = phoneView === 'intro' \? '回房间' : '返回上一页'[\s\S]*?panelClose\.setAttribute\('aria-label', panelBackLabel\)/);
-  assert.match(appSource, /activePanel === 'new' && phoneView === 'home'[\s\S]*?#newPanelTitle[\s\S]*?activePanel === 'new' && phoneView === 'intro'[\s\S]*?shoppingIntroTitle/);
+  assert.match(appSource, /function panelFocusTargets[\s\S]*?phoneView === 'home'[\s\S]*?#newPanelTitle[\s\S]*?shoppingIntroTitle/);
 });
 
 test('冷静单与回血计划保持 Figma 桌面画板尺寸和暖色房间背景', () => {

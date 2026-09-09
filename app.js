@@ -1,14 +1,14 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
-import { PanoramaRoom } from './panorama.js?v=20260902-desire-peel-2';
+import { PanoramaRoom } from './panorama.js?v=20260905-interaction-audit-1';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260905-mission-wasd-2';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
-import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260830-date-picker-3';
+import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
 import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
-import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260902-desire-peel-1';
+import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, panelTransitionHistoryMethod, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260904-interaction-flow-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
 import { RoomGestureController } from './gesture-ui.js?v=20260905-mission-wasd-2';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
@@ -329,6 +329,8 @@ const goalAmountError = document.querySelector('#goalAmountError');
 const goalAmountBeads = [...document.querySelectorAll('[data-goal-amount]')];
 const goalTabViews = [...document.querySelectorAll('[data-goals-panel]')];
 const recoveryTabButtons = [...document.querySelectorAll('.recovery-tabs [data-recovery-view]')];
+const recoveryOrdersTabOrders = document.querySelector('#recoveryOrdersTabOrders');
+const ordersPanelTitle = document.querySelector('#ordersPanelTitle');
 const desireBudgetRange = document.querySelector('#desireBudgetRange');
 const controllerBudgetAmount = document.querySelector('#controllerBudgetAmount');
 const controllerStateBadge = document.querySelector('#controllerStateBadge');
@@ -348,7 +350,10 @@ const clinicStartView = document.querySelector('#clinicStartView');
 const clinicReportView = document.querySelector('#clinicReportView');
 const clinicReportBackButton = document.querySelector('#clinicReportBackButton');
 const clinicReportTitle = document.querySelector('#clinicReportTitle');
+const personalityProfile = document.querySelector('#personalityProfile');
 const analyzeButton = document.querySelector('#analyzeButton');
+const clinicHistoryButton = document.querySelector('#clinicHistoryButton');
+const clinicHistoryCount = document.querySelector('#clinicHistoryCount');
 const gachaponTitle = document.querySelector('#gachaponTitle');
 const gachaponHint = document.querySelector('#gachaponHint');
 const gachaponPrize = document.querySelector('#gachaponPrize');
@@ -627,14 +632,15 @@ function setClinicView(view, { focus = false, scroll = true } = {}) {
   if (leavingHistoricalReport && activePanel === 'clinic') renderClinic();
   if (!focus || activePanel !== 'clinic') return;
   window.requestAnimationFrame(() => {
-    const target = nextView === 'report' ? clinicReportTitle : gachaponTitle;
-    target?.focus({ preventScroll: true });
+    focusPanelEntry('clinic');
   });
 }
 
 function isAvailableFocusTarget(target) {
   if (!target || typeof target.focus !== 'function' || !document.contains(target)) return false;
   if (target.disabled || target.closest?.('[hidden], [inert], [aria-hidden="true"]')) return false;
+  const closedDetails = target.closest?.('details:not([open])');
+  if (closedDetails && !closedDetails.querySelector('summary')?.contains(target)) return false;
   return typeof target.getClientRects !== 'function' || target.getClientRects().length > 0;
 }
 
@@ -645,6 +651,32 @@ function focusFirstAvailableTarget(...targets) {
     if (document.activeElement === target) return true;
   }
   return false;
+}
+
+function panelFocusTargets(panel = activePanel) {
+  if (panel === 'new') {
+    if (phoneView === 'detail') return [commerceDetailContent.querySelector('h3'), commerceBackButton, commerceBuyButton];
+    if (phoneView === 'catalog') return [commerceTitle, commerceSearchInput, commerceBackButton];
+    if (phoneView === 'home') return [document.querySelector('#newPanelTitle'), openMallButton];
+    return [shoppingIntroTitle, enterShoppingPhoneButton, panelClose];
+  }
+  if (panel === 'clinic') {
+    return clinicView === 'report'
+      ? [clinicReportTitle, personalityProfile, clinicReportBackButton]
+      : [gachaponTitle, analyzeButton, panelClose];
+  }
+  if (panel === 'orders') return [ordersPanelTitle, recoveryOrdersTabOrders, orderTimeFilterButton];
+  if (panel === 'goals') {
+    return [
+      document.querySelector(activeGoalsView === 'controller' ? '#goalControllerTitle' : '#goalsPanelTitle'),
+      document.querySelector(`.panel-view[data-panel="goals"] [data-recovery-view="${activeGoalsView}"]`),
+    ];
+  }
+  return [document.querySelector(`.panel-view[data-panel="${panel}"] h2`), panelClose];
+}
+
+function focusPanelEntry(panel = activePanel) {
+  return focusFirstAvailableTarget(...panelFocusTargets(panel));
 }
 
 function restorePanelReturnFocus(returnTarget, resetComplete) {
@@ -802,12 +834,12 @@ function resolvePeelFocusAction(focusItem, orders = state.orders) {
 
 function openPeelBusinessPanel(panel, trigger, commerceType = 'shop') {
   if (panel === 'orders') {
-    history.replaceState({ panel: 'orders', openedByApp: true }, '', '#orders');
+    transitionPanelRoute({ panel: 'orders' }, '#orders');
     applyPanel('orders', trigger);
     return;
   }
   const route = { panel: 'new', phoneView: 'home', commerceType, productId: null };
-  history.replaceState({ ...route, openedByApp: true }, '', buildNewHash(route));
+  transitionPanelRoute(route, buildNewHash(route));
   showPhoneView('home', { type: commerceType });
   applyPanel('new', trigger);
 }
@@ -1650,6 +1682,18 @@ function restoreTestHistoryResult(historyId) {
 }
 
 function renderTestHistory() {
+  const shortcutEntry = testHistory.find((item) => restorableHistoryAssessment(item.assessment)) || testHistory[0];
+  if (clinicHistoryButton) {
+    clinicHistoryButton.hidden = !shortcutEntry;
+    if (shortcutEntry) {
+      clinicHistoryButton.dataset.historyId = shortcutEntry.id;
+      clinicHistoryButton.setAttribute('aria-label', `查看过往报告，共 ${testHistory.length} 份`);
+    } else {
+      delete clinicHistoryButton.dataset.historyId;
+      clinicHistoryButton.removeAttribute('aria-label');
+    }
+  }
+  if (clinicHistoryCount) clinicHistoryCount.textContent = `${testHistory.length} 份`;
   if (!testHistoryList) return;
   if (!testHistory.length) {
     testHistoryList.innerHTML = '<div class="test-history-empty"><b>还没有历史报告</b><span>完成一次消费测试后会自动保存在这里。</span></div>';
@@ -1809,7 +1853,7 @@ function setGoalsView(view, { focus = false, updateHistory = false } = {}) {
   }
   if (focus) {
     window.requestAnimationFrame(() => {
-      document.querySelector(activeGoalsView === 'controller' ? '#goalControllerTitle' : '#goalsPanelTitle')?.focus({ preventScroll: true });
+      focusPanelEntry('goals');
     });
   }
 }
@@ -1823,10 +1867,7 @@ function switchRecoveryView(view, trigger) {
       : null;
   if (currentView === targetView) {
     setRecoveryTabState(targetView);
-    const heading = targetView === 'orders'
-      ? document.querySelector('#ordersPanelTitle')
-      : document.querySelector(targetView === 'controller' ? '#goalControllerTitle' : '#goalsPanelTitle');
-    heading?.focus({ preventScroll: true });
+    focusPanelEntry(targetView === 'orders' ? 'orders' : 'goals');
     return;
   }
 
@@ -1841,7 +1882,7 @@ function switchRecoveryView(view, trigger) {
     history.replaceState({ ...(history.state || {}), panel: 'goals', goalsView: targetView }, '', goalsHash(targetView));
     panelInner.scrollTo({ top: 0, behavior: 'auto' });
     window.requestAnimationFrame(() => {
-      document.querySelector(targetView === 'controller' ? '#goalControllerTitle' : '#goalsPanelTitle')?.focus({ preventScroll: true });
+      focusPanelEntry('goals');
     });
     return;
   }
@@ -1945,22 +1986,14 @@ function applyPanel(panel, trigger = null) {
   window.requestAnimationFrame(() => {
     if (activePanel !== panelAtSchedule) return;
     if (activePanel === 'clinic') gachaponMotion.resize();
-    const heading = activePanel === 'new' && phoneView === 'detail'
-      ? commerceDetailContent.querySelector('h3')
-      : activePanel === 'new' && phoneView === 'catalog'
-        ? commerceTitle
-        : activePanel === 'new' && phoneView === 'home'
-          ? document.querySelector('#newPanelTitle')
-          : activePanel === 'new' && phoneView === 'intro'
-            ? shoppingIntroTitle
-        : activePanel === 'clinic'
-          ? (clinicView === 'report' ? clinicReportTitle : gachaponTitle)
-          : activePanel === 'goals' && activeGoalsView === 'controller'
-            ? document.querySelector('#goalControllerTitle')
-            : document.querySelector(`.panel-view[data-panel="${activePanel}"] h2`);
-    heading?.focus({ preventScroll: true });
+    focusPanelEntry(activePanel);
   });
   return true;
+}
+
+function transitionPanelRoute(route, hash) {
+  const historyMethod = panelTransitionHistoryMethod(history.state || {});
+  history[historyMethod]({ ...route, openedByApp: true }, '', hash);
 }
 
 function openPanel(panel, trigger = null) {
@@ -1982,20 +2015,19 @@ function openPanel(panel, trigger = null) {
   if (panel !== 'new') closeOrderComposer({ restoreFocus: false });
   if (panel === 'new') showPhoneView('intro');
   if (panel === 'goals') setGoalsView(requestedGoalsView);
-  const updateHistory = activePanel ? 'replaceState' : 'pushState';
   const panelState = panel === 'new'
-    ? { panel, phoneView: 'intro', openedByApp: true }
+    ? { panel, phoneView: 'intro' }
     : panel === 'goals'
-      ? { panel, goalsView: activeGoalsView, openedByApp: true }
+      ? { panel, goalsView: activeGoalsView }
       : panel === 'clinic'
-        ? { panel, clinicView: 'start', openedByApp: true }
-      : { panel, openedByApp: true };
+        ? { panel, clinicView: 'start' }
+      : { panel };
   const panelHash = panel === 'goals'
     ? goalsHash(activeGoalsView)
     : panel === 'clinic'
       ? buildClinicHash({ clinicView: 'start' })
       : `#${panel}`;
-  history[updateHistory](panelState, '', panelHash);
+  transitionPanelRoute(panelState, panelHash);
   applyPanel(panel, trigger);
   return true;
 }
@@ -2058,6 +2090,17 @@ function currentRouteSnapshot() {
   };
 }
 
+function closeRouteOverlays() {
+  closeMallSuccess();
+  closeOrderComposer({ restoreFocus: false });
+  closePosterShare({ restoreFocus: false });
+  closeGachaponResult({ restoreFocus: false, flushPending: false });
+  if (siteConfirmDialog.open) finishSiteConfirmation(false);
+  if (roomHelpDialog.open) roomHelpDialog.close();
+  if (resetDataDialog.open) resetDataDialog.close();
+  goalDatePicker.close({ restoreFocus: false });
+}
+
 function syncRouteFromLocation(route) {
   if (!roomEntered) {
     pendingPanel = route.panel;
@@ -2065,6 +2108,7 @@ function syncRouteFromLocation(route) {
     return;
   }
 
+  closeRouteOverlays();
   if (route.activity === 'peel') {
     if (activePanel) applyPanel(null);
     if (activeActivity !== 'peel') openPeelActivity(null, { updateHistory: false });
@@ -2082,9 +2126,6 @@ function syncRouteFromLocation(route) {
   }
 
   const panelChanged = route.panel !== activePanel;
-  closeMallSuccess();
-  if (route.panel !== 'new') closeOrderComposer({ restoreFocus: false });
-
   if (route.panel === 'goals') {
     setGoalsView(route.goalsView, { focus: !panelChanged });
     history.replaceState({ ...(history.state || {}), panel: 'goals', goalsView: route.goalsView }, '', goalsHash(route.goalsView));
@@ -2462,8 +2503,8 @@ function restoreOrderComposerReturnContext(returnContext) {
 }
 
 function orderComposerFocusableElements() {
-  return [...orderComposerModal.querySelectorAll('button, input, select, summary, [tabindex]:not([tabindex="-1"])')]
-    .filter((element) => !element.disabled && !element.closest('[hidden]'));
+  return [...orderComposerModal.querySelectorAll('button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+    .filter(isAvailableFocusTarget);
 }
 
 function cancelPendingOrderComposerOpen() {
@@ -2527,10 +2568,8 @@ function closeOrderComposer({ restoreFocus = true, restoreRoute = restoreFocus, 
   if (restoreRoute) restoreOrderComposerReturnContext(returnContext);
   if (restoreFocus) {
     window.requestAnimationFrame(() => {
-      const fallbackTarget = returnContext?.route?.panel === 'orders'
-        ? document.querySelector('#ordersPanelTitle')
-        : document.querySelector('#newPanelTitle');
-      focusFirstAvailableTarget(returnTarget, fallbackTarget);
+      const fallbackPanel = returnContext?.route?.panel === 'orders' ? 'orders' : 'new';
+      focusFirstAvailableTarget(returnTarget, ...panelFocusTargets(fallbackPanel));
     });
   }
 }
@@ -4182,19 +4221,20 @@ function setMonthlyGoalPreset(rawAmount) {
   if (!amountValidation.valid) return false;
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const goalId = `goal-monthly-${monthKey}`;
+  let goalId = `goal-monthly-${monthKey}`;
   const deadline = localDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   const timestamp = now.toISOString();
   mutate((draft) => {
-    const existing = draft.goals.find((goal) => goal.id === goalId);
+    const existing = activeBudgetGoal(draft);
+    goalId = existing?.id || goalId;
     const savedGoal = normalizeBudgetGoal({
       id: goalId,
-      name: `${now.getMonth() + 1} 月消费缓冲`,
+      name: existing?.name ?? `${now.getMonth() + 1} 月消费缓冲`,
       amount: amountValidation.amount,
-      deadline,
-      noteText: '本月先冷静，再决定。',
+      deadline: existing?.deadline ?? deadline,
+      noteText: existing?.noteText ?? '本月先冷静，再决定。',
       note: existing?.note || nextGoalNote(draft.goals, 'yellow'),
-      demo: false,
+      demo: Boolean(existing?.demo),
       createdAt: existing?.createdAt || timestamp,
       updatedAt: timestamp,
     }, goalId);
@@ -4204,7 +4244,7 @@ function setMonthlyGoalPreset(rawAmount) {
   goalFormMode = 'edit';
   renderedGoalId = null;
   renderGoal();
-  showToast(`本月额度已设为 ${money(amountValidation.amount)}，进度只累计之后确认“幸好没买”的记录。`);
+  showToast(`本月额度已设为 ${money(amountValidation.amount)}，已有目标内容和确认省下进度会保留。`);
   return true;
 }
 
@@ -4648,7 +4688,7 @@ continueOrderButton.addEventListener('click', () => {
 
 viewOrdersButton.addEventListener('click', (event) => {
   closeOrderComposer({ restoreFocus: false });
-  history.replaceState({ panel: 'orders', openedByApp: true }, '', '#orders');
+  transitionPanelRoute({ panel: 'orders' }, '#orders');
   applyPanel('orders', event.currentTarget);
 });
 
@@ -4671,7 +4711,7 @@ commerceBackButton.addEventListener('click', () => {
 commerceOrdersButton.addEventListener('click', (event) => {
   closeMallSuccess();
   showPhoneView('home');
-  history.replaceState({ panel: 'orders', openedByApp: true }, '', '#orders');
+  transitionPanelRoute({ panel: 'orders' }, '#orders');
   applyPanel('orders', event.currentTarget);
 });
 
@@ -4819,6 +4859,11 @@ categoryCarousel?.addEventListener('pointercancel', () => {
 
 renderCategoryCarousel();
 activateCategoryShortcut(categoryCards[activeCategoryCardIndex], { revealForm: false, moveToForm: false });
+
+clinicHistoryButton?.addEventListener('click', () => {
+  if (!clinicHistoryButton.dataset.historyId) return;
+  restoreTestHistoryResult(clinicHistoryButton.dataset.historyId);
+});
 
 testHistoryList?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-history-id]');
@@ -5093,8 +5138,14 @@ sceneFrame.addEventListener('panoramaerror', (event) => {
   sceneStatus.textContent = event.detail;
 });
 
-window.addEventListener('popstate', (event) => routeSyncCoordinator.request(event.state || {}));
-window.addEventListener('hashchange', () => routeSyncCoordinator.request(history.state || {}));
+window.addEventListener('popstate', (event) => {
+  closeRouteOverlays();
+  routeSyncCoordinator.request(event.state || {});
+});
+window.addEventListener('hashchange', () => {
+  closeRouteOverlays();
+  routeSyncCoordinator.request(history.state || {});
+});
 
 window.addEventListener('beforeunload', () => {
   if (posterUrl) URL.revokeObjectURL(posterUrl);

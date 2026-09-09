@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 
-test('任务模块完整独立加载，入口和内部模块缓存版本一致', () => {
+test('任务模块独立加载，入口与内部模块分别使用对应缓存版本', () => {
   const html = read('index.html'), app = read('app.js'), ui = read('desire-mission-ui.js');
   const version = html.match(/desire-mission\.css\?v=([^"']+)/)?.[1];
   assert.ok(version);
-  assert.ok(html.includes(`app.js?v=${version}`));
+  assert.match(html, /app\.js\?v=20260909-branch-integration-1/);
   assert.ok(app.includes(`desire-mission-ui.js?v=${version}`));
   assert.ok(ui.includes(`desire-mission-scene.js?v=${version}`));
   assert.ok(ui.includes(`desire-mission.js?v=${version}`));

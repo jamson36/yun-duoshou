@@ -134,6 +134,10 @@ export class GoalDatePicker {
       if (!this.isOpen || this.root.contains(event.target) || this.popover.contains(event.target)) return;
       this.close({ restoreFocus: false });
     });
+    document.addEventListener('focusin', (event) => {
+      if (!this.isOpen || this.root.contains(event.target) || this.popover.contains(event.target)) return;
+      this.close({ restoreFocus: false });
+    });
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || !this.isOpen) return;
       event.preventDefault();
@@ -204,9 +208,8 @@ export class GoalDatePicker {
     this.render();
     this.positionPopover();
     window.requestAnimationFrame(() => {
-      const preferred = this.input.value || toIsoDate(new Date());
-      const focusTarget = this.grid.querySelector(`[data-date="${preferred}"]`)
-        || this.grid.querySelector('[data-current-month]');
+      if (!this.isOpen) return;
+      const focusTarget = this.grid.querySelector('[tabindex="0"]:not(:disabled)');
       focusTarget?.focus({ preventScroll: true });
     });
   }

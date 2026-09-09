@@ -91,7 +91,7 @@ export function renderActivityHotspotMarkup(hotspot) {
 export function projectedHotspotFitsViewport(point, frame, hotspot) {
   if (!point?.visible) return false;
   const asset = hotspot?.kind === 'feature' ? normalizeHotspotAsset(hotspot.asset) : null;
-  if (!asset) return true;
+  if (!asset) return point.x >= 0 && point.x <= frame.width && point.y >= 0 && point.y <= frame.height;
 
   // Feature labels are centered on their authored point. Keep the complete
   // label inside the stage instead of exposing a clipped half-label at the
@@ -610,7 +610,7 @@ export class PanoramaRoom {
     this.stage.setAttribute?.(
       'aria-label',
       this.reducedMotion
-        ? '钱包全景房间。已减少动态，请使用下方三个文字入口。'
+        ? '钱包全景房间。已减少动态，请使用房间顶部的三个功能入口。'
         : this.stageInteractionLabel,
     );
     if (!this.reducedMotion) return;
