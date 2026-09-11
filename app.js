@@ -5170,7 +5170,9 @@ try {
 } catch {
 }
 if (returnToRoomOnLoad) history.replaceState({ panel: null, openedByApp: false }, '', '#room');
-const initialRoute = routeSnapshot(history.state || {});
+// A fresh visit always lands in the room; activities open only after the user
+// activates their room hotspot, even when an old activity URL is still present.
+const initialRoute = { ...routeSnapshot(history.state || {}), activity: null };
 const initialPanel = initialRoute.panel;
 const initialActivity = initialRoute.activity;
 const initialGoalsView = initialRoute.goalsView;
