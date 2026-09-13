@@ -12,106 +12,106 @@ const card = ({ id, sourceName, displayName = sourceName, art, gradient, accent,
 });
 
 // These names and art slots mirror the twenty large/small persona pairs in Figma.
-// `sourceName` is kept for traceability; `displayName` is the product-safe label.
+// `sourceName` and `displayName` follow the user-approved Figma names.
 export const FIGMA_PERSONA_CARDS = Object.freeze({
   buy_crazy: card({
-    id: 'buy_crazy', sourceName: '买买买狂人', displayName: '心动采购官',
-    art: 'persona-figma-buy-crazy.png', gradient: ['#fff8dc', '#ffd7aa'], accent: '#f47b39',
+    id: 'buy_crazy', sourceName: '买买买狂人',
+    art: 'persona-figma-buy-crazy.png', gradient: ['#fffdf8', '#ffd7d7'], accent: '#2f7fc4',
     quote: '心动来得快，也值得给决定留一小段缓冲。', tags: ['心动雷达', '先记后买'],
   }),
   cart_stayer: card({
     id: 'cart_stayer', sourceName: '购物车钉子户',
-    art: 'persona-figma-cart-stayer.png', gradient: ['#f5f2ff', '#dcd8ff'], accent: '#6f67c8',
+    art: 'persona-figma-cart-stayer.png', gradient: ['#fffdf8', '#d7f0ff'], accent: '#2f7fc4',
     quote: '购物车不是终点，是你认真比较的候车厅。', tags: ['延迟决定', '认真比较'],
   }),
   refined_player: card({
-    id: 'refined_player', sourceName: '精致穷玩家', displayName: '精致生活玩家',
-    art: 'persona-figma-refined-player.png', gradient: ['#fff0f5', '#f4cfdd'], accent: '#b9587b',
+    id: 'refined_player', sourceName: '精致穷玩家',
+    art: 'persona-figma-refined-player.png', gradient: ['#fffdf8', '#e8ffd7'], accent: '#2f7fc4',
     quote: '喜欢的不只是一件东西，也是它表达的生活态度。', tags: ['风格表达', '价值共鸣'],
   }),
   atmosphere: card({
     id: 'atmosphere', sourceName: '氛围感收割机',
-    art: 'persona-figma-atmosphere.png', gradient: ['#fff5e8', '#f5d9c1'], accent: '#cc755d',
+    art: 'persona-figma-atmosphere.png', gradient: ['#fffdf8', '#d7ffe8'], accent: '#2f7fc4',
     quote: '你会为舒适和氛围买单，也愿意照顾当下感受。', tags: ['氛围体验', '情绪疗愈'],
   }),
   night_shopper: card({
-    id: 'night_shopper', sourceName: '深夜剁手怪', displayName: '夜间心动客',
-    art: 'persona-figma-night-shopper.png', gradient: ['#edf0ff', '#bdc7ef'], accent: '#596ab1',
+    id: 'night_shopper', sourceName: '深夜剁手怪',
+    art: 'persona-figma-night-shopper.png', gradient: ['#fffdf8', '#d7eeff'], accent: '#2f7fc4',
     quote: '夜深时的心动更响亮，醒来后再听一次也不迟。', tags: ['夜间心动', '隔夜确认'],
   }),
   reward_spender: card({
     id: 'reward_spender', sourceName: '奖励性消费家',
-    art: 'persona-figma-reward-spender.png', gradient: ['#fff4df', '#f6cf9b'], accent: '#d88430',
+    art: 'persona-figma-reward-spender.png', gradient: ['#fffdf8', '#e5d7ff'], accent: '#2f7fc4',
     quote: '你会用一份小礼物回应辛苦，也在寻找更合适的奖励。', tags: ['自我奖励', '温柔缓冲'],
   }),
   stockpiler: card({
     id: 'stockpiler', sourceName: '囤货型选手',
-    art: 'persona-figma-stockpiler.png', gradient: ['#eef7e6', '#c8ddb0'], accent: '#6f8d4f',
+    art: 'persona-figma-stockpiler.png', gradient: ['#fffdf8', '#d7ffff'], accent: '#2f7fc4',
     quote: '多一份备用会更安心，盘点存量能让安心更踏实。', tags: ['备用偏好', '先看库存'],
   }),
   joy_wholesaler: card({
-    id: 'joy_wholesaler', sourceName: '成年人快乐批发商', displayName: '快乐批发商',
-    art: 'persona-figma-joy-wholesaler.png', gradient: ['#fff3d9', '#ffd398'], accent: '#e47d2c',
+    id: 'joy_wholesaler', sourceName: '成年人快乐批发商',
+    art: 'persona-figma-joy-wholesaler.png', gradient: ['#fffdf8', '#ffe0f7'], accent: '#2f7fc4',
     quote: '快乐和参与感都很重要，你在为体验留下位置。', tags: ['快乐体验', '共同参与'],
   }),
   food_delivery: card({
     id: 'food_delivery', sourceName: '快乐外卖党',
-    art: 'persona-figma-food-delivery.png', gradient: ['#fff7d5', '#f2d68b'], accent: '#c98524',
+    art: 'persona-figma-food-delivery.png', gradient: ['#fffdf8', '#fff7d7'], accent: '#2f7fc4',
     quote: '一顿省心的满足很真实，先分清饿了还是想被安慰。', tags: ['即时满足', '味蕾疗愈'],
   }),
   flip_flop: card({
     id: 'flip_flop', sourceName: '翻脸横跳派',
-    art: 'persona-figma-flip-flop.png', gradient: ['#eef7ff', '#c8ddea'], accent: '#4d8098',
+    art: 'persona-figma-flip-flop.png', gradient: ['#fffdf8', '#ffe6d7'], accent: '#2f7fc4',
     quote: '改变决定并不丢脸，它说明你在用新信息重新判断。', tags: ['动态决策', '允许纠正'],
   }),
   milk_tea: card({
     id: 'milk_tea', sourceName: '奶茶续命人',
-    art: 'persona-figma-milk-tea.png', gradient: ['#fff1e6', '#e8c4ab'], accent: '#a96647',
+    art: 'persona-figma-milk-tea.png', gradient: ['#fffdf8', '#ffedd7'], accent: '#2f7fc4',
     quote: '一杯小快乐很具体，十分钟缓冲也能保留这份快乐。', tags: ['嘴馋时刻', '十分钟缓冲'],
   }),
   limited_deal: card({
     id: 'limited_deal', sourceName: '限时优惠上头客',
-    art: 'persona-figma-limited-deal.png', gradient: ['#fff2d4', '#ffc984'], accent: '#e56c2f',
+    art: 'persona-figma-limited-deal.png', gradient: ['#fffdf8', '#ffd1d1'], accent: '#2f7fc4',
     quote: '限时的是优惠，不是你的决定时间。', tags: ['优惠雷达', '拆解规则'],
   }),
   impulse_hunter: card({
     id: 'impulse_hunter', sourceName: '冲动型猎人',
-    art: 'persona-figma-impulse-hunter.png', gradient: ['#fff0e6', '#f5bda2'], accent: '#d65b3d',
+    art: 'persona-figma-impulse-hunter.png', gradient: ['#fffdf8', '#ffe4d7'], accent: '#2f7fc4',
     quote: '种草信号来得敏锐，留一步查证会让选择更像你。', tags: ['种草敏锐', '先查再定'],
   }),
   wallet_drifter: card({
-    id: 'wallet_drifter', sourceName: '钱包摆烂侠', displayName: '钱包随心侠',
-    art: 'persona-figma-wallet-drifter.png', gradient: ['#f3f1ff', '#d8d1ed'], accent: '#7568a6',
+    id: 'wallet_drifter', sourceName: '钱包摆烂侠',
+    art: 'persona-figma-wallet-drifter.png', gradient: ['#fffdf8', '#ffd7e6'], accent: '#2f7fc4',
     quote: '现在还没有一种模式占上风，继续观察就会更清楚。', tags: ['证据形成中', '保持观察'],
   }),
   price_lover: card({
     id: 'price_lover', sourceName: '价格真香党',
-    art: 'persona-figma-price-lover.png', gradient: ['#eff9e9', '#cde4bc'], accent: '#608c4a',
+    art: 'persona-figma-price-lover.png', gradient: ['#fffdf8', '#fcd8ff'], accent: '#2f7fc4',
     quote: '你擅长看懂价格差，也会为“真的需要”再验一次。', tags: ['价格敏感', '理性拆解'],
   }),
   rollercoaster: card({
     id: 'rollercoaster', sourceName: '钱包过山车玩家',
-    art: 'persona-figma-rollercoaster.png', gradient: ['#edf7ff', '#bedbec'], accent: '#3c82a6',
+    art: 'persona-figma-rollercoaster.png', gradient: ['#fffdf8', '#fffac3'], accent: '#2f7fc4',
     quote: '不同场景会唤起不同策略，这也是你真实的消费节奏。', tags: ['策略切换', '平衡观察'],
   }),
   hobby: card({
-    id: 'hobby', sourceName: '兴趣氪金怪', displayName: '兴趣投入家',
-    art: 'persona-figma-hobby.png', gradient: ['#f3efff', '#d5c4ef'], accent: '#7557a8',
+    id: 'hobby', sourceName: '兴趣氪金怪',
+    art: 'persona-figma-hobby.png', gradient: ['#fffdf8', '#d7dcff'], accent: '#2f7fc4',
     quote: '你愿意为技能与作品投入，明确下一次使用会更踏实。', tags: ['兴趣投入', '目标驱动'],
   }),
   saving_dreamer: card({
     id: 'saving_dreamer', sourceName: '省钱幻想家',
-    art: 'persona-figma-saving-dreamer.png', gradient: ['#edf8ef', '#c1dfc5'], accent: '#4f8b60',
+    art: 'persona-figma-saving-dreamer.png', gradient: ['#fffdf8', '#d7eeff'], accent: '#2f7fc4',
     quote: '你在练习把心动放一晚，让省下逐渐变成可见结果。', tags: ['自主判断', '延迟满足'],
   }),
   small_spend: card({
     id: 'small_spend', sourceName: '小额无感王',
-    art: 'persona-figma-small-spend.png', gradient: ['#fff6de', '#ead8a1'], accent: '#9a7a2f',
+    art: 'persona-figma-small-spend.png', gradient: ['#fffdf8', '#d7eeff'], accent: '#2f7fc4',
     quote: '小额也值得被看见，记录会帮你找回每一次决定感。', tags: ['小额观察', '积少成像'],
   }),
   rational_survivor: card({
-    id: 'rational_survivor', sourceName: '理智幸存者', displayName: '冷静幸存者',
-    art: 'persona-figma-rational-survivor.png', gradient: ['#ecf8f3', '#bcdccd'], accent: '#3d8167',
+    id: 'rational_survivor', sourceName: '理智幸存者',
+    art: 'persona-figma-rational-survivor.png', gradient: ['#fffdf8', '#d7eeff'], accent: '#2f7fc4',
     quote: '你常给欲望留出时间，也能主动放下一部分购买。', tags: ['冷静决定', '主动放下'],
   }),
 });

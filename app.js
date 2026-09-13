@@ -5,8 +5,8 @@ import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonali
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260913-live-phone-1';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
-import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
-import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260831-figma-card-2';
+import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260913-clinic-report-1';
+import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from './share-poster.js?v=20260913-clinic-report-1';
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, panelTransitionHistoryMethod, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260904-interaction-flow-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
@@ -364,6 +364,7 @@ const posterReturnButton = document.querySelector('#posterReturnButton');
 const posterPreview = document.querySelector('#posterPreview');
 const posterShareStatus = document.querySelector('#posterShareStatus');
 const downloadPosterButton = document.querySelector('#downloadPosterButton');
+const clinicConsentDialog = document.querySelector('#clinicConsentDialog');
 const aiConsentPanel = document.querySelector('#aiConsentPanel');
 const aiConsentSummary = document.querySelector('#aiConsentSummary');
 const aiConsentCheckbox = document.querySelector('#aiConsentCheckbox');
@@ -2952,11 +2953,12 @@ function renderPersonalityProfile(assessment) {
         <div class="report-persona-fun">规则人格底座 · ${escapeHtml(persona.name)}</div>
         <h3>${escapeHtml(card.displayName)}</h3>
         <div class="report-persona-progress">
-          <span>消费指数</span>
-          <i role="meter" aria-label="消费指数" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${presentationConfidence}"><b style="--report-progress:${presentationConfidence}%"></b></i>
+          <span>证据可信度</span>
+          <i role="meter" aria-label="证据可信度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${presentationConfidence}"><b style="--report-progress:${presentationConfidence}%"></b></i>
           <strong>${presentationConfidence}%</strong>
         </div>
-        <p>${escapeHtml(presentationRationale)}</p>
+        <p class="report-persona-quote">${escapeHtml(presentationRationale)}</p>
+        <p class="report-data-evidence">${escapeHtml(assessment.evidence[0]?.statement || persona.rationale)} · ${assessment.orderCount} 笔记录</p>
         <div class="report-persona-tags">${card.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
         <div class="report-hero-metrics">
           <span><b>${persona.fitScore}</b><small>规则人格匹配度</small></span>
@@ -4584,7 +4586,7 @@ panelClose.addEventListener('click', () => {
 
 document.addEventListener('keydown', (event) => {
   if (trapOpenDialogFocus(event)) return;
-  if (siteConfirmDialog.open) return;
+  if (clinicConsentDialog.open || siteConfirmDialog.open) return;
   if (gachaponResultModal.open && event.key === 'Escape') {
     event.preventDefault();
     event.stopPropagation();
@@ -4837,7 +4839,10 @@ activateCategoryShortcut(categoryCards[activeCategoryCardIndex], { revealForm: f
 
 clinicHistoryButton?.addEventListener('click', () => {
   if (!clinicHistoryButton.dataset.historyId) return;
-  restoreTestHistoryResult(clinicHistoryButton.dataset.historyId);
+  const section = document.querySelector('#clinicHistorySection');
+  section.hidden = !section.hidden;
+  clinicHistoryButton.setAttribute('aria-expanded', String(!section.hidden));
+  if (!section.hidden) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 testHistoryList?.addEventListener('click', (event) => {
@@ -4967,14 +4972,27 @@ orderForm.querySelectorAll('input[name="decisionSignals"]').forEach((checkbox) =
   });
 });
 
-analyzeButton.addEventListener('click', startAiDiagnosis);
+analyzeButton.addEventListener('click', () => {
+  if (!aiConsentIsCurrent() && currentAssessment?.eligible) {
+    renderConsentSummary(currentAssessment);
+    aiConsentPanel.hidden = false;
+    clinicConsentDialog.showModal();
+    return;
+  }
+  startAiDiagnosis();
+});
+document.querySelector('#confirmClinicConsentButton').addEventListener('click', () => {
+  clinicConsentDialog.close();
+  startAiDiagnosis();
+});
 aiConsentCheckbox.addEventListener('change', () => {
   if (aiConsentMessage) aiConsentMessage.textContent = '';
 });
 localOnlyButton.addEventListener('click', () => {
   aiConsentCheckbox.checked = false;
   if (aiConsentMessage) aiConsentMessage.textContent = '';
-  startLocalGachaponReveal(localOnlyButton);
+  clinicConsentDialog.close();
+  startLocalGachaponReveal(analyzeButton);
 });
 revokeAiConsentButton.addEventListener('click', () => {
   cancelAiRequest('consent-revoked');
@@ -5020,9 +5038,7 @@ gachaponResultRetryButton.addEventListener('click', () => {
 });
 gachaponResultOpenButton.addEventListener('click', () => {
   closeGachaponResult({ restoreFocus: false });
-  restoredTestHistory = null;
-  pushClinicView('report', { apply: false });
-  setClinicView('report', { focus: true });
+  if (testHistory[0]) restoreTestHistoryResult(testHistory[0].id);
 });
 clinicReportBackButton.addEventListener('click', () => {
   if (!navigateBackWithinClinic()) setClinicView('start', { focus: true });

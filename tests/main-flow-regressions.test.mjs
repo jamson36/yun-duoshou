@@ -25,7 +25,7 @@ test('商品详情不会让手机底部页签覆盖双操作按钮', () => {
   );
 });
 
-test('测试首页提供过往报告入口，并打开最近一份可恢复报告', () => {
+test('测试首页提供过往报告入口，并展开扭蛋机下方记录', () => {
   assert.match(html, /id="clinicHistoryButton"[^>]*hidden[^>]*>[\s\S]*?id="clinicHistoryCount"/);
   assert.match(css, /\.clinic-history-button\s*\{[\s\S]*?order:\s*5;/);
   const renderSource = sourceBetween('function renderTestHistory', 'function showToast');
@@ -37,7 +37,7 @@ test('测试首页提供过往报告入口，并打开最近一份可恢复报�
     "clinicHistoryButton?.addEventListener('click'",
     "testHistoryList?.addEventListener('click'",
   );
-  assert.match(listenerSource, /restoreTestHistoryResult\(clinicHistoryButton\.dataset\.historyId\)/);
+  assert.match(listenerSource, /section\.hidden = !section\.hidden/);
 });
 
 test('面板进入焦点会跳过桌面端隐藏标题并落到可见内容', () => {

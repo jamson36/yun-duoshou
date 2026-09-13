@@ -216,25 +216,14 @@ test('业务页返回入口共用 Figma 左箭头语言，消费目标双列控�
   assert.match(polishCss, /\.panel-view\[data-panel="goals"\] \.goal-current-saved,[\s\S]*?height:\s*48px;[\s\S]*?min-height:\s*48px;/);
 });
 
-test('人格授权是扭蛋主界面内联勾选，不再切到覆盖式确认弹层', () => {
-  const stageStart = html.indexOf('class="gachapon-stage"');
+test('测试授权移入独立弹窗，首页保留测试与历史入口', () => {
+  const dialogIndex = html.indexOf('id="clinicConsentDialog"');
   const consentIndex = html.indexOf('id="aiConsentPanel"');
-  const checkboxIndex = html.indexOf('id="aiConsentCheckbox"');
-  const analyzeIndex = html.indexOf('id="analyzeButton"');
-  const contentIndex = html.indexOf('class="ai-card-content');
-  assert.ok(stageStart >= 0, '应保留人格扭蛋主区域');
-  assert.ok(consentIndex > stageStart && consentIndex < contentIndex, '授权条应位于 gachapon-stage，而不是结果内容层');
-  assert.ok(checkboxIndex > consentIndex && checkboxIndex < analyzeIndex, '显式授权勾选应在主抽取按钮之前');
-  const checkboxTag = html.slice(html.lastIndexOf('<input', checkboxIndex), html.indexOf('>', checkboxIndex) + 1);
-  assert.match(checkboxTag, /type="checkbox"/);
-  assert.doesNotMatch(html, /id="allowAiButton"/);
-  assert.doesNotMatch(appSource, /status:\s*['"]consent['"]|machineState\s*=\s*['"]confirm['"]/);
-  assert.doesNotMatch(css, /data-gachapon-state="confirm"/);
-  assert.doesNotMatch(
-    css,
-    /\.panel-view\[data-panel="clinic"\]\[data-clinic-view="start"\] \.ai-consent-inline\s*\{[^}]*display:\s*none\s*!important/,
-    '首次授权入口不能被开始页样式强制隐藏',
-  );
+  assert.ok(dialogIndex < consentIndex);
+  assert.ok(html.indexOf('id="analyzeButton"') < dialogIndex);
+  assert.ok(html.indexOf('id="clinicHistorySection"') < html.indexOf('id="clinicReportView"'));
+  assert.match(html, /id="confirmClinicConsentButton"/);
+  assert.match(appSource, /clinicConsentDialog\.showModal\(\)/);
 });
 
 test('实际位于 aiCard 外的人格报告使用 Figma 奶油卡而非旧黑边视觉', () => {

@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260913-live-phone-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260913-clinic-report-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260909-slice-2" />
-  <script type="module" src="./app.js?v=20260913-live-phone-1-room-first"></script>
+  <script type="module" src="./app.js?v=20260913-clinic-report-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -559,6 +559,25 @@
                       <span class="gachapon-token is-game"><img src="./assets/gachapon-ball-game.png" alt="" decoding="async" draggable="false" /></span>
                       <span class="gachapon-prize" id="gachaponPrize"><b>?</b><small>等待抽取</small></span>
                     </div>
+                    <button class="primary-action gachapon-action" id="analyzeButton" type="button"><span>开始测试</span><b>＋</b></button>
+                    <button class="clinic-history-button" id="clinicHistoryButton" type="button" hidden><span>查看过往报告</span><b id="clinicHistoryCount">0 份</b></button>
+                    <button class="ai-revoke" id="revokeAiConsentButton" type="button" hidden>撤回数据发送同意</button>
+                    <p class="gachapon-caption">只分析近期虚拟消费记录，不涉及真实支付。</p>
+                  </section>
+                  <div class="ai-card-content clinic-analysis-status">
+                    <div id="aiResult"><p>本地规则会先形成底座；授权后将用匿名聚合摘要综合推演趣味人格和行动建议。</p></div>
+                  </div>
+                </div>
+                <p class="form-note">五维分数和规则人格由本地计算；复诊根据聚合证据推演趣味人格，再由本地门槛综合判断。结果是近期行为观察，不是心理、医疗或财务诊断。</p>
+              </div>
+              <section class="test-history" id="clinicHistorySection" hidden aria-labelledby="testHistoryTitle">
+                <div class="report-section-heading"><div><small>PAST TESTS</small><h3 id="testHistoryTitle">过往测试记录</h3></div><span>保存在当前浏览器</span></div>
+                <div class="test-history-list" id="testHistoryList"></div>
+              </section>
+            </div>
+
+            <dialog class="clinic-consent-dialog" id="clinicConsentDialog" aria-label="选择测试方式">
+              <form method="dialog"><button class="modal-close" aria-label="关闭测试方式选择"></button></form>
                     <section class="ai-consent ai-consent-inline" id="aiConsentPanel" hidden aria-labelledby="aiConsentTitle">
                       <label class="consent-check" for="aiConsentCheckbox">
                         <input id="aiConsentCheckbox" type="checkbox" aria-describedby="aiConsentTitle aiConsentMessage" />
@@ -574,18 +593,8 @@
                         <p id="aiConsentMessage" role="status" aria-live="polite"></p>
                       </div>
                     </section>
-                    <button class="primary-action gachapon-action" id="analyzeButton" type="button"><span>开始测试</span><b>＋</b></button>
-                    <button class="clinic-history-button" id="clinicHistoryButton" type="button" hidden><span>查看过往报告</span><b id="clinicHistoryCount">0 份</b></button>
-                    <button class="ai-revoke" id="revokeAiConsentButton" type="button" hidden>撤回数据发送同意</button>
-                    <p class="gachapon-caption">只分析近期虚拟消费记录，不涉及真实支付。</p>
-                  </section>
-                  <div class="ai-card-content clinic-analysis-status">
-                    <div id="aiResult"><p>本地规则会先形成底座；授权后将用匿名聚合摘要综合推演趣味人格和行动建议。</p></div>
-                  </div>
-                </div>
-                <p class="form-note">五维分数和规则人格由本地计算；复诊根据聚合证据推演趣味人格，再由本地门槛综合判断。结果是近期行为观察，不是心理、医疗或财务诊断。</p>
-              </div>
-            </div>
+              <button class="primary-action" id="confirmClinicConsentButton" type="button">继续测试</button>
+            </dialog>
 
             <div class="clinic-report-view" id="clinicReportView" hidden>
               <header class="clinic-report-header">
@@ -601,10 +610,6 @@
               </div>
               <div class="clinic-ledger" id="clinicLedger"></div>
               <section class="personality-profile" id="personalityProfile" tabindex="-1"></section>
-              <section class="test-history" aria-labelledby="testHistoryTitle">
-                <div class="report-section-heading"><div><small>PAST TESTS</small><h3 id="testHistoryTitle">过往测试记录</h3></div><span>保存在当前浏览器</span></div>
-                <div class="test-history-list" id="testHistoryList"></div>
-              </section>
               <div class="clinic-report-actions">
                 <button class="poster-action" id="posterButton" type="button" disabled>分享报告</button>
               </div>

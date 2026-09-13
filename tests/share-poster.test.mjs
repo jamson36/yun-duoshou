@@ -93,19 +93,11 @@ test('20 套 Figma 人格插图均为可用于高清卡面和海报的 4x PNG', 
   });
 });
 
-test('带身份或羞辱风险的 Figma 原名只用于追溯，展示名已经安全改写', () => {
-  const expected = {
-    buy_crazy: ['买买买狂人', '心动采购官'],
-    refined_player: ['精致穷玩家', '精致生活玩家'],
-    joy_wholesaler: ['成年人快乐批发商', '快乐批发商'],
-    wallet_drifter: ['钱包摆烂侠', '钱包随心侠'],
-    night_shopper: ['深夜剁手怪', '夜间心动客'],
-    hobby: ['兴趣氪金怪', '兴趣投入家'],
-    rational_survivor: ['理智幸存者', '冷静幸存者'],
-  };
-  Object.entries(expected).forEach(([id, [sourceName, displayName]]) => {
-    assert.equal(FIGMA_PERSONA_CARDS[id].sourceName, sourceName);
-    assert.equal(FIGMA_PERSONA_CARDS[id].displayName, displayName);
+test('20种卡片使用用户指定的 Figma 原名和蓝色标题', () => {
+  assert.equal(Object.keys(FIGMA_PERSONA_CARDS).length, 20);
+  Object.values(FIGMA_PERSONA_CARDS).forEach((card) => {
+    assert.equal(card.displayName, card.sourceName);
+    assert.equal(card.accent, '#2f7fc4');
   });
 });
 

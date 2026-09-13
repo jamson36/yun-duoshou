@@ -762,7 +762,7 @@ test('人格抽取首次点击由主按钮读取内联勾选，不进入二次�
   assert.match(source, /requestAiDiagnosis\(\)/);
   assert.doesNotMatch(source, /status:\s*['"]consent['"]/);
   assert.doesNotMatch(source, /querySelector\(['"]#aiConsentTitle['"]\)/);
-  assert.match(appSource, /analyzeButton\.addEventListener\('click', startAiDiagnosis\)/);
+  assert.match(appSource, /clinicConsentDialog\.showModal\(\)/);
 });
 
 test('未勾选主按钮直接走本地测试且不请求，勾选后同一次点击授权并请求', () => {
@@ -1556,7 +1556,7 @@ test('打开人格报告会从结果弹窗切到可滚动报告，并可返回�
 
   assert.ok(openStart >= 0 && openEnd > openStart, '应保留结果弹窗的打开报告操作');
   assert.match(openSource, /closeGachaponResult\(\{\s*restoreFocus:\s*false\s*\}\)/);
-  assert.match(openSource, /setClinicView\('report',[\s\S]*?focus:\s*true/);
+  assert.match(openSource, /restoreTestHistoryResult\(testHistory\[0\]\.id\)/);
   assert.doesNotMatch(openSource, /scrollIntoView\(/, '打开报告应切换视图，不是在扭蛋首页向下找旧报告');
 
   assert.ok(backStart >= 0, '报告页应提供返回扭蛋机操作');

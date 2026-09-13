@@ -12904,3 +12904,60 @@ body.reduce-motion :is(
 .app[data-focus="new"][data-phone-view="detail"] .commerce-header { flex: none; }
 .app[data-focus="new"][data-phone-view="detail"] #commerceDetailView { flex: 1; min-height: 0; overflow-y: auto; }
 .app[data-focus="new"][data-phone-view="detail"] .commerce-detail-actions { margin-top: 0; padding-bottom: 24px; }
+
+/* Figma 235:212 / 235:215: report and complete persona share cards. */
+.clinic-consent-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 30px 24px 24px; border: 0; border-radius: 28px; background: #fffdf8; color: #332711; overflow-y: auto; }
+.clinic-consent-dialog::backdrop { background: #44332288; backdrop-filter: blur(5px); }
+.clinic-consent-dialog > form { position: absolute; top: 12px; right: 12px; }
+.clinic-consent-dialog .ai-consent { width: 100%; margin: 18px 0; padding: 18px; }
+.clinic-consent-dialog > .primary-action { width: 100%; border: 0; border-radius: 18px; background: linear-gradient(100deg, #ffc928, #ff9d3d); color: #4a3500; }
+#clinicHistorySection { width: min(100%, 900px); margin: 24px auto; }
+#clinicHistorySection[hidden] { display: none; }
+#clinicReportView { width: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 32px 40px; }
+.clinic-report-view .clinic-report-header { margin-bottom: 18px; }
+.clinic-report-view .clinic-period-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; color: #999; font-size: 12px; }
+.clinic-report-view .period-switch { border: 0; gap: 4px; background: #f5f2eb; border-radius: 24px; padding: 4px; }
+.clinic-report-view .period-switch button { min-height: 36px; border: 0; border-radius: 20px; padding: 8px 16px; font-size: 12px; }
+.clinic-report-view .period-switch button.is-active { color: #4a3500; background: #ffe3a1; }
+.panel-view[data-panel="clinic"] .clinic-report-view #personalityProfile .report-hero { grid-template-columns: minmax(0, 1.55fr) minmax(180px, 1fr); min-height: 300px; padding: 30px 40px; border-radius: 30px; background: linear-gradient(120deg, #fff, var(--persona-end)); box-shadow: 0 8px 22px #ab86451a; }
+.clinic-report-view .report-hero-copy h3 { color: #e85a2b; font-size: clamp(32px, 3.5vw, 52px); line-height: 1.2; letter-spacing: -.03em; }
+.clinic-report-view .report-hero-art { min-height: 220px; }
+.clinic-report-view .report-hero-art img { width: 230px; height: 230px; object-fit: contain; }
+.clinic-report-view .report-hero-copy .report-persona-quote { color: #171717; font-size: 16px; font-weight: 800; }
+.clinic-report-view .report-hero-copy .report-data-evidence { color: #777; font-size: 12px; }
+.clinic-report-view .report-summary-grid { grid-template-columns: 0.95fr 1.05fr; gap: 20px; }
+.clinic-report-view :is(.report-total-card, .report-atlas-card, .report-impulses, .report-advice) { padding: 28px; border: 0; border-radius: 28px; box-shadow: 0 8px 18px #69521b1c; }
+.clinic-report-view .report-total-card > strong { font-size: 56px; }
+.clinic-report-view .report-section-heading small { display: none; }
+.clinic-report-view .report-section-heading h4 { font-size: 20px; }
+.clinic-report-view .report-atlas-grid > div { grid-template-columns: 1fr auto; min-height: 140px; padding: 16px; }
+.clinic-report-view .report-atlas-grid > div > i { grid-column: 1; }
+.clinic-report-view .report-atlas-grid > div > span { grid-column: 1 / -1; }
+.clinic-report-view .report-atlas-grid > div > strong { grid-column: 2; grid-row: 1; font-size: 14px; }
+.clinic-report-view .report-atlas-grid small { font-size: 12px; }
+.clinic-report-view .report-atlas-grid em { display: block; height: 7px; margin-top: 10px; border-radius: 10px; background: #ffffff88; overflow: hidden; }
+.clinic-report-view .report-atlas-grid em b { display: block; width: var(--atlas-value); height: 100%; background: #ef643a; }
+.clinic-report-view .report-atlas-grid > div:nth-child(2) em b { background: #b58100; }
+.clinic-report-view .report-atlas-grid > div:nth-child(3) em b { background: #2f7fc4; }
+.clinic-report-view .report-atlas-grid > div:nth-child(4) em b { background: #7a60cc; }
+.clinic-report-view .report-product-media { height: 190px; }
+.clinic-report-view .report-product-rank { width: 32px; height: 32px; }
+.clinic-report-view .report-advice article { min-height: 0; padding: 18px; border-radius: 18px; background: #ffffffb3; }
+.clinic-report-view .report-advice h5 { font-size: 14px; }
+.clinic-report-view .report-advice p { font-size: 12px; line-height: 1.65; }
+#gachaponResultTitle { color: #2f7fc4; }
+.poster-share { --poster-card-width: min(380px, calc((100dvh - 106px) * 1080 / 1538)); }
+.poster-share .poster-figma-card, .poster-share .poster-share-actions { flex-shrink: 0; }
+@media (max-width: 820px) {
+  #clinicReportView { padding: 12px 0 30px; }
+  .panel-view[data-panel="clinic"] .clinic-report-view #personalityProfile .report-hero { grid-template-columns: 1fr; min-height: 0; padding: 24px; }
+  .clinic-report-view .report-hero-art { min-height: 170px; }
+  .clinic-report-view .report-hero-art img { width: 170px; height: 170px; }
+  .clinic-report-view .report-hero-copy h3 { font-size: 34px; }
+  .clinic-report-view .report-summary-grid { grid-template-columns: 1fr; }
+  .clinic-report-view .report-atlas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clinic-report-view :is(.report-total-card, .report-atlas-card, .report-impulses, .report-advice) { padding: 20px; }
+  .clinic-report-view .report-impulses ol, .clinic-report-view .report-advice > div:last-child { grid-template-columns: 1fr; }
+}
+
+.clinic-report-view .report-hero-art i { display: none; }

@@ -3,7 +3,7 @@ import {
   FIGMA_PERSONA_CARDS,
   getAllowedPersonaCardIds,
   resolvePersonaPresentation,
-} from './persona-presentations.js?v=20260830-persona-hybrid-3';
+} from './persona-presentations.js?v=20260913-clinic-report-1';
 
 const POSTER_WIDTH = 1080;
 const POSTER_HEIGHT = 1538;
@@ -377,14 +377,13 @@ export async function renderSharePoster(model, { mascotUrl = './assets/raccoon-g
   canvas.height = POSTER_HEIGHT;
   const context = canvas.getContext('2d');
 
-  const accent = model?.visualTheme?.accent || '#f47b39';
+  const accent = '#2f7fc4';
   context.fillStyle = '#f2f1ee';
   context.fillRect(0, 0, POSTER_WIDTH, POSTER_HEIGHT);
 
   const cardGradient = context.createLinearGradient(26, 26, 1054, 1512);
   cardGradient.addColorStop(0, '#fffdf8');
-  cardGradient.addColorStop(0.55, '#fffaf1');
-  cardGradient.addColorStop(1, '#ffedd8');
+  cardGradient.addColorStop(1, model?.visualTheme?.gradient?.[1] || '#ffd7d7');
   fillRoundRect(context, 26, 26, 1028, 1486, 92, cardGradient);
   strokeRoundRect(context, 26, 26, 1028, 1486, 92, 'rgba(222, 198, 169, 0.22)', 2);
 
@@ -416,17 +415,18 @@ export async function renderSharePoster(model, { mascotUrl = './assets/raccoon-g
   context.font = `900 39px ${TEXT_FONT}`;
   drawTextLines(context, `“${model.quote}”`, POSTER_WIDTH / 2, 1112, 800, 56, 2);
 
-  const tag = clean(model?.tags?.[0], 18);
-  if (tag) {
-    context.font = `800 25px ${TEXT_FONT}`;
-    const label = `#${tag.replace(/^#/, '')}`;
-    const pillWidth = Math.ceil(context.measureText(label).width) + 46;
-    drawPill(context, label, (POSTER_WIDTH - pillWidth) / 2, 1246, {
+  const labels = (model.tags || []).slice(0, 3).map((tag) => `#${clean(tag, 18).replace(/^#/, '')}`);
+  context.font = `800 25px ${TEXT_FONT}`;
+  const widths = labels.map((label) => Math.ceil(context.measureText(label).width) + 46);
+  let tagX = (POSTER_WIDTH - widths.reduce((sum, width) => sum + width, 0) - Math.max(0, labels.length - 1) * 16) / 2;
+  labels.forEach((label, index) => {
+    drawPill(context, label, tagX, 1246, {
       background: 'rgba(255, 255, 255, 0.72)',
       color: '#2b2927',
       border: 'rgba(136, 111, 87, 0.08)',
     });
-  }
+    tagX += widths[index] + 16;
+  });
 
   context.fillStyle = '#aaa7a2';
   context.font = `600 27px ${TEXT_FONT}`;
