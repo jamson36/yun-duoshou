@@ -223,7 +223,7 @@ test('测试授权移入独立弹窗，首页保留测试与历史入口', () =>
   assert.ok(html.indexOf('id="analyzeButton"') < dialogIndex);
   assert.ok(html.indexOf('id="clinicHistorySection"') < html.indexOf('id="clinicReportView"'));
   assert.match(html, /id="confirmClinicConsentButton"/);
-  assert.match(appSource, /clinicConsentDialog\.showModal\(\)/);
+  assert.match(appSource, /analyzeButton\.addEventListener\('click', startClinicDemo\)/);
 });
 
 test('实际位于 aiCard 外的人格报告使用 Figma 奶油卡而非旧黑边视觉', () => {

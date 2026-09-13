@@ -1188,8 +1188,9 @@ function aiDiagnosisInvalidatedForSession() {
 }
 
 function businessStateForStorage(snapshot) {
+  const { clinicDemoOrders, clinicDemoSequence, ...businessState } = snapshot;
   return {
-    ...snapshot,
+    ...businessState,
     diagnosis: null,
     settings: { ...snapshot.settings, aiConsent: false },
   };
@@ -2583,7 +2584,7 @@ function mallSuccessAdviceItems(product, order, assessment = null) {
 
   const effectiveAssessment = assessment?.eligible
     ? assessment
-    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
   const onlineAdvice = aiConsentIsCurrent() && diagnosisIsFreshFor(effectiveAssessment)
     ? (state.diagnosis?.result?.action?.steps || []).map(String).filter(Boolean).slice(0, 2)
     : [];
@@ -2775,12 +2776,47 @@ const REPORT_IMPULSE_SIGNAL_LABELS = Object.freeze({
 
 const REPORT_IMPULSE_REASONS = new Set(['嘴馋', '无聊', '被种草', '情绪不好', '限时优惠']);
 
+// Demo samples stay separate from the user's saved orders.
+function createClinicDemoOrders(sequence, now = new Date()) {
+  const scenarios = [
+    { category: '数码家居', name: '无线耳机', amount: 399, hour: 23, reason: '被种草', signals: ['instant', 'creator'] },
+    { category: '餐饮饮品', name: '快乐奶茶', amount: 16, hour: 12, reason: '嘴馋', signals: ['instant'] },
+    { category: '服饰美妆', name: '限定收藏包', amount: 269, hour: 15, reason: '限时优惠', signals: ['stock', 'deal'] },
+  ];
+  const count = 6 + sequence % 5;
+  return Array.from({ length: count }, (_, index) => {
+    const offset = index >= count - 2 ? index - count + 3 : 0;
+    const scenario = scenarios[(sequence - 1 + offset) % scenarios.length];
+    const created = new Date(now);
+    created.setDate(created.getDate() - 1 - index % 5);
+    created.setHours(scenario.hour, index * 4, 0, 0);
+    const createdAt = created.toISOString();
+    const amount = scenario.amount < 50 ? scenario.amount + (sequence + index) % 12 : scenario.amount + sequence * 13 + index * 21;
+    return {
+      id: `clinic-demo-${sequence}-${index}`, demo: true,
+      name: `${scenario.name} ${index + 1}`, category: scenario.category,
+      amount, reason: scenario.reason, decisionSignals: [...scenario.signals],
+      status: 'purchased', createdAt, updatedAt: createdAt, decidedAt: createdAt,
+      statusHistory: [{ from: 'cooling', to: 'purchased', at: createdAt }],
+    };
+  });
+}
+
+function startClinicDemo() {
+  if (gachaponIsBusy()) return;
+  state.clinicDemoSequence = (state.clinicDemoSequence || 0) + 1;
+  state.clinicDemoOrders = createClinicDemoOrders(state.clinicDemoSequence);
+  restoredTestHistory = null;
+  clearPoster();
+  startLocalGachaponReveal(analyzeButton);
+}
+
 function clinicPeriodOrders(period, source = 'personal', now = new Date()) {
   const normalizedPeriod = Math.max(1, Number(period) || 30);
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - (normalizedPeriod - 1));
   cutoff.setHours(0, 0, 0, 0);
-  return state.orders
+  return (state.clinicDemoOrders || state.orders)
     .filter((order) => !order.deletedAt && Number(order.amount) > 0)
     .filter((order) => (source === 'demo' ? Boolean(order.demo) : !order.demo))
     .filter((order) => {
@@ -2958,14 +2994,14 @@ function renderPersonalityProfile(assessment) {
           <strong>${presentationConfidence}%</strong>
         </div>
         <p class="report-persona-quote">${escapeHtml(presentationRationale)}</p>
-        <p class="report-data-evidence">${escapeHtml(assessment.evidence[0]?.statement || persona.rationale)} · ${assessment.orderCount} 笔记录</p>
+        <p class="report-data-evidence">${assessment.source === 'demo' ? '演示数据 · ' : ''}${escapeHtml(assessment.evidence[0]?.statement || persona.rationale)} · ${assessment.orderCount} 笔记录</p>
         <div class="report-persona-tags">${card.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join('')}</div>
         <div class="report-hero-metrics">
           <span><b>${persona.fitScore}</b><small>规则人格匹配度</small></span>
           <span><b>${presentationConfidence}</b><small>${decision === 'hybrid' ? '综合推演置信度' : '本地证据可信度'}</small></span>
         </div>
       </div>
-      <div class="report-hero-art" aria-hidden="true"><i></i><img src="${personaArtUrl(card.art)}" alt="" loading="eager" decoding="async" /></div>
+      <div class="report-hero-art" aria-hidden="true"><span class="report-category-icon">${REPORT_CATEGORY_ICONS[assessment.categories[0]?.category] || REPORT_CATEGORY_ICONS.其他}</span></div>
     </header>
     <section class="report-summary-grid" aria-label="消费报告摘要">
       <article class="report-total-card">
@@ -3051,10 +3087,6 @@ function renderPersonalityProfile(assessment) {
       </div>
     </details>
     `;
-  const personaArt = profile.querySelector('.report-hero-art img');
-  personaArt?.addEventListener('error', () => {
-    personaArt.src = './assets/phone-raccoon.webp';
-  }, { once: true });
   return true;
 }
 
@@ -3073,7 +3105,7 @@ function diagnosisRequestFingerprint(assessment = currentAssessment) {
 
 function latestAssessmentForDiagnosis(assessment = currentAssessment) {
   if (!assessment || ![7, 30].includes(Number(assessment.period))) return null;
-  return scorePersonality({ orders: state.orders, period: Number(assessment.period) });
+  return scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: Number(assessment.period) });
 }
 
 function diagnosisMatchesAssessmentContext(
@@ -3287,7 +3319,7 @@ function renderGachapon(assessment) {
 function renderClinic(assessment = null) {
   currentAssessment = assessment?.period === activeClinicPeriod
     ? assessment
-    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
   clockClinicAssessmentFingerprint = assessmentReportFingerprint(currentAssessment);
   const topReason = currentAssessment.reasons[0]?.reason || '暂无';
   document.querySelector('#clinicLedger').innerHTML = `
@@ -3309,14 +3341,8 @@ function renderClinic(assessment = null) {
     && !busy;
   if (consentPromptVisible) renderConsentSummary(currentAssessment);
   aiConsentPanel.hidden = !consentPromptVisible;
-  analyzeButton.disabled = !currentAssessment.eligible || busy;
-  analyzeButton.querySelector('span').textContent = !currentAssessment.eligible
-    ? `还差 ${Math.max(0, 3 - currentAssessment.orderCount)} 笔记录`
-    : busy
-      ? '测试中…'
-      : diagnosisIsFresh()
-        ? '再测一次'
-        : (aiConsentIsCurrent() ? '重新测试' : '开始测试');
+  analyzeButton.disabled = busy;
+  analyzeButton.querySelector('span').textContent = busy ? '测试中…' : '开始测试';
   const shareAssessment = currentAssessment;
   posterButton.disabled = !shareAssessment.eligible || posterGenerating || busy;
   if (posterBlob && posterFingerprint !== currentPosterFingerprint()) clearPoster();
@@ -3334,7 +3360,7 @@ function currentPosterFingerprint(assessment = currentAssessment) {
     ? requestedAssessment
     : requestedAssessment?.period === activeClinicPeriod
       ? requestedAssessment
-      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
   const presentation = personaPresentationFor(effectiveAssessment);
   return [
     historyContext?.id || state.dataRevision,
@@ -3412,7 +3438,7 @@ function openGachaponResult({ source = 'hybrid', returnFocus = null } = {}) {
 
 function startLocalGachaponReveal(returnFocus = analyzeButton) {
   if (gachaponIsBusy() || activePanel !== 'clinic') return false;
-  const assessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now: new Date() });
+  const assessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now: new Date() });
   if (!assessment.eligible) {
     currentAssessment = assessment;
     renderClinic(assessment);
@@ -3433,7 +3459,7 @@ function startLocalGachaponReveal(returnFocus = analyzeButton) {
   const reveal = () => {
     localGachaponSpinTimer = null;
     if (spinToken !== localGachaponSpinSequence) return;
-    const latestAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now: new Date() });
+    const latestAssessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now: new Date() });
     const contextIsCurrent = activePanel === 'clinic'
       && startRevision === state.dataRevision
       && startPeriod === activeClinicPeriod
@@ -3449,14 +3475,14 @@ function startLocalGachaponReveal(returnFocus = analyzeButton) {
     gachaponMotion.setState('revealed');
     aiCard.setAttribute('aria-busy', 'false');
     clinicRenderPending = true;
-    showToast('本地人格已经揭晓，全程没有发送消费摘要。');
+    showToast('本次演示报告已生成。');
     if (!openGachaponResult({ source: 'local', returnFocus })) {
       clinicRenderPending = false;
       renderClinic(latestAssessment);
     }
   };
 
-  const delay = document.body.classList.contains('reduce-motion') ? 0 : 1400;
+  const delay = document.body.classList.contains('reduce-motion') ? 0 : 3200;
   localGachaponSpinTimer = window.setTimeout(reveal, delay);
   return true;
 }
@@ -3497,7 +3523,7 @@ function posterModel(assessment = currentAssessment) {
     ? assessment
     : assessment?.period === activeClinicPeriod
       ? assessment
-      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
   const modelInput = {
     assessment: effectiveAssessment,
     presentation: personaPresentationFor(effectiveAssessment),
@@ -3518,7 +3544,7 @@ async function generatePoster() {
   const historyContext = historicalReportContextFor(currentAssessment);
   const shareAssessment = historyContext
     ? currentAssessment
-    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
   if (posterGenerating || !shareAssessment.eligible) return;
   const fingerprint = currentPosterFingerprint(shareAssessment);
   if (posterBlob && posterFingerprint === fingerprint) {
@@ -3557,7 +3583,7 @@ async function generatePoster() {
     const latestHistoryContext = historicalReportContextFor(currentAssessment);
     const latestShareAssessment = latestHistoryContext
       ? currentAssessment
-      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
     posterButton.disabled = !latestShareAssessment.eligible;
     posterButton.textContent = latestShareAssessment.eligible
       ? '分享报告'
@@ -4972,15 +4998,7 @@ orderForm.querySelectorAll('input[name="decisionSignals"]').forEach((checkbox) =
   });
 });
 
-analyzeButton.addEventListener('click', () => {
-  if (!aiConsentIsCurrent() && currentAssessment?.eligible) {
-    renderConsentSummary(currentAssessment);
-    aiConsentPanel.hidden = false;
-    clinicConsentDialog.showModal();
-    return;
-  }
-  startAiDiagnosis();
-});
+analyzeButton.addEventListener('click', startClinicDemo);
 document.querySelector('#confirmClinicConsentButton').addEventListener('click', () => {
   clinicConsentDialog.close();
   startAiDiagnosis();
@@ -5031,10 +5049,8 @@ gachaponResultModal.addEventListener('click', (event) => {
   if (event.target === gachaponResultModal) closeGachaponResult();
 });
 gachaponResultRetryButton.addEventListener('click', () => {
-  const returnFocus = gachaponResultReturnFocus;
   closeGachaponResult({ restoreFocus: false });
-  if (gachaponResultSource === 'local') startLocalGachaponReveal(returnFocus);
-  else startAiDiagnosis();
+  startClinicDemo();
 });
 gachaponResultOpenButton.addEventListener('click', () => {
   closeGachaponResult({ restoreFocus: false });
@@ -5143,7 +5159,7 @@ function updateClock(now = new Date()) {
   let latestAssessment = null;
   let assessmentChanged = false;
   if (activePanel === 'clinic') {
-    latestAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now });
+    latestAssessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now });
     const nextAssessmentFingerprint = assessmentReportFingerprint(latestAssessment);
     assessmentChanged = Boolean(clockClinicAssessmentFingerprint
       && clockClinicAssessmentFingerprint !== nextAssessmentFingerprint);

@@ -12961,3 +12961,7 @@ body.reduce-motion :is(
 }
 
 .clinic-report-view .report-hero-art i { display: none; }
+
+/* Demo report uses a category icon instead of the character artwork. */
+.clinic-report-view .report-category-icon { display: grid; place-items: center; width: 230px; height: 230px; border-radius: 50%; background: #ffddd1; font-size: 102px; line-height: 1; }
+@media (max-width: 640px) { .clinic-report-view .report-category-icon { width: 170px; height: 170px; font-size: 78px; } }

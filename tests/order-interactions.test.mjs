@@ -762,7 +762,7 @@ test('人格抽取首次点击由主按钮读取内联勾选，不进入二次�
   assert.match(source, /requestAiDiagnosis\(\)/);
   assert.doesNotMatch(source, /status:\s*['"]consent['"]/);
   assert.doesNotMatch(source, /querySelector\(['"]#aiConsentTitle['"]\)/);
-  assert.match(appSource, /clinicConsentDialog\.showModal\(\)/);
+  assert.match(appSource, /analyzeButton\.addEventListener\('click', startClinicDemo\)/);
 });
 
 test('未勾选主按钮直接走本地测试且不请求，勾选后同一次点击授权并请求', () => {
@@ -1409,8 +1409,8 @@ this.startLocalGachaponReveal = startLocalGachaponReveal;`, context);
   };
 }
 
-test('本地人格先进入碰撞旋转，常规 1400ms 与减弱动效 0ms 后各只揭晓一次', () => {
-  for (const [reducedMotion, expectedDelay] of [[false, 1400], [true, 0]]) {
+test('本地人格先进入碰撞旋转，常规 3200ms 与减弱动效 0ms 后各只揭晓一次', () => {
+  for (const [reducedMotion, expectedDelay] of [[false, 3200], [true, 0]]) {
     const harness = createLocalGachaponHarness({ reducedMotion });
     assert.equal(harness.start(), true);
     assert.equal(harness.context.localGachaponSpinning, true);
@@ -1527,9 +1527,9 @@ test('本地结果的“再抽一次”继续走本地路径，不误触在线�
       addEventListener: (_event, handler) => { retryHandler = handler; },
     },
     closeGachaponResult: () => { closeCalls += 1; },
-    startLocalGachaponReveal: (target) => {
+    startClinicDemo: () => {
       localCalls += 1;
-      localReturnFocus = target;
+      localReturnFocus = returnFocus;
     },
     startAiDiagnosis: () => { hybridCalls += 1; },
   };
@@ -1543,8 +1543,8 @@ test('本地结果的“再抽一次”继续走本地路径，不误触在线�
 
   context.gachaponResultSource = 'hybrid';
   retryHandler();
-  assert.equal(localCalls, 1);
-  assert.equal(hybridCalls, 1);
+  assert.equal(localCalls, 2);
+  assert.equal(hybridCalls, 0);
 });
 
 test('打开人格报告会从结果弹窗切到可滚动报告，并可返回扭蛋机', () => {
