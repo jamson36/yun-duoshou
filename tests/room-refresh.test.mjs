@@ -63,7 +63,7 @@ test('加载进度代替开场视频，用户入口视频循环播放', () => {
 test('进入后使用带红凳坐姿浣熊的高清球形全景并保留非一级快递探索热点', () => {
   assert.match(appSource, /imageUrl:\s*'\.\/assets\/room-panorama-hd\.webp'/);
   assert.doesNotMatch(appSource, /imageUrl:\s*'\.\/assets\/room-panorama\.webp'/);
-  assert.match(appSource, /scene-config\.js\?v=20260909-slice-2/);
+  assert.match(appSource, /scene-config\.js\?v=20260913-live-phone-1/);
   assert.match(appSource, /const sceneViewportMedia = window\.matchMedia\('\(max-width: 820px\)'\)/);
   assert.match(appSource, /currentSceneDefaultView = \(\) => \([\s\S]*?sceneViewportMedia\.matches \? SCENE_MOBILE_DEFAULT_VIEW : SCENE_DEFAULT_VIEW/);
   assert.match(appSource, /sceneViewportMedia\.addEventListener\('change', syncSceneDefaultView\)/);

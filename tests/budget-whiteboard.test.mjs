@@ -63,3 +63,21 @@ test('便签持久化失败时不会播报已经保存', () => {
   assert.match(whiteboardSource, /persisted === false[\s\S]*刷新后可能丢失/);
   assert.doesNotMatch(whiteboardSource, /onMove\?\.\([^\n]+\);\s*this\.announce\('便签在全景白板上的位置已保存/);
 });
+
+test('投影缩小时便签随板面缩小，不被最小像素宽度撑出白板', async () => {
+  const { SceneBudgetWhiteboard } = await import('../budget-whiteboard.js');
+  const properties = {};
+  const element = { hidden: false, classList: { toggle() {} }, style: { setProperty(key, value) { properties[key] = value; } } };
+  const board = Object.create(SceneBudgetWhiteboard.prototype);
+  board.surface = { topLeft: { yaw: 0, pitch: 0 }, topRight: { yaw: 1, pitch: 0 }, bottomLeft: { yaw: 0, pitch: 1 }, bottomRight: { yaw: 1, pitch: 1 } };
+  board.layer = { clientWidth: 390, clientHeight: 844 };
+  board.panorama = { projectPoint: (yaw, pitch) => ({ x: yaw * 40, y: pitch * 60, localZ: 1 }) };
+  for (const x of [0.12, 0.88]) for (const y of [0.12, 0.86]) {
+    board.updateNoteProjection({ element, meta: { x, y } });
+    const halfDiagonal = parseFloat(properties['--scene-note-width']) / Math.sqrt(2);
+    assert.ok(parseFloat(element.style.left) - halfDiagonal >= 0);
+    assert.ok(parseFloat(element.style.left) + halfDiagonal <= 40);
+    assert.ok(parseFloat(element.style.top) - halfDiagonal >= 0);
+    assert.ok(parseFloat(element.style.top) + halfDiagonal <= 60);
+  }
+});

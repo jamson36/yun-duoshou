@@ -26,7 +26,7 @@ test('引导说明分类商品切割并保留摄像头选择', () => {
 });
 
 test('入口、手势和游戏视觉加载更新版本', () => {
-  assert.match(html, /app\.js\?v=20260913-entry-notes-1/);
+  assert.match(html, /app\.js\?v=20260913-live-phone-1/);
   assert.match(read('app.js'), /peel-game-ui\.js\?v=20260909-slice-2/);
   assert.match(read('app.js'), /gesture-ui\.js\?v=20260909-slice-2/);
   assert.match(read('peel-game-ui.js'), /peel-product-visuals\.js\?v=20260909-slice-2/);

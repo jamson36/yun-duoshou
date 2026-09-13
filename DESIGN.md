@@ -126,7 +126,7 @@
 
 ```text
 #room                                     房间
-#new                                      “开始买吧”说明页
+#new                                      “开始买吧”说明与可操作手机首页
 #new?view=home&type=shop                   模拟手机首页
 #new?view=catalog&type=shop                模拟商城目录
 #new?view=detail&type=shop&product=<id>     模拟商品详情

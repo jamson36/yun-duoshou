@@ -28,8 +28,8 @@ export const SCENE_INTRO_VIEW = Object.freeze({
 export const SCENE_WHITEBOARD_SURFACE = Object.freeze({
   topLeft: Object.freeze({ yaw: degrees(-110.8), pitch: degrees(28.1) }),
   topRight: Object.freeze({ yaw: degrees(-136.6), pitch: degrees(30.4) }),
-  bottomRight: Object.freeze({ yaw: degrees(-146.6), pitch: degrees(-50.8) }),
-  bottomLeft: Object.freeze({ yaw: degrees(-107.4), pitch: degrees(-50.9) }),
+  bottomRight: Object.freeze({ yaw: degrees(-142.2), pitch: degrees(-26.0) }),
+  bottomLeft: Object.freeze({ yaw: degrees(-108.8), pitch: degrees(-26.0) }),
 });
 
 export const FEATURE_HOTSPOTS = Object.freeze([
@@ -69,8 +69,8 @@ export const FEATURE_HOTSPOTS = Object.freeze([
     statusId: 'computerStatus',
     badgeId: 'orderBadge',
     asset: {
-      src: './assets/figma-room-hotspot-new-4x.png',
-      width: 190,
+      src: './assets/room-shop-bubble.png',
+      width: 178,
       height: 79,
       nodeId: '32:3643',
     },

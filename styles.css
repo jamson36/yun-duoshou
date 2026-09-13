@@ -4687,39 +4687,9 @@ body.reduce-motion .ai-card[data-gachapon-state] .gachapon-action b {
   text-align: center;
 }
 
-.mall-receipt-stub {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(18px, 1fr) auto;
-  gap: 9px;
-  align-items: center;
-  width: min(100%, 240px);
-  margin: 0 0 14px;
-  padding: 8px 10px;
-  border-block: 1px dashed rgba(154, 102, 53, .42);
-  background: linear-gradient(90deg, rgba(255, 247, 228, 0), #fff7e4 14%, #fff7e4 86%, rgba(255, 247, 228, 0));
-  color: #8f572f;
-  line-height: 1;
-}
 
-.mall-receipt-stub span {
-  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace;
-  font-size: 7px;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
 
-.mall-receipt-stub i {
-  height: 1px;
-  background: repeating-linear-gradient(90deg, rgba(154, 102, 53, .35) 0 3px, transparent 3px 6px);
-}
 
-.mall-receipt-stub strong {
-  color: #a43b1c;
-  font-size: 8px;
-  font-weight: 950;
-  letter-spacing: .06em;
-}
 
 .mall-success-card h2 { margin: 0; color: #171717; font-size: 19px; line-height: 1.3; }
 .mall-success-card h2:focus { outline: 0; }
@@ -10931,9 +10901,7 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   }
 }
 
-/* 2026-09-01 Figma 5:25 flow: entry story first, then one shared phone UI.
-   The desktop phone shell is restored after the story; mobile uses the same
-   screen at viewport size without nesting another device frame. */
+/* 2026-09-01 Figma 5:25 flow: shared phone styles, adapted below for the live entry. */
 .shopping-intro-view[hidden] { display: none !important; }
 
 .shopping-intro-view {
@@ -11024,86 +10992,13 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
 .shopping-intro-enter:hover i { transform: translateX(3px); }
 .shopping-intro-enter:focus-visible { outline: 3px solid #17110e; outline-offset: 4px; }
 
-.shopping-intro-stage {
-  position: absolute;
-  z-index: 0;
-  right: 0;
-  bottom: 0;
-  width: min(64.908854vw, 115.393519dvh);
-  aspect-ratio: 4985 / 4320;
-  pointer-events: none;
-}
 
-.shopping-intro-art {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  display: block;
-  overflow: hidden;
-  -webkit-mask-image:
-    linear-gradient(to right, transparent 0, #000 7%, #000 100%),
-    linear-gradient(to bottom, transparent 0, #000 10%, #000 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent 0, #000 7%, #000 100%),
-    linear-gradient(to bottom, transparent 0, #000 10%, #000 100%);
-  mask-composite: intersect;
-}
 
-.shopping-intro-art img {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  object-fit: contain;
-}
 
-.shopping-intro-phone-preview {
-  position: absolute;
-  z-index: 2;
-  top: 9.465162%;
-  left: 33.440321%;
-  width: 31.534604%;
-  aspect-ratio: 393 / 844;
-  overflow: hidden;
-  border-radius: 13.75%;
-  filter: drop-shadow(0 24px 32px rgba(79, 47, 31, .16));
-}
 
-.shopping-intro-phone-preview img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: block;
-  width: 130.534%;
-  height: auto;
-  max-width: none;
-  max-height: none;
-  transform: translate(-11.696%, -2.075%);
-}
-
-.app[data-focus="new"][data-phone-view="intro"] .phone-device {
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.app[data-focus="new"][data-phone-view="intro"] :is(.phone-status-bar, .device-tabs),
-.app[data-focus="new"][data-phone-view="intro"] .phone-device::before,
-.app[data-focus="new"][data-phone-view="intro"] .phone-device::after {
-  display: none;
-}
-
-.app[data-focus="new"] .phone-screen-scroll.is-shopping-intro {
-  min-height: 100dvh;
-  padding: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: #fff1e8;
-}
 
 @media (min-width: 821px) {
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .panel-inner {
+  .app[data-focus="new"] .panel-inner {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -11111,12 +11006,12 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
     padding: 14px;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .panel-close {
+  .app[data-focus="new"] .panel-close {
     left: max(24px, calc(50% - 264px));
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-device,
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-device.is-active {
+  .app[data-focus="new"] .phone-device,
+  .app[data-focus="new"] .phone-device.is-active {
     display: grid;
     grid-template-rows: 32px minmax(0, 1fr);
     width: auto;
@@ -11131,12 +11026,12 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
     box-shadow: 0 34px 90px rgba(66, 41, 25, .3), 0 10px 26px rgba(66, 41, 25, .2);
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-status-bar { display: grid; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-device::before { display: block; inset: 32px 0 0; border-radius: 0 0 43px 43px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-device::after { display: block; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .device-tabs { display: grid; }
+  .app[data-focus="new"] .phone-status-bar { display: grid; }
+  .app[data-focus="new"] .phone-device::before { display: block; inset: 32px 0 0; border-radius: 0 0 43px 43px; }
+  .app[data-focus="new"] .phone-device::after { display: block; }
+  .app[data-focus="new"] .device-tabs { display: grid; }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-screen-scroll {
+  .app[data-focus="new"] .phone-screen-scroll {
     min-height: 0;
     padding: 10px 13px 104px;
     overflow-x: hidden;
@@ -11144,61 +11039,61 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
     background: linear-gradient(180deg, rgba(255, 253, 248, .64) 0, rgba(255, 253, 248, .87) 350px, rgba(255, 253, 248, .97) 720px);
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-screen-scroll.is-commerce {
+  .app[data-focus="new"] .phone-screen-scroll.is-commerce {
     padding: 0 0 104px;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-home-view {
+  .app[data-focus="new"] .phone-home-view {
     display: block;
     width: auto;
     margin: 0;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-greeting {
+  .app[data-focus="new"] .phone-greeting {
     margin: 2px 4px 16px;
     padding-left: 0;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-greeting h2 { font-size: 31px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-greeting p { font-size: 12px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .order-overview-card { min-height: 184px; margin: 0 0 18px; padding: 16px 116px 15px 17px; border-radius: 27px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .order-overview-head strong { font-size: 43px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-raccoon-avatar { right: -2px; bottom: -4px; width: 128px; height: 139px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-raccoon-avatar img { width: 126px; height: 139px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .order-overview-card > p { left: 17px; bottom: 13px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .order-trend-card { min-height: 0; margin: 0 0 22px; padding: 15px 16px 14px; border-radius: 24px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .order-trend-visual { height: 96px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts { min-height: 194px; margin: 0 0 28px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts legend { font-size: 17px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts button { top: 29px; width: 50%; min-height: 160px; padding: 12px 11px; border-radius: 20px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts button[data-card-state="previous"] { transform: translate3d(-102%, 8px, 0) rotate(-6deg) scale(.92); }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts button[data-card-state="active"] { transform: translate3d(-50%, -5px, 0) scale(1.035); }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts button[data-card-state="next"] { transform: translate3d(2%, 8px, 0) rotate(6deg) scale(.92); }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts b { font-size: 12px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts small,
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .category-shortcuts span { font-size: 9px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .mall-entry-button { width: 100%; margin: 0 0 26px; }
+  .app[data-focus="new"] .phone-greeting h2 { font-size: 31px; }
+  .app[data-focus="new"] .phone-greeting p { font-size: 12px; }
+  .app[data-focus="new"] .order-overview-card { min-height: 184px; margin: 0 0 18px; padding: 16px 116px 15px 17px; border-radius: 27px; }
+  .app[data-focus="new"] .order-overview-head strong { font-size: 43px; }
+  .app[data-focus="new"] .phone-raccoon-avatar { right: -2px; bottom: -4px; width: 128px; height: 139px; }
+  .app[data-focus="new"] .phone-raccoon-avatar img { width: 126px; height: 139px; }
+  .app[data-focus="new"] .order-overview-card > p { left: 17px; bottom: 13px; }
+  .app[data-focus="new"] .order-trend-card { min-height: 0; margin: 0 0 22px; padding: 15px 16px 14px; border-radius: 24px; }
+  .app[data-focus="new"] .order-trend-visual { height: 96px; }
+  .app[data-focus="new"] .category-shortcuts { min-height: 194px; margin: 0 0 28px; }
+  .app[data-focus="new"] .category-shortcuts legend { font-size: 17px; }
+  .app[data-focus="new"] .category-shortcuts button { top: 29px; width: 50%; min-height: 160px; padding: 12px 11px; border-radius: 20px; }
+  .app[data-focus="new"] .category-shortcuts button[data-card-state="previous"] { transform: translate3d(-102%, 8px, 0) rotate(-6deg) scale(.92); }
+  .app[data-focus="new"] .category-shortcuts button[data-card-state="active"] { transform: translate3d(-50%, -5px, 0) scale(1.035); }
+  .app[data-focus="new"] .category-shortcuts button[data-card-state="next"] { transform: translate3d(2%, 8px, 0) rotate(6deg) scale(.92); }
+  .app[data-focus="new"] .category-shortcuts b { font-size: 12px; }
+  .app[data-focus="new"] .category-shortcuts small,
+  .app[data-focus="new"] .category-shortcuts span { font-size: 9px; }
+  .app[data-focus="new"] .mall-entry-button { width: 100%; margin: 0 0 26px; }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .phone-commerce,
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-detail-view {
+  .app[data-focus="new"] .phone-commerce,
+  .app[data-focus="new"] .commerce-detail-view {
     width: 100%;
     margin: 0;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-products[data-layout="grid"] {
+  .app[data-focus="new"] .commerce-products[data-layout="grid"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-detail-view {
+  .app[data-focus="new"] .commerce-detail-view {
     display: block;
     min-height: calc(100% - 68px);
     padding-top: 0;
   }
 
-  .app[data-focus="new"]:not([data-phone-view="intro"]) #commerceDetailContent { display: block; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-detail-image { width: calc(100% - 40px); margin: 5px 20px 0; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-detail-copy { padding: 19px 20px 96px; }
-  .app[data-focus="new"]:not([data-phone-view="intro"]) .commerce-detail-actions { position: sticky; bottom: 68px; display: grid; margin-top: 8px; padding: 11px 20px; }
+  .app[data-focus="new"] #commerceDetailContent { display: block; }
+  .app[data-focus="new"] .commerce-detail-image { width: calc(100% - 40px); margin: 5px 20px 0; }
+  .app[data-focus="new"] .commerce-detail-copy { padding: 19px 20px 96px; }
+  .app[data-focus="new"] .commerce-detail-actions { position: sticky; bottom: 68px; display: grid; margin-top: 8px; padding: 11px 20px; }
 }
 
 @media (max-width: 820px) {
@@ -11209,26 +11104,6 @@ body.reduce-motion :is(.scene-raccoon-speech, .report-persona-progress b, .poste
   }
 
   .shopping-intro-view { min-height: 100dvh; }
-  .shopping-intro-stage {
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-  }
-  .shopping-intro-art {
-    inset: 0;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-  .shopping-intro-art img {
-    top: 8%;
-    right: -42%;
-    width: 122%;
-    height: auto;
-    opacity: .84;
-    object-fit: contain;
-  }
-  .shopping-intro-phone-preview { display: none; }
   .shopping-intro-copy {
     align-self: end;
     width: 100%;
@@ -12915,3 +12790,117 @@ body.reduce-motion :is(
   .room-intro-gate .room-entry-lockup .enter-room-button { left: 27%; top: 55%; width: 46%; height: 6.2%; min-height: 48px; border: 0; border-radius: 22px; background: #fa8924; font-size: clamp(20px,5vw,32px); }
   .room-intro-gate .room-entry-lockup > small { left: 10%; width: 80%; bottom: 8%; font-size: 14px; letter-spacing: .16em; }
 }
+
+/* Figma 5:25 / 224:181–209: one live phone throughout the shopping flow. */
+.shopping-intro-view { display: none; }
+.app[data-focus="new"] .shopping-intro-view {
+  display: block; position: absolute; inset: 0; min-height: 0;
+  background: linear-gradient(120deg, #facbae, #fce5d8 55%, #fffaf7);
+}
+.app[data-focus="new"] .shopping-intro-copy {
+  width: 39%; min-height: 100dvh; padding: 0 0 0 9.2vw; justify-content: center;
+}
+.app[data-focus="new"] .shopping-intro-copy h2 { font-size: clamp(15px, 1.12vw, 22px); }
+.app[data-focus="new"] .shopping-intro-copy p { font-size: clamp(13px, 1.05vw, 20px); margin-top: 20px; }
+.app[data-focus="new"] .shopping-intro-enter { width: 60px; height: 60px; min-height: 60px; margin-top: 55px; }
+.app[data-focus="new"] .shopping-intro-enter i,
+.app[data-focus="new"] .shopping-intro-enter i img { width: 54px; height: 54px; }
+.app[data-focus="new"] .phone-device { position: relative; z-index: 1; }
+.app[data-focus="new"] .phone-home-view[hidden] { display: none; }
+.app[data-focus="new"] .phone-screen-scroll { background: linear-gradient(#fff9ec, #fff 48%); }
+.app[data-focus="new"] .phone-greeting { padding-left: 18px; }
+.app[data-focus="new"] .order-overview-card { background: transparent; box-shadow: none; border: 0; }
+.app[data-focus="new"] .order-overview-head strong { color: #4a3500; }
+.app[data-focus="new"] .order-trend-card { background: transparent; box-shadow: none; border: 0; }
+.app[data-focus="new"] .mall-entry-button { display: none; }
+.app[data-focus="new"] .category-shortcuts button { width: 43%; }
+.app[data-focus="new"] .category-shortcuts button small { font-size: 20px; }
+.app[data-focus="new"] .category-shortcuts button b { font-size: 11px; }
+.app[data-focus="new"] .category-shortcuts button > span { display: none; }
+.app[data-focus="new"] .phone-screen-scroll.is-commerce { background: linear-gradient(#fff6dc, #fff 65%); }
+.app[data-focus="new"] .phone-screen-scroll[data-commerce-theme="food"].is-commerce { background: linear-gradient(#ffecdf, #fff 70%); }
+.app[data-focus="new"] .phone-screen-scroll[data-commerce-theme="hobby"].is-commerce { background: linear-gradient(#eee9ff, #fff 75%); }
+.app[data-focus="new"][data-phone-view="detail"] .phone-screen-scroll.is-commerce { background: #fff; }
+.commerce-product-image small { background: #ffd34d; color: #171717; }
+.commerce-product-meta strong { color: #171717; }
+.commerce-want, .commerce-plus { background: linear-gradient(#ffd34d, #ff9d3d); color: #4a3500; }
+.commerce-grid-card > button { border-radius: 24px; padding: 10px; }
+.commerce-grid-card > button > b { min-height: 0; }
+.commerce-list-card > button { grid-template-columns: 82px minmax(0, 1fr) 28px; gap: 9px; background: #fff; border-radius: 24px; padding: 10px; box-shadow: 0 7px 18px #2c241814; }
+.commerce-list-card img { width: 82px; height: 82px; }
+.commerce-product-title { flex-wrap: wrap; gap: 3px; }
+.commerce-product-title small { background: #fff3c9; color: #665000; }
+.commerce-detail-price strong { color: #ff9d3d; font-size: 34px; }
+.commerce-detail-image > span { background: #111a3a; color: #fff; }
+.commerce-reason, .commerce-detail-stats > div { background: #fbfaf6; box-shadow: none; }
+.commerce-reason h4 { font-size: 15px; }
+.commerce-reason p { font-size: 13px; }
+.app[data-focus="new"][data-phone-view="detail"] .commerce-detail-actions { bottom: 0; background: #fffffff2; }
+.commerce-buy-button { background: linear-gradient(#ffd34d, #ff9d3d); color: #4a3500; box-shadow: 0 12px 28px #ff9d3d55; }
+.mall-success-card { border-radius: 34px; padding: 26px 24px; }
+.mall-success-card h2 { font-size: 22px; }
+.mall-success-total { display: grid; justify-content: center; gap: 3px; min-height: 95px; background: linear-gradient(#fff6df, #fff); }
+.mall-success-total small { font-size: 12px; }
+.mall-success-total b { color: #4a3500; font-size: 28px; }
+.mall-success-actions { grid-template-columns: 1fr 1fr; gap: 12px; }
+.mall-success-actions button { font-size: 14px; }
+.mall-success-actions button:first-child { border: 0; box-shadow: 0 7px 18px #171a3a20; }
+.mall-success-actions button:last-child { border: 0; background: linear-gradient(#ffd34d, #ff9d3d); color: #4a3500; box-shadow: 0 12px 24px #ff9d3d40; }
+.scene-hotspot[data-hotspot-id="sofa-phone"] .hotspot-asset-icon { inset: 0; width: 178px; height: 79px; border-radius: 0; overflow: visible; background: none; }
+.scene-hotspot[data-hotspot-id="sofa-phone"] .hotspot-asset-icon img { position: static; width: 178px; height: 79px; max-width: none; }
+.scene-hotspot[data-hotspot-id="sofa-phone"] :is(.hotspot-asset-bubble, .hotspot-asset-label) { display: none; }
+.scene-budget-note.is-order-note { height: var(--scene-note-width); min-height: 0; overflow: hidden; padding: calc(var(--scene-note-width) * .1); gap: calc(var(--scene-note-width) * .025); }
+.scene-budget-note.is-order-note > strong { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.scene-budget-note.is-order-note > b { margin: 0; }
+@media (min-width: 821px) {
+  .app[data-focus="new"] .panel-inner { justify-content: flex-start; padding: 0 0 0 54.5vw; }
+  .app[data-focus="new"] .phone-device,
+  .app[data-focus="new"] .phone-device.is-active { height: min(844px, 84dvh); max-height: 844px; border-width: 7px; border-radius: 48px; }
+  .app[data-focus="new"] .panel-close,
+  .app[data-focus="new"][data-phone-view="intro"] .panel-close { display: flex; top: 24px; left: 24px; }
+}
+@media (max-width: 820px) {
+  .app[data-focus="new"] .shopping-intro-view { display: none; }
+  .app[data-focus="new"] .panel-inner { padding: 0; }
+  .app[data-focus="new"] .phone-device,
+  .app[data-focus="new"] .phone-device.is-active { width: 100%; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+  .app[data-focus="new"] .phone-screen-scroll { min-height: 0; }
+  .app[data-focus="new"] .phone-greeting { padding-left: 52px; }
+  .app[data-focus="new"] .category-shortcuts { min-height: 222px; }
+}
+.app[data-focus="new"] #newPanelTitle { font-size: 15px; color: #4a3500; }
+.app[data-focus="new"] .phone-greeting { min-height: 76px; margin-bottom: 5px; }
+.app[data-focus="new"] .phone-greeting p { color: #999; font-size: 13px; }
+.app[data-focus="new"] .phone-raccoon-avatar { width: 165px; height: 200px; bottom: -7px; right: -10px; background: none; border-radius: 0; }
+.app[data-focus="new"] .phone-raccoon-avatar img { width: 190px; height: 200px; max-width: none; }
+.app[data-focus="new"] #orderGoalLabel { border: 0; background: #ffe5a4; color: #f28a29; font-size: 11px; }
+.app[data-focus="new"] #orderTrendDelta { background: #ffe0d3; color: #c85a2b; font-size: 10px; }
+.app[data-focus="new"] .category-shortcuts legend { font-size: 17px; }
+.app[data-focus="new"] .category-shortcuts button { border: 0; box-shadow: 0 8px 24px #171a3a15; }
+.app[data-focus="new"] .category-shortcuts button[data-card-state="active"] { background: linear-gradient(140deg, #ffe7a6, #ffb74d); }
+.app[data-focus="new"] .category-shortcuts button i { padding: 11px; width: 46px; height: 46px; border-radius: 15px; background: #ffffff99; }
+.app[data-focus="new"] .category-shortcuts button i img { width: 24px; height: 24px; }
+.app[data-focus="new"] .device-tabs button.is-active .phone-tab-icon { background: #4a3500; }
+.app[data-focus="new"] .shopping-intro-copy h2 { max-width: none; width: 100%; }
+.app[data-focus="new"][data-phone-view="detail"] .commerce-header { background: #fff; }
+.app[data-focus="new"][data-phone-view="detail"] .commerce-detail-actions { position: sticky; bottom: 0; padding: 12px 20px 24px; z-index: 5; }
+.app[data-focus="new"] .phone-dynamic-island { width: 100px; height: 25px; border-radius: 20px; background: #111a3a; }
+.app[data-focus="new"] .phone-raccoon-avatar::before { display: none; }
+.commerce-detail-stats > div { grid-template-columns: 48px minmax(0, 1fr); min-height: 65px; padding: 8px; }
+.commerce-detail-stats img { grid-column: 1; width: 48px; height: 48px; }
+.commerce-detail-stats b, .commerce-detail-stats small { grid-column: 2; }
+.commerce-detail-stats b { font-size: 15px; }
+.mall-success-emblem { display: grid; place-items: center; width: 69px; height: 69px; margin: 0 auto 14px; border-radius: 50%; background: linear-gradient(#ffd34d, #ff9d3d); box-shadow: 0 12px 26px #ff9d3d55; }
+.mall-success-emblem img { width: 69px; height: 69px; }
+.mall-success-advice { display: block; padding: 8px 12px; }
+.mall-success-advice summary { cursor: pointer; min-height: 28px; line-height: 28px; font-size: 11px; }
+.mall-success-advice[open] h3 { margin: 5px 0 8px; }
+@media (max-width: 820px) {
+  .app[data-focus="new"] .device-tabs { display: grid; bottom: max(15px, env(safe-area-inset-bottom)); }
+  .app[data-focus="new"] .phone-screen-scroll { padding-bottom: 100px; }
+}
+.app[data-focus="new"][data-phone-view="detail"] #newPhoneScreen { padding: 0; overflow: hidden; }
+.app[data-focus="new"][data-phone-view="detail"] #phoneCommerce { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.app[data-focus="new"][data-phone-view="detail"] .commerce-header { flex: none; }
+.app[data-focus="new"][data-phone-view="detail"] #commerceDetailView { flex: 1; min-height: 0; overflow-y: auto; }
+.app[data-focus="new"][data-phone-view="detail"] .commerce-detail-actions { margin-top: 0; padding-bottom: 24px; }

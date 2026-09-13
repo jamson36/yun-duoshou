@@ -18,7 +18,7 @@ function declarationsFor(selector) {
 test('商城记录弹层不在回执卡外渲染漂浮话术', () => {
   assert.ok(modalStart >= 0, '应保留商城记录弹层');
   assert.doesNotMatch(modalMarkup, /mall-static-barrage/);
-  assert.match(html, /styles\.css\?v=[^"']*entry-notes-1/);
+  assert.match(html, /styles\.css\?v=[^"']*live-phone-1/);
 });
 
 test('商城记录卡在手机内容区居中，并取消百分比下移', () => {
@@ -31,15 +31,8 @@ test('商城记录卡在手机内容区居中，并取消百分比下移', () =>
   assert.match(cardRules, /max-height:\s*min\(620px,\s*100%\)/);
 });
 
-test('顶部反馈使用纯排版回执存根，不使用表情或图标', () => {
-  assert.doesNotMatch(modalMarkup, /mall-mood-icon|mall-horn-art|😂|😭/);
-  assert.match(modalMarkup, /class="mall-receipt-stub"[\s\S]*?COOLING NOTE[\s\S]*?已入冷静单/);
-
-  const stubRules = declarationsFor('.mall-receipt-stub');
-  assert.match(stubRules, /grid-template-columns:\s*auto\s+minmax\(18px,\s*1fr\)\s+auto/);
-  assert.match(stubRules, /border-block:\s*1px\s+dashed/);
-
-  const confettiRules = declarationsFor('.mall-confetti-gif,\n.mall-confetti-poster');
-  assert.match(confettiRules, /height:\s*clamp\(120px,\s*24%,\s*190px\)/);
-  assert.match(confettiRules, /mask-image:\s*linear-gradient/);
+test('成功卡使用 Figma 喇叭徽章并保留背景动效与建议', () => {
+  assert.match(modalMarkup, /mall-success-emblem[\s\S]*?mall-horn-poster.png/);
+  assert.match(modalMarkup, /<details class="mall-success-advice"/);
+  assert.match(modalMarkup, /id="mallConfettiGif"/);
 });

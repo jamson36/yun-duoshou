@@ -225,7 +225,7 @@ export class SceneBudgetWhiteboard {
     const bottom = this.panorama.projectPoint(bottomSurface.yaw, bottomSurface.pitch);
     const localBoardWidth = distance(left, right) / (horizontalDelta * 2);
     const localBoardHeight = distance(top, bottom) / (verticalDelta * 2);
-    const noteWidth = clamp(Math.min(localBoardWidth * 0.22, localBoardHeight * 0.24), 72, 226);
+    const noteWidth = Math.min(localBoardWidth * 0.16, localBoardHeight * 0.14, 112);
     const boardAngle = Math.atan2(right.y - left.y, right.x - left.x) * (180 / Math.PI);
     const stageWidth = this.layer.clientWidth || 1;
     const stageHeight = this.layer.clientHeight || 1;

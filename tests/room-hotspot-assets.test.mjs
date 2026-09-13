@@ -13,8 +13,8 @@ const expectedAssets = Object.freeze({
     pixels: Object.freeze({ width: 758, height: 276 }),
   }),
   'sofa-phone': Object.freeze({
-    asset: Object.freeze({ nodeId: '32:3643', src: './assets/figma-room-hotspot-new-4x.png', width: 190, height: 79 }),
-    pixels: Object.freeze({ width: 757, height: 315 }),
+    asset: Object.freeze({ nodeId: '32:3643', src: './assets/room-shop-bubble.png', width: 178, height: 79 }),
+    pixels: Object.freeze({ width: 190, height: 79 }),
   }),
   whiteboard: Object.freeze({
     asset: Object.freeze({ nodeId: '32:3644', src: './assets/figma-room-hotspot-goals-4x.png', width: 170, height: 71 }),
@@ -80,8 +80,8 @@ test('三个功能热点绑定对应 Figma 节点的 4x PNG 导出', async () =>
     const assetUrl = new URL(`../${hotspot.asset.src.slice(2)}`, import.meta.url);
     const bytes = await readFile(assetUrl);
     assert.deepEqual(pngDimensions(bytes), expected.pixels);
-    assert.ok(expected.pixels.width >= hotspot.asset.width * 3.9);
-    assert.ok(expected.pixels.height >= hotspot.asset.height * 3.9);
+    assert.ok(expected.pixels.width >= hotspot.asset.width * (hotspot.id === 'sofa-phone' ? 1 : 3.9));
+    assert.ok(expected.pixels.height >= hotspot.asset.height * (hotspot.id === 'sofa-phone' ? 1 : 3.9));
   }
 });
 

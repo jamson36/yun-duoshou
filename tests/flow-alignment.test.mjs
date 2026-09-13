@@ -83,7 +83,7 @@ test('商城购物车按钮就是订单入口，不建立独立 cart 页面状�
 });
 
 test('购买成功弹窗有可滚动建议区域，返回与分享沿用统一返回结构', () => {
-  assert.match(html, /<section class="mall-success-advice"[^>]*aria-labelledby="mallSuccessAdviceTitle">[\s\S]*?<ul id="mallSuccessAdviceList" aria-live="polite">/);
+  assert.match(html, /<details class="mall-success-advice"[^>]*aria-labelledby="mallSuccessAdviceTitle">[\s\S]*?<ul id="mallSuccessAdviceList" aria-live="polite">/);
   assert.match(css, /\.mall-success-card\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(css, /\.mall-success-advice\s*\{/);
 
@@ -106,7 +106,7 @@ test('成功返回回到可见手机首页入口，不再聚焦隐藏小票', ()
   );
   assert.match(handler, /phoneView:\s*'home'/);
   assert.match(handler, /showPhoneView\('home'/);
-  assert.match(handler, /openMallButton\.focus/);
+  assert.match(handler, /categoryCarousel\.querySelector[\s\S]*?\.focus/);
   assert.doesNotMatch(handler, /orderReceipt\.scrollIntoView|viewOrdersButton\.focus/);
 });
 

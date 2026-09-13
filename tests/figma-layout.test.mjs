@@ -31,29 +31,11 @@ test('Figma 业务页使用整屏路由，不再退回左右分栏抽屉', () =>
   assert.match(overhaulCss, /\.focus-panel \.panel-rail\s*\{\s*display:\s*none;/);
 });
 
-test('开始买吧按 5:25 先展示介绍页，再进入共享的模拟手机首页', () => {
-  assert.match(html, /class="panel-view phone-device" data-panel="new" aria-label="开始买吧"/);
-  assert.match(html, /id="shoppingIntroView"[^>]*aria-labelledby="shoppingIntroTitle"/);
-  assert.match(html, /id="shoppingIntroTitle"[^>]*>还在为深夜剁手/);
-  assert.match(html, /id="enterShoppingPhoneButton"[^>]*>[\s\S]*?进入模拟手机/);
-  assert.match(html, /hand-21-155\/hand-21-155-4x\.png/);
-  assert.match(html, /phone-20-3\/phone-home-20-3-4x\.png/);
-  const introStart = html.indexOf('id="shoppingIntroView"');
-  const stageStart = html.indexOf('class="shopping-intro-stage"', introStart);
-  const handStart = html.indexOf('class="shopping-intro-art"', stageStart);
-  const phoneStart = html.indexOf('class="shopping-intro-phone-preview"', stageStart);
-  const stageEnd = html.indexOf('</div>', html.indexOf('</div>', phoneStart) + 6);
-  assert.ok(stageStart > introStart, '手臂和手机应共用同一个视觉舞台');
-  assert.ok(handStart > stageStart && handStart < stageEnd, '手臂应位于共享舞台内');
-  assert.ok(phoneStart > handStart && phoneStart < stageEnd, '手机应位于共享舞台内并叠在手臂上方');
-  const introCss = css.slice(css.indexOf('/* 2026-09-01 Figma 5:25 flow'));
-  assert.match(introCss, /\.shopping-intro-stage\s*\{[\s\S]*?width:\s*min\(64\.908854vw, 115\.393519dvh\);[\s\S]*?aspect-ratio:\s*4985 \/ 4320;/);
-  assert.match(introCss, /\.shopping-intro-phone-preview\s*\{[\s\S]*?top:\s*9\.465162%;[\s\S]*?left:\s*33\.440321%;[\s\S]*?width:\s*31\.534604%;/);
-  assert.match(appSource, /let phoneView\s*=\s*'intro'/);
-  assert.match(appSource, /enterShoppingPhoneButton\.addEventListener\('click',[\s\S]*?pushPhoneView\('home'/);
-  assert.match(appSource, /shoppingIntroView\.hidden = phoneView !== 'intro'/);
-  assert.match(appSource, /const panelBackLabel = phoneView === 'intro' \? '回房间' : '返回上一页'[\s\S]*?panelClose\.setAttribute\('aria-label', panelBackLabel\)/);
-  assert.match(appSource, /function panelFocusTargets[\s\S]*?phoneView === 'home'[\s\S]*?#newPanelTitle[\s\S]*?shoppingIntroTitle/);
+test('开始买吧入口直接展示共享功能手机，不使用静态截图', () => {
+  assert.ok(html.indexOf('id="shoppingIntroView"') < html.indexOf('data-panel="new" aria-label="开始买吧"'));
+  assert.doesNotMatch(html, /shopping-intro-phone-preview|shopping-intro-art/);
+  assert.match(appSource, /phoneHomeView.hidden = !\['intro', 'home'\].includes\(phoneView\)/);
+  assert.match(html, /id="phoneHomeView"[\s\S]*?id="categoryCarousel"/);
 });
 
 test('冷静单与回血计划保持 Figma 桌面画板尺寸和暖色房间背景', () => {
@@ -332,7 +314,7 @@ test('手机订单筛选独占整行并把导出操作收进次级面板', () =>
 
 test('商城入口在桌面与手机都可见，三个分类卡点击后直接进入对应商城', () => {
   assert.match(html, /id="openMallButton"/);
-  assert.doesNotMatch(overhaulCss, /\.app\[data-focus="new"\] \.mall-entry-button\s*\{\s*display:\s*none/);
+
   assert.match(overhaulCss, /@media \(max-width: 820px\)[\s\S]*?\.app\[data-focus="new"\] \.mall-entry-button\s*\{\s*display:\s*flex;/);
   assert.match(html, /查看模拟商品 →/);
   assert.match(appSource, /actionLabel\.textContent = '查看模拟商品 →'/);
@@ -343,9 +325,9 @@ test('商城入口在桌面与手机都可见，三个分类卡点击后直接�
 
 test('桌面商城与详情恢复 393×844 仿真手机，手机端继续无重复外壳', () => {
   const flowCss = css.slice(css.indexOf('/* 2026-09-01 Figma 5:25 flow'));
-  assert.match(flowCss, /:not\(\[data-phone-view="intro"\]\) \.phone-device,[\s\S]*?height:\s*min\(844px, calc\(100dvh - 28px\)\);[\s\S]*?aspect-ratio:\s*393 \/ 844;[\s\S]*?border:\s*10px solid #ffdbb7;[\s\S]*?border-radius:\s*54px;/);
-  assert.match(flowCss, /:not\(\[data-phone-view="intro"\]\) \.phone-status-bar\s*\{\s*display:\s*grid;/);
-  assert.match(flowCss, /:not\(\[data-phone-view="intro"\]\) \.device-tabs\s*\{\s*display:\s*grid;/);
+  assert.match(flowCss, /\.app\[data-focus="new"\] \.phone-device,[\s\S]*?height:\s*min\(844px, calc\(100dvh - 28px\)\);[\s\S]*?aspect-ratio:\s*393 \/ 844;[\s\S]*?border:\s*10px solid #ffdbb7;[\s\S]*?border-radius:\s*54px;/);
+  assert.match(flowCss, /\.app\[data-focus="new"\] \.phone-status-bar\s*\{\s*display:\s*grid;/);
+  assert.match(flowCss, /\.app\[data-focus="new"\] \.device-tabs\s*\{\s*display:\s*grid;/);
   assert.match(flowCss, /\.commerce-products\[data-layout="grid"\]\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(flowCss, /\.commerce-detail-view\s*\{\s*display:\s*block;/);
   assert.match(overhaulCss, /Mobile Home Frame 24:158 has no desktop phone bezel[\s\S]*?width:\s*100vw;[\s\S]*?border:\s*0;/);

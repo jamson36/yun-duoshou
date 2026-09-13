@@ -1,8 +1,8 @@
 import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260913-entry-notes-1';
 import { PanoramaRoom } from './panorama.js?v=20260905-interaction-audit-1';
-import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260909-slice-2';
+import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260913-live-phone-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
-import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260913-entry-notes-1';
+import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260913-live-phone-1';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
@@ -2370,12 +2370,12 @@ function showPhoneView(view, { type = activeCommerceType, productId = activeComm
   if (phoneView === 'detail' && !commerceProduct(activeCommerceProductId)) phoneView = 'catalog';
   app.dataset.phoneView = phoneView;
 
-  shoppingIntroView.hidden = phoneView !== 'intro';
-  phoneHomeView.hidden = phoneView !== 'home';
+  shoppingIntroView.hidden = false;
+  phoneHomeView.hidden = !['intro', 'home'].includes(phoneView);
   phoneCommerce.hidden = !['catalog', 'detail'].includes(phoneView);
   commerceCatalogView.hidden = phoneView !== 'catalog';
   commerceDetailView.hidden = phoneView !== 'detail';
-  newPhoneScreen.classList.toggle('is-shopping-intro', phoneView === 'intro');
+  newPhoneScreen.classList.toggle('is-shopping-intro', false);
   newPhoneScreen.classList.toggle('is-commerce', ['catalog', 'detail'].includes(phoneView));
   newPhoneScreen.dataset.commerceTheme = activeCommerceType;
   if (phoneView === 'catalog') renderCommerceCatalog();
@@ -3674,7 +3674,7 @@ function renderGoal() {
     ? `当前目标${goal.demo ? '（演示）' : ''}：${goal.name}，还差 ${money(Math.max(0, amount - saved))}。`
     : '还没有设定目标。';
   const items = state.orders.map((order, index) => ({
-    goal: { ...order, note: { x: 0.24 + (index % 3) * 0.26, y: 0.2 + Math.floor(index / 3) * (0.6 / Math.max(3, Math.ceil(state.orders.length / 3) - 1)), color: ['yellow', 'cyan', 'coral', 'acid'][index % 4], rotation: index % 2 ? 3 : -3 } },
+    goal: { ...order, note: { x: 0.2 + (index % 4) * 0.2, y: 0.18 + (Math.floor(index / 4) % 4) * 0.2 + (Math.floor(index / 16) % 3) * 0.015, color: ['yellow', 'cyan', 'coral', 'acid'][index % 4], rotation: index % 2 ? 3 : -3 } },
     orderNote: true,
   }));
   sceneWhiteboard.render({ items, activeGoalId: state.activeGoalId, selectedGoalId, active: activePanel === 'goals' });
@@ -4719,7 +4719,7 @@ mallSuccessBackButton.addEventListener('click', () => {
   resetOrderComposer();
   history.replaceState({ panel: 'new', phoneView: 'home', openedByApp: false }, '', buildNewHash({ phoneView: 'home' }));
   showPhoneView('home');
-  window.setTimeout(() => openMallButton.focus({ preventScroll: true }), document.body.classList.contains('reduce-motion') ? 20 : 280);
+  window.setTimeout(() => categoryCarousel.querySelector('[data-card-state="active"]')?.focus({ preventScroll: true }), document.body.classList.contains('reduce-motion') ? 20 : 280);
 });
 
 mallSuccessContinueButton.addEventListener('click', () => {
