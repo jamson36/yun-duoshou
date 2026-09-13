@@ -270,7 +270,7 @@ test('显式商城 hash 优先于旧历史状态，非法参数安全回退', ()
 });
 
 test('应用启动与历史同步保留商城深链且规范化当前地址', () => {
-  assert.match(appSource, /const initialRoute = \{ \.\.\.routeSnapshot\(history\.state \|\| \{\}\), activity: null \}/);
+  assert.match(appSource, /const initialRoute = \{ \.\.\.routeSnapshot\(history\.state \|\| \{\}\), panel: null, activity: null \}/);
   assert.match(appSource, /initialPanel === 'new'[\s\S]*?buildNewHash\(initialRoute\)/);
   assert.match(appSource, /function syncRouteFromLocation\([\s\S]*?history\.replaceState\([\s\S]*?buildNewHash\(normalizedRoute\)/);
   assert.match(appSource, /function navigateBackWithinPhone\([\s\S]*?openedByApp[\s\S]*?phoneView === 'detail'[\s\S]*?'catalog'/);
@@ -702,4 +702,15 @@ test('人格报告容器保持可聚焦，但不把整份报告作为 aria-live 
   assert.match(tag, /id="personalityProfile"/);
   assert.match(tag, /tabindex="-1"/);
   assert.doesNotMatch(tag, /aria-live/);
+});
+
+
+test('首次加载忽略旧功能页位置，进入房间后再由用户打开功能', () => {
+  const declaration = appSource.match(/const initialRoute = [^;]+;/)[0];
+  for (const panel of [null, 'new', 'orders', 'clinic', 'goals']) {
+    const context = { history: { state: {} }, routeSnapshot: () => ({ panel, activity: 'peel', phoneView: 'detail' }) };
+    vm.runInNewContext(`${declaration} this.result = initialRoute;`, context);
+    assert.equal(context.result.panel, null);
+    assert.equal(context.result.activity, null);
+  }
 });
