@@ -42,15 +42,15 @@ test('主页问候锚定在全景内坐姿浣熊的投影点', () => {
   assert.match(css, /\.panorama-app\[data-room-phase="room"\] \.scene-raccoon-speech:not\(\[hidden\]\)/);
 });
 
-test('三秒揭幕只播一次，Figma 4:5 入口视频循环播放', () => {
+test('加载进度代替开场视频，用户入口视频循环播放', () => {
   const openingVideo = html.match(/<video[^>]*id="roomIntroVideo"[^>]*>[\s\S]*?<\/video>/)?.[0] || '';
   const entryVideo = html.match(/<video[^>]*id="roomEntryVideo"[^>]*>[\s\S]*?<\/video>/)?.[0] || '';
 
   assert.doesNotMatch(openingVideo, /\bloop\b/);
-  assert.match(openingVideo, /room-intro-hq\.mp4/);
-  assert.match(openingVideo, /room-intro-poster-hq\.webp/);
+  assert.equal(openingVideo, '');
+  assert.match(html, /<progress id="roomLoadProgress"/);
   assert.match(entryVideo, /\bloop\b/);
-  assert.match(entryVideo, /room-entry-loop\.mp4/);
+  assert.match(entryVideo, /room-entry-user\.mp4/);
   assert.match(entryVideo, /room-entry-poster-hq\.webp/);
   assert.doesNotMatch(css, /is-entry-video-playing \.room-entry-title-art[\s\S]*?opacity:\s*0/);
   assert.doesNotMatch(css, /is-entry-video-playing \.enter-room-button[\s\S]*?color:\s*transparent/);

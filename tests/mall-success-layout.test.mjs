@@ -18,7 +18,7 @@ function declarationsFor(selector) {
 test('商城记录弹层不在回执卡外渲染漂浮话术', () => {
   assert.ok(modalStart >= 0, '应保留商城记录弹层');
   assert.doesNotMatch(modalMarkup, /mall-static-barrage/);
-  assert.match(html, /styles\.css\?v=[^"']*mall-receipt-stub-1/);
+  assert.match(html, /styles\.css\?v=[^"']*entry-notes-1/);
 });
 
 test('商城记录卡在手机内容区居中，并取消百分比下移', () => {

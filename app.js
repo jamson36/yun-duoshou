@@ -1,8 +1,8 @@
-import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260901-flow-alignment-3';
+import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260913-entry-notes-1';
 import { PanoramaRoom } from './panorama.js?v=20260905-interaction-audit-1';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260909-slice-2';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
-import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260830-persistence-2';
+import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260913-entry-notes-1';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260830-persona-hybrid-3';
@@ -953,6 +953,8 @@ focusPanel.setAttribute('aria-hidden', 'true');
 const roomIntro = new RoomIntro({
   app,
   gate: roomIntroGate,
+  loadingProgress: document.querySelector('#roomLoadProgress'),
+  ready: panorama.whenReady(),
   video: document.querySelector('#roomIntroVideo'),
   entryVideo: document.querySelector('#roomEntryVideo'),
   canvas: document.querySelector('#introPixelCanvas'),
@@ -3671,10 +3673,10 @@ function renderGoal() {
   document.querySelector('#goalSummary').textContent = goal
     ? `当前目标${goal.demo ? '（演示）' : ''}：${goal.name}，还差 ${money(Math.max(0, amount - saved))}。`
     : '还没有设定目标。';
-  const items = goal ? [goal].map((item) => {
-    const itemProgress = calculateGoalProgress(state.orders, item);
-    return { goal: item, saved: itemProgress?.progress || 0, percent: Math.min(100, Math.round((itemProgress?.progressRate || 0) * 100)) };
-  }) : [];
+  const items = state.orders.map((order, index) => ({
+    goal: { ...order, note: { x: 0.24 + (index % 3) * 0.26, y: 0.2 + Math.floor(index / 3) * (0.6 / Math.max(3, Math.ceil(state.orders.length / 3) - 1)), color: ['yellow', 'cyan', 'coral', 'acid'][index % 4], rotation: index % 2 ? 3 : -3 } },
+    orderNote: true,
+  }));
   sceneWhiteboard.render({ items, activeGoalId: state.activeGoalId, selectedGoalId, active: activePanel === 'goals' });
   renderGoalList();
   renderGoalEditor();

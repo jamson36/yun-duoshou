@@ -34,6 +34,8 @@ function createVideoMock({ playResult = Promise.resolve() } = {}) {
 }
 
 function createIntroHarness({
+  loadingProgress = null,
+  ready = Promise.resolve(),
   video = null,
   entryVideo = null,
   reducedMotion = false,
@@ -92,6 +94,8 @@ function createIntroHarness({
     addEventListener() {},
   };
   const intro = new RoomIntro({
+    loadingProgress,
+    ready,
     app,
     gate,
     canvas: { getContext: () => context, style: {} },
@@ -373,4 +377,21 @@ test('开屏途中切换减少动态会直接揭示且不提前解除三秒门�
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
     globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
   }
+});
+test('房间准备完毕才结束加载，加载期间不播放开场视频', async () => {
+  let complete;
+  const ready = new Promise((resolve) => { complete = resolve; });
+  const video = createVideoMock();
+  const loadingProgress = { value: 0, removeAttribute() {} };
+  const harness = createIntroHarness({ ready, loadingProgress, video });
+  try {
+    harness.intro.start();
+    assert.equal(harness.enterButton.disabled, true);
+    assert.equal(video.playCalls, 0);
+    assert.equal(harness.timers.size, 0);
+    complete();
+    await Promise.resolve();
+    assert.equal(harness.enterButton.disabled, false);
+    assert.equal(loadingProgress.value, 100);
+  } finally { harness.restore(); }
 });

@@ -144,10 +144,24 @@ export class SceneBudgetWhiteboard {
     this.updateProjection();
   }
 
-  createNote({ goal, saved = 0, percent = 0 }, activeGoalId, selectedGoalId) {
+  createNote({ goal, saved = 0, percent = 0, orderNote = false }, activeGoalId, selectedGoalId) {
     const noteMeta = constrainGoalNote(goal.note);
     const note = document.createElement('article');
     note.className = `scene-budget-note is-${noteMeta.color}`;
+    if (orderNote) {
+      note.classList.add('is-order-note');
+      note.setAttribute('aria-label', `${goal.name}，${goal.amount} 元${goal.demo ? '，演示' : ''}`);
+      const title = document.createElement('strong');
+      title.textContent = goal.name;
+      const amount = document.createElement('b');
+      amount.textContent = `¥${formatAmount(goal.amount)}`;
+      const status = document.createElement('small');
+      status.textContent = `${{ cooling: '冷静中', saved: '幸好没买', purchased: '已剁手' }[goal.status] || ''}${goal.demo ? ' · 演示' : ''}`;
+      note.append(title, amount, status);
+      this.layer.appendChild(note);
+      this.notes.set(goal.id, { element: note, meta: noteMeta });
+      return;
+    }
     note.classList.toggle('is-current', goal.id === activeGoalId);
     note.classList.toggle('is-selected', goal.id === selectedGoalId);
     note.dataset.goalId = goal.id;

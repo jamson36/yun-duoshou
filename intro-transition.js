@@ -36,6 +36,8 @@ export class RoomIntro {
     lockup,
     enterButton,
     video = null,
+    loadingProgress = null,
+    ready = Promise.resolve(),
     entryVideo = null,
     duration = INTRO_DURATION_MS,
     reducedMotion = false,
@@ -49,6 +51,8 @@ export class RoomIntro {
     this.lockup = lockup;
     this.enterButton = enterButton;
     this.video = video;
+    this.loadingProgress = loadingProgress;
+    this.ready = ready;
     this.entryVideo = entryVideo;
     this.duration = duration;
     this.reducedMotion = reducedMotion;
@@ -221,6 +225,12 @@ export class RoomIntro {
     this.gate.setAttribute('aria-busy', 'true');
     this.setStatus('房间正在显现，进入按钮会在动画结束后出现。');
     this.startedAt = performance.now();
+    if (this.loadingProgress) {
+      this.setStatus('正在准备房间，完成后显示开始按钮。');
+      this.loadingProgress.removeAttribute('value');
+      Promise.resolve(this.ready).then(() => this.finish(), () => this.finish());
+      return;
+    }
     // The reveal clock starts independently from the panorama asset request.
     // The timeout is the duration authority when animation frames are delayed.
     this.finishTimer = window.setTimeout(() => this.finish(), this.duration);
@@ -270,6 +280,10 @@ export class RoomIntro {
   draw(progress) {
     this.renderProgress = Math.max(this.renderProgress, clamp(progress, 0, 1));
     progress = this.renderProgress;
+    if (this.loadingProgress) {
+      this.loadingProgress.value = Math.round(progress * 100);
+      return;
+    }
     const context = this.canvas.getContext('2d');
     context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     context.clearRect(0, 0, this.width, this.height);

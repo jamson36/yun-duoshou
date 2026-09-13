@@ -270,7 +270,7 @@ test('显式商城 hash 优先于旧历史状态，非法参数安全回退', ()
 });
 
 test('应用启动与历史同步保留商城深链且规范化当前地址', () => {
-  assert.match(appSource, /const initialRoute = routeSnapshot\(history\.state \|\| \{\}\)/);
+  assert.match(appSource, /const initialRoute = \{ \.\.\.routeSnapshot\(history\.state \|\| \{\}\), activity: null \}/);
   assert.match(appSource, /initialPanel === 'new'[\s\S]*?buildNewHash\(initialRoute\)/);
   assert.match(appSource, /function syncRouteFromLocation\([\s\S]*?history\.replaceState\([\s\S]*?buildNewHash\(normalizedRoute\)/);
   assert.match(appSource, /function navigateBackWithinPhone\([\s\S]*?openedByApp[\s\S]*?phoneView === 'detail'[\s\S]*?'catalog'/);
