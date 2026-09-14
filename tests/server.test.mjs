@@ -120,6 +120,77 @@ test('畸形请求地址返回 400，服务仍可处理后续请求', async () =
   });
 });
 
+test('视频分段读取返回精确的 206 字节内容，支持后缀与开放区间', async () => {
+  const video = await readFile(new URL('../assets/room-entry-user.mp4', import.meta.url));
+  await withServer({}, async (baseUrl) => {
+    for (const [range, start, end] of [
+      ['bytes=0-1023', 0, 1023],
+      ['bytes=1024-2047', 1024, 2047],
+      ['bytes=-257', video.length - 257, video.length - 1],
+      [`bytes=${video.length - 512}-`, video.length - 512, video.length - 1],
+      [`bytes=${video.length - 64}-9999999999999999999999999`, video.length - 64, video.length - 1],
+    ]) {
+      const response = await fetch(`${baseUrl}/assets/room-entry-user.mp4`, { headers: { Range: range } });
+      assert.equal(response.status, 206, range);
+      assert.equal(response.headers.get('content-type'), 'video/mp4');
+      assert.equal(response.headers.get('accept-ranges'), 'bytes');
+      assert.equal(response.headers.get('content-range'), `bytes ${start}-${end}/${video.length}`);
+      assert.equal(response.headers.get('content-length'), String(end - start + 1));
+      assert.equal(response.headers.get('cache-control'), 'public, max-age=3600');
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), video.subarray(start, end + 1));
+    }
+  });
+});
+
+test('范围越界返回 416，HEAD、条件不匹配和不支持的范围保持完整响应语义', async () => {
+  const file = await readFile(new URL('../index.html', import.meta.url));
+  await withServer({}, async (baseUrl) => {
+    for (const range of [`bytes=${file.length}-`, 'bytes=999999999999999999999999-', 'bytes=-0']) {
+      const response = await fetch(baseUrl, { headers: { Range: range } });
+      assert.equal(response.status, 416, range);
+      assert.equal(response.headers.get('content-range'), `bytes */${file.length}`);
+      assert.equal((await response.arrayBuffer()).byteLength, 0);
+    }
+    for (const headers of [
+      { Range: 'items=0-1' }, { Range: 'bytes=0-1,4-5' },
+      { Range: 'bytes=4-2' }, { Range: 'bytes=not-a-range' },
+      { Range: 'bytes=0-1', 'If-Range': '"another-version"' },
+    ]) {
+      const response = await fetch(baseUrl, { headers });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.has('content-range'), false);
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()), file);
+    }
+    const suffix = await fetch(baseUrl, { headers: { Range: 'bytes=-999999999999999999999' } });
+    assert.equal(suffix.status, 206);
+    assert.deepEqual(Buffer.from(await suffix.arrayBuffer()), file);
+    const head = await fetch(baseUrl, { method: 'HEAD', headers: { Range: 'bytes=0-1' } });
+    assert.equal(head.status, 200);
+    assert.equal(head.headers.get('content-length'), String(file.length));
+    assert.equal(head.headers.has('content-range'), false);
+    assert.equal((await head.arrayBuffer()).byteLength, 0);
+    const privateFile = await fetch(`${baseUrl}/server.mjs`, { headers: { Range: 'bytes=0-1' } });
+    assert.equal(privateFile.status, 404);
+    await privateFile.text();
+  });
+});
+
+test('视频分段下载被客户端中断后服务继续响应', async () => {
+  await withServer({}, async (baseUrl) => {
+    await new Promise((resolve, reject) => {
+      const request = httpRequest(`${baseUrl}/assets/room-entry-user.mp4`, { headers: { Range: 'bytes=0-' } }, (response) => {
+        response.once('data', () => { response.destroy(); resolve(); });
+        response.once('error', reject);
+      });
+      request.once('error', reject);
+      request.end();
+    });
+    const response = await fetch(`${baseUrl}/api/health`);
+    assert.equal(response.status, 200);
+    await response.json();
+  });
+});
+
 test('公开静态资源不暴露复诊服务商或模型名称', async () => {
   await withServer({}, async (baseUrl) => {
     const responses = await Promise.all([

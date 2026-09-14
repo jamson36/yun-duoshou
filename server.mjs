@@ -1,6 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { pipeline } from 'node:stream';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -123,6 +124,29 @@ function rawRequestPathname(requestUrl) {
   return queryIndex === -1 ? value : value.slice(0, queryIndex);
 }
 
+function staticByteRange(header, size) {
+  if (typeof header !== 'string' || size === 0) return null;
+  // Unsupported units, multipart ranges and malformed syntax use the full response.
+  const match = /^bytes=\s*(\d*)-(\d*)\s*$/i.exec(header);
+  if (!match || (!match[1] && !match[2])) return null;
+  const length = BigInt(size);
+  let start;
+  let end;
+  if (!match[1]) {
+    const suffix = BigInt(match[2]);
+    if (suffix === 0n) return { unsatisfiable: true };
+    start = suffix < length ? length - suffix : 0n;
+    end = length - 1n;
+  } else {
+    start = BigInt(match[1]);
+    end = match[2] ? BigInt(match[2]) : length - 1n;
+    if (match[2] && end < start) return null;
+    if (start >= length) return { unsatisfiable: true };
+    if (end >= length) end = length - 1n;
+  }
+  return { start: Number(start), end: Number(end) };
+}
+
 async function serveStatic(request, response, pathname) {
   const filePath = staticPath(pathname);
   if (!filePath) return false;
@@ -134,13 +158,34 @@ async function serveStatic(request, response, pathname) {
   }
   if (!fileInfo.isFile()) return false;
   const contentType = staticContentType(filePath);
-  response.writeHead(200, {
+  const headers = {
     ...securityHeaders(contentType),
+    'Accept-Ranges': 'bytes',
     'Content-Length': fileInfo.size,
     'Cache-Control': pathname === '/' || pathname.endsWith('.html') ? 'no-cache' : 'public, max-age=3600',
-  });
-  if (request.method === 'HEAD') response.end();
-  else createReadStream(filePath).pipe(response);
+  };
+  // HEAD has no range semantics. Without a matching validator, If-Range must
+  // fall back to the complete representation so clients cannot combine versions.
+  const range = request.method === 'GET' && !request.headers['if-range']
+    ? staticByteRange(request.headers.range, fileInfo.size)
+    : null;
+  if (range?.unsatisfiable) {
+    response.writeHead(416, { ...headers, 'Content-Length': 0, 'Content-Range': `bytes */${fileInfo.size}` });
+    response.end();
+    return true;
+  }
+  if (range) {
+    headers['Content-Length'] = range.end - range.start + 1;
+    headers['Content-Range'] = `bytes ${range.start}-${range.end}/${fileInfo.size}`;
+  }
+  response.writeHead(range ? 206 : 200, headers);
+  if (request.method === 'HEAD') {
+    response.end();
+  } else {
+    pipeline(createReadStream(filePath, range || undefined), response, () => {
+      // pipeline closes both ends on file errors or an interrupted download.
+    });
+  }
   return true;
 }
 
