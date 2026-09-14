@@ -281,6 +281,13 @@ export class PanoramaRoom {
     return this.readyPromise;
   }
 
+  showStaticFallback(message = '全景加载较慢，已显示静态场景，顶部功能仍可使用。') {
+    if (this.destroyed || this.ready) return;
+    this.stage.classList.add('is-static-fallback', 'is-image-missing');
+    this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
+    this.finishReady({ fallback: true, message });
+  }
+
   initRenderer() {
     const gl = this.canvas.getContext('webgl2', {
       antialias: false,
@@ -424,16 +431,14 @@ export class PanoramaRoom {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
       this.texture = texture;
       this.ready = true;
+      this.stage.classList.remove('is-static-fallback', 'is-image-missing');
       this.stage.classList.add('is-ready');
       this.stage.dispatchEvent(new CustomEvent('panoramaready'));
       this.finishReady({ fallback: false, message: '全景已就绪' });
       this.requestRender();
     };
     image.onerror = () => {
-      const message = '全景图片加载失败，文字导航仍可使用。';
-      this.stage.classList.add('is-static-fallback', 'is-image-missing');
-      this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
-      this.finishReady({ fallback: true, message });
+      this.showStaticFallback('全景图片加载失败，已显示静态场景，顶部功能仍可使用。');
     };
     image.src = this.imageUrl;
   }

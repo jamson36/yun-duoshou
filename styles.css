@@ -2183,15 +2183,13 @@ body.reduce-motion *::after {
 .panorama-stage.is-ready .panorama-canvas { opacity: 1; }
 
 .panorama-stage.is-static-fallback {
-  background-image: var(--panorama-image), linear-gradient(#d6a161, #d6a161);
+  background-image: var(--panorama-image, url("./assets/room-entry-video-poster.webp")), url("./assets/room-entry-video-poster.webp"), linear-gradient(#d6a161, #d6a161);
   background-size: cover;
   background-position: center;
 }
 
 .panorama-stage.is-image-missing {
-  background-image:
-    linear-gradient(135deg, rgba(215,255,67,.08) 25%, transparent 25%) 0 0 / 34px 34px,
-    linear-gradient(#16171d, #0f1015);
+  background-image: url("./assets/room-entry-video-poster.webp"), linear-gradient(#d6a161, #d6a161);
 }
 
 .panorama-stage.is-image-missing .hotspot-layer,

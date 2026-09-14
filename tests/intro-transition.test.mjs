@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   ENTRY_TRANSITION_MS,
   INTRO_DURATION_MS,
+  ROOM_READY_TIMEOUT_MS,
   RoomIntro,
   introProgress,
   pixelBoundary,
@@ -36,6 +37,7 @@ function createVideoMock({ playResult = Promise.resolve() } = {}) {
 function createIntroHarness({
   loadingProgress = null,
   ready = Promise.resolve(),
+  onReadyTimeout = null,
   video = null,
   entryVideo = null,
   reducedMotion = false,
@@ -96,6 +98,7 @@ function createIntroHarness({
   const intro = new RoomIntro({
     loadingProgress,
     ready,
+    onReadyTimeout,
     app,
     gate,
     canvas: { getContext: () => context, style: {} },
@@ -388,10 +391,50 @@ test('房间准备完毕才结束加载，加载期间不播放开场视频', as
     harness.intro.start();
     assert.equal(harness.enterButton.disabled, true);
     assert.equal(video.playCalls, 0);
-    assert.equal(harness.timers.size, 0);
+    assert.equal([...harness.timers.values()][0].delay, ROOM_READY_TIMEOUT_MS);
     complete();
     await Promise.resolve();
     assert.equal(harness.enterButton.disabled, false);
     assert.equal(loadingProgress.value, 100);
+    assert.equal(harness.timers.size, 0);
+  } finally { harness.restore(); }
+});
+
+test('全景请求挂起时超时开放入口，晚到的成功不会重新锁住已进入的房间', async () => {
+  let complete;
+  let fallbackCalls = 0;
+  const ready = new Promise((resolve) => { complete = resolve; });
+  const harness = createIntroHarness({
+    ready,
+    loadingProgress: { value: 0, removeAttribute() {} },
+    onReadyTimeout: () => { fallbackCalls += 1; },
+    reducedMotion: true,
+  });
+  try {
+    harness.intro.start();
+    [...harness.timers.values()][0].callback();
+    assert.equal(fallbackCalls, 1);
+    assert.equal(harness.enterButton.disabled, false);
+    assert.equal(harness.gateAttributes.get('aria-busy'), 'false');
+    await harness.intro.enter();
+    assert.equal(harness.app.dataset.roomPhase, 'room');
+    complete();
+    await Promise.resolve();
+    assert.equal(harness.app.dataset.roomPhase, 'room');
+    assert.equal(harness.timers.size, 0);
+    assert.equal(fallbackCalls, 1);
+  } finally { harness.restore(); }
+});
+
+test('全景准备失败立即开放入口并清理超时任务', async () => {
+  const harness = createIntroHarness({
+    ready: Promise.reject(new Error('image failed')),
+    loadingProgress: { value: 0, removeAttribute() {} },
+  });
+  try {
+    harness.intro.start();
+    await Promise.resolve();
+    assert.equal(harness.enterButton.disabled, false);
+    assert.equal(harness.timers.size, 0);
   } finally { harness.restore(); }
 });

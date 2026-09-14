@@ -1,4 +1,5 @@
 export const INTRO_DURATION_MS = 3000;
+export const ROOM_READY_TIMEOUT_MS = 5000;
 export const ENTRY_TRANSITION_MS = 420;
 
 function clamp(value, min, max) {
@@ -38,6 +39,7 @@ export class RoomIntro {
     video = null,
     loadingProgress = null,
     ready = Promise.resolve(),
+    onReadyTimeout = null,
     entryVideo = null,
     duration = INTRO_DURATION_MS,
     reducedMotion = false,
@@ -53,6 +55,7 @@ export class RoomIntro {
     this.video = video;
     this.loadingProgress = loadingProgress;
     this.ready = ready;
+    this.onReadyTimeout = onReadyTimeout;
     this.entryVideo = entryVideo;
     this.duration = duration;
     this.reducedMotion = reducedMotion;
@@ -228,6 +231,12 @@ export class RoomIntro {
     if (this.loadingProgress) {
       this.setStatus('正在准备房间，完成后显示开始按钮。');
       this.loadingProgress.removeAttribute('value');
+      this.finishTimer = window.setTimeout(() => {
+        if (this.finished) return;
+        this.onReadyTimeout?.();
+        this.finish();
+        this.setStatus('房间背景仍在加载，可以先进入使用。');
+      }, ROOM_READY_TIMEOUT_MS);
       Promise.resolve(this.ready).then(() => this.finish(), () => this.finish());
       return;
     }
