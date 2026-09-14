@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260913-clinic-report-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260913-budget-save-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260909-slice-2" />
-  <script type="module" src="./app.js?v=20260913-clinic-report-2"></script>
+  <script type="module" src="./app.js?v=20260913-budget-save-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -350,11 +350,10 @@
             </div>
             <section class="order-overview-card" aria-label="今日消费欲望摘要">
               <span class="order-overview-goal-pill" id="orderGoalLabel">本月目标 ¥0</span>
-              <span class="order-data-scope" id="orderDataScope">暂无记录</span>
+              <span class="order-data-scope" id="orderDataScope" hidden>暂无记录</span>
               <div class="order-overview-head"><div><small>今日消费欲</small><strong id="orderTodayRecorded">¥0</strong></div><span id="orderCoolingSummary">0 笔冷静中</span></div>
               <div class="order-goal-row"><span id="orderGoalProgressLabel">还没有预算便签</span><b id="orderGoalPercent">0%</b></div>
               <div class="order-goal-track" id="orderGoalTrack" role="progressbar" aria-label="当前目标回血进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
-              <p>模拟记录 · 不支付、不发货</p>
               <span class="phone-raccoon-avatar" aria-hidden="true"><img src="./assets/phone-raccoon.webp" alt="" width="384" height="384" loading="lazy" decoding="async" /></span>
             </section>
             <section class="order-trend-card" aria-labelledby="orderTrendTitle">
@@ -747,7 +746,7 @@
 
               <section class="goals-tab-view goal-controller-view" id="goalController" data-goals-panel="controller" role="tabpanel" aria-labelledby="recoveryControllerTabGoals" hidden>
                 <div class="controller-heading">
-                  <small>DESIRE CONTROLLER · LOCAL PREVIEW</small>
+                  <small>DESIRE CONTROLLER</small>
                   <h2 id="goalControllerTitle" tabindex="-1">欲望控制器</h2>
                   <p>拖动预算刻度，看看钱包会给出哪一种冷静提醒。</p>
                 </div>
@@ -767,7 +766,7 @@
                   <div><small>本地判断</small><strong id="controllerVerdict">钱包状态：容光焕发</strong></div>
                   <p id="controllerAdvice">不错不错，保持下去，小目标不是梦！</p>
                 </div>
-                <p class="goal-controller-boundary">这只是本地情境预览，不会保存预算、修改订单、改变目标或操作任何真实资金。</p>
+                <button class="primary-action controller-save" id="saveControllerBudgetButton" type="button">保存</button>
               </section>
             </section>
           </section>

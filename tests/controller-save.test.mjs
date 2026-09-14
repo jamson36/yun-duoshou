@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFileSync } from 'node:fs';
+import { normalizeBudgetGoal } from '../budget-goals.js';
+const source = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const body = source.slice(source.indexOf('function saveControllerBudget('), source.indexOf('function renderControllerBudget('));
+test('保存控制器预算只更新当前金额，保留目标身份和订单关联', () => {
+  const goal = normalizeBudgetGoal({ id: 'goal-1', name: '旅行', amount: 4000, createdAt: '2026-09-01T00:00:00Z' });
+  const state = { goals: [goal, { id: 'other', amount: 2000 }], activeGoalId: goal.id, orders: [{ id: 'order-1', goalId: goal.id, amount: 28, status: 'saved' }] };
+  const ordersBefore = JSON.stringify(state.orders);
+  let rendered = 0;
+  const context = { desireBudgetRange: { value: '5800' }, CONTROLLER_BUDGET_MIN: 500, CONTROLLER_BUDGET_MAX: 10000, currentGoal: () => goal, normalizeBudgetGoal, mutate: (fn) => { fn(state); return true; }, renderGoal: () => rendered++, showToast: () => {} };
+  vm.runInNewContext(`${body}; saveControllerBudget();`, context);
+  assert.equal(state.goals[0].amount, 5800);
+  assert.equal(state.goals[0].id, goal.id);
+  assert.equal(state.goals[0].name, '旅行');
+  assert.equal(state.goals[0].createdAt, goal.createdAt);
+  assert.equal(state.goals.length, 2);
+  assert.equal(JSON.stringify(state.orders), ordersBefore);
+  assert.equal(rendered, 1);
+});

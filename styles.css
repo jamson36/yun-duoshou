@@ -12965,3 +12965,6 @@ body.reduce-motion :is(
 /* Demo report uses a category icon instead of the character artwork. */
 .clinic-report-view .report-category-icon { display: grid; place-items: center; width: 230px; height: 230px; border-radius: 50%; background: #ffddd1; font-size: 102px; line-height: 1; }
 @media (max-width: 640px) { .clinic-report-view .report-category-icon { width: 170px; height: 170px; font-size: 78px; } }
+
+.controller-save { display: flex; justify-content: center; width: min(320px, 100%); margin: 24px auto 0; min-height: 56px; border-radius: 20px; background: linear-gradient(110deg, #ffcb29, #ff9f38); color: #453000; font-size: 20px; font-weight: 800; }
+#orderDataScope[hidden] { display: none; }

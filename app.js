@@ -1763,6 +1763,33 @@ function controllerBudgetTierFor(rawAmount) {
   return CONTROLLER_BUDGET_TIERS.find((item) => amount <= item.max) || CONTROLLER_BUDGET_TIERS.at(-1);
 }
 
+function saveControllerBudget() {
+  const amount = Number(desireBudgetRange.value);
+  if (!Number.isFinite(amount) || amount < CONTROLLER_BUDGET_MIN || amount > CONTROLLER_BUDGET_MAX) return;
+  const existing = currentGoal();
+  const savedGoalId = existing?.id || createLocalId('goal');
+  const persisted = mutate((draft) => {
+    const now = new Date().toISOString();
+    const goal = normalizeBudgetGoal({
+      ...existing,
+      id: savedGoalId,
+      name: existing?.name || '每月预算',
+      amount,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    }, savedGoalId);
+    const index = draft.goals.findIndex((item) => item.id === savedGoalId);
+    if (index >= 0) draft.goals[index] = goal;
+    else draft.goals.push(goal);
+    draft.activeGoalId = savedGoalId;
+  });
+  selectedGoalId = savedGoalId;
+  goalFormMode = 'edit';
+  renderedGoalId = null;
+  renderGoal();
+  if (persisted) showToast('已保存，手机首页预算已同步。');
+}
+
 function renderControllerBudget() {
   const parsedAmount = Number(desireBudgetRange?.value);
   const amount = Number.isFinite(parsedAmount)
@@ -1818,6 +1845,10 @@ function beginRecoverySwitch(view) {
 
 function setGoalsView(view, { focus = false, updateHistory = false } = {}) {
   activeGoalsView = view === 'controller' ? 'controller' : 'goal';
+  if (activeGoalsView === 'controller') {
+    desireBudgetRange.value = String(currentGoal()?.amount || CONTROLLER_BUDGET_DEFAULT);
+    renderControllerBudget();
+  }
   setRecoveryTabState(activeGoalsView);
   goalTabViews.forEach((viewElement) => {
     const isActive = viewElement.dataset.goalsPanel === activeGoalsView;
@@ -4554,6 +4585,7 @@ document.querySelectorAll('.recovery-tabs').forEach((tablist) => {
 });
 
 desireBudgetRange.addEventListener('input', renderControllerBudget);
+document.querySelector('#saveControllerBudgetButton').addEventListener('click', saveControllerBudget);
 renderControllerBudget();
 
 document.querySelectorAll('[data-open]:not(.scene-hotspot):not([data-recovery-view])').forEach((trigger) => {
