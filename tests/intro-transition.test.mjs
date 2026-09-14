@@ -460,7 +460,7 @@ test('真实字节进度可回放，下载与场景准备分阶段且不受减�
     harness.intro.updateLoading({ phase: 'downloading', loaded: 256 * 1024, total: 1024 * 1024 });
     harness.intro.start();
     assert.equal(progress.value, 25);
-    assert.equal(harness.loadingDetail.textContent, '25% · 256 KB / 1.0 MB');
+    assert.equal(harness.loadingDetail.textContent, '25%');
     harness.intro.setReducedMotion(true);
     harness.intro.setReducedMotion(false);
     assert.equal(progress.value, 25);
@@ -472,7 +472,7 @@ test('真实字节进度可回放，下载与场景准备分阶段且不受减�
   } finally { harness.restore(); }
 });
 
-test('总大小未知或计数不可比较时只展示已下载大小', () => {
+test('总大小未知或计数不可比较时只展示简短加载提示', () => {
   const progress = { value: 0, removeAttribute() { this.value = undefined; } };
   const harness = createIntroHarness({ loadingProgress: progress, ready: new Promise(() => {}) });
   try {
@@ -480,7 +480,7 @@ test('总大小未知或计数不可比较时只展示已下载大小', () => {
     for (const total of [null, 0, 100, Infinity]) {
       harness.intro.updateLoading({ phase: 'downloading', loaded: 256 * 1024, total });
       assert.equal(progress.value, undefined);
-      assert.equal(harness.loadingDetail.textContent, '已下载 256 KB · 总大小未知');
+      assert.equal(harness.loadingDetail.textContent, '正在加载…');
       assert.equal(harness.enterButton.disabled, true);
     }
   } finally { harness.restore(); }

@@ -3,12 +3,6 @@ export const ROOM_READY_TIMEOUT_MS = 5000;
 export const ENTRY_TRANSITION_MS = 420;
 const STATIC_ENTRY_NOTICE = '背景暂未就绪，已切换静态画面，可以开始使用。';
 
-function formatDownloadBytes(bytes) {
-  return bytes < 1024 * 1024
-    ? `${Math.floor(bytes / 1024)} KB`
-    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -236,10 +230,10 @@ export class RoomIntro {
       if (Number.isFinite(total) && total > 0 && loaded <= total) {
         const percent = Math.floor((loaded / total) * 100);
         this.loadingProgress.value = percent;
-        detail = `${percent}% · ${formatDownloadBytes(loaded)} / ${formatDownloadBytes(total)}`;
+        detail = `${percent}%`;
       } else {
         this.loadingProgress.removeAttribute('value');
-        if (loaded > 0) detail = `已下载 ${formatDownloadBytes(loaded)} · 总大小未知`;
+        if (loaded > 0) detail = '正在加载…';
       }
     } else if (state.phase === 'preparing') {
       title = '正在准备场景';
