@@ -155,8 +155,13 @@ export function createAppServer({
   return createServer(async (request, response) => {
     const requestId = randomUUID();
     const startedAt = Date.now();
-    const url = new URL(request.url || '/', 'http://localhost');
+    let url;
     try {
+      try {
+        url = new URL(request.url || '/', 'http://localhost');
+      } catch {
+        throw new ServiceError('invalid_request', '请求地址无效', 400);
+      }
       if (request.method === 'GET' && url.pathname === '/api/health') {
         jsonResponse(response, 200, { status: 'ok', aiConfigured: Boolean(apiKey) });
         return;
@@ -180,7 +185,7 @@ export function createAppServer({
         ? error
         : new ServiceError('server_error', '服务暂时不可用', 500);
       jsonResponse(response, serviceError.status, { requestId, code: serviceError.code, message: serviceError.message });
-      console.warn(JSON.stringify({ requestId, event: url.pathname, status: serviceError.code, durationMs: Date.now() - startedAt }));
+      console.warn(JSON.stringify({ requestId, event: url?.pathname || 'invalid_request', status: serviceError.code, durationMs: Date.now() - startedAt }));
     }
   });
 }

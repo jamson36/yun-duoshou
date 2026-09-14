@@ -106,6 +106,20 @@ test('健康检查不暴露密钥并报告配置状态', async () => {
   });
 });
 
+test('畸形请求地址返回 400，服务仍可处理后续请求', async () => {
+  await withServer({}, async (baseUrl) => {
+    for (const path of ['//[', 'http://[invalid']) {
+      assert.equal(await rawRequestStatus(baseUrl, path), 400);
+    }
+    const response = await fetch(`${baseUrl}/api/health`);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, 'ok');
+    const homepage = await fetch(`${baseUrl}/`);
+    assert.equal(homepage.status, 200);
+    await homepage.text();
+  });
+});
+
 test('公开静态资源不暴露复诊服务商或模型名称', async () => {
   await withServer({}, async (baseUrl) => {
     const responses = await Promise.all([
