@@ -46,7 +46,13 @@ function roundedRectPath(context, x, y, width, height, radius) {
 }
 
 function fillAndStroke(context, fill = context.fillStyle) {
-  context.fillStyle = fill;
+  if (typeof fill === 'string' && context.createLinearGradient) {
+    const surface = context.createLinearGradient(-28, -35, 28, 35);
+    surface.addColorStop(0, '#fff5e9');
+    surface.addColorStop(.3, fill);
+    surface.addColorStop(1, fill);
+    context.fillStyle = surface;
+  } else context.fillStyle = fill;
   context.fill();
   context.stroke();
 }
@@ -254,17 +260,18 @@ export function drawPeelProductVisual(context, item = {}, {
     food: '#f1b541', digital: '#71a393', fashion: '#ee947f',
     interest: '#a7b875', home: '#d9a2bd',
   };
-  context.lineWidth = 3;
+  context.lineWidth = 1.5;
   context.strokeStyle = color;
   context.fillStyle = palette[item.category] || accent;
-  context.shadowColor = '#75472e38';
-  context.shadowBlur = 5;
-  context.shadowOffsetY = 4;
+  context.shadowColor = '#75472e55';
+  context.shadowBlur = 9;
+  context.shadowOffsetY = 7;
   const drawer = DRAWERS[visual.kind] || drawGenericObject;
-  // A broad cream contour gives every silhouette its own die-cut sticker edge.
+  // Offset solid edges give the small toys thickness without changing hit shapes.
   context.save();
-  context.strokeStyle = '#fffaf0';
-  context.lineWidth = 12;
+  context.translate(3, 4);
+  context.lineWidth = 5;
+  context.strokeStyle = '#9d694d';
   drawer(context);
   context.restore();
   context.shadowBlur = 0;

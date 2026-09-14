@@ -13,7 +13,7 @@ import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stage
 import { RoomGestureController } from './gesture-ui.js?v=20260909-slice-2';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
 import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260903-gesture-smooth-1';
-import { createPeelGameController } from './peel-game-ui.js?v=20260909-slice-2';
+import { createPeelGameController } from './peel-game-ui.js?v=20260914-soft3d';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];

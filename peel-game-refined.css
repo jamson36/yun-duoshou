@@ -285,3 +285,8 @@ body.reduce-motion :is(.peel-game-backdrop, .peel-game-card) { animation: none !
 @media (prefers-reduced-motion: reduce) {
   .peel-game-backdrop, .peel-game-card { animation: none !important; transition: none !important; }
 }
+
+.peel-game-rules li { padding: 14px 16px; gap: 10px; }
+.peel-game-intro-art { box-shadow: inset 0 2px 3px #fff9ee, inset 0 -12px 28px #c7865030, 0 18px 32px #9b583324; }
+.peel-intro-stickers { filter: drop-shadow(8px 16px 9px #834b3433); }
+.peel-intro-shell { border-width: 2px; box-shadow: inset 0 2px 3px #ffffffaa, 0 5px 0 #ac693a44, 0 12px 15px #9d543933; }

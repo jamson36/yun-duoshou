@@ -9,7 +9,7 @@ import {
   skipTutorial,
   startRound,
 } from './peel-game.js';
-import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260909-slice-2';
+import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260914-soft3d';
 
 export const MAX_PEEL_DPR = 2;
 export const MAX_PEEL_ENTITIES = 8;

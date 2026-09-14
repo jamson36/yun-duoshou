@@ -7,7 +7,7 @@ const html = read('index.html');
 const css = read('peel-game-refined.css');
 
 test('切一刀使用独立暖色样式、房间背景和购物篮', () => {
-  assert.match(html, /peel-game-refined\.css\?v=20260909-slice-2/);
+  assert.match(html, /peel-game-refined\.css\?v=20260914-soft3d/);
   assert.match(css, /warm-room\.png/);
   assert.match(css, /basket\.svg/);
   assert.match(html, /sticker-preview\.svg/);
@@ -26,8 +26,8 @@ test('引导说明分类商品切割并保留摄像头选择', () => {
 });
 
 test('入口、手势和游戏视觉加载更新版本', () => {
-  assert.match(html, /app\.js\?v=20260913-budget-save-1/);
-  assert.match(read('app.js'), /peel-game-ui\.js\?v=20260909-slice-2/);
+  assert.match(html, /app\.js\?v=20260913-ui-polish-1/);
+  assert.match(read('app.js'), /peel-game-ui\.js\?v=20260914-soft3d/);
   assert.match(read('app.js'), /gesture-ui\.js\?v=20260909-slice-2/);
-  assert.match(read('peel-game-ui.js'), /peel-product-visuals\.js\?v=20260909-slice-2/);
+  assert.match(read('peel-game-ui.js'), /peel-product-visuals\.js\?v=20260914-soft3d/);
 });

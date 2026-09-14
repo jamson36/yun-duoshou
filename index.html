@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260913-budget-save-1" />
-  <link rel="stylesheet" href="./peel-game-refined.css?v=20260909-slice-2" />
-  <script type="module" src="./app.js?v=20260913-budget-save-1"></script>
+  <link rel="stylesheet" href="./styles.css?v=20260913-ui-polish-1" />
+  <link rel="stylesheet" href="./peel-game-refined.css?v=20260914-soft3d" />
+  <script type="module" src="./app.js?v=20260913-ui-polish-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -445,7 +445,7 @@
                 <div id="commerceDetailContent"></div>
                 <div class="commerce-detail-actions">
                   <button class="commerce-prefill-button" id="commercePrefillButton" type="button">先填一填</button>
-                  <button class="commerce-buy-button" id="commerceBuyButton" type="button">立即模拟</button>
+                  <button class="commerce-buy-button" id="commerceBuyButton" type="button">立即购买</button>
                 </div>
               </section>
             </section>
@@ -462,14 +462,7 @@
                 <h2 id="mallSuccessTitle" tabindex="-1">记录好了，先冷静一下</h2>
                 <p>本次记录 <strong id="mallSuccessAmount">¥0</strong></p>
                 <div class="mall-success-total"><small>今日累计</small><b id="mallSuccessTotal">¥0</b></div>
-                <details class="mall-success-advice" aria-labelledby="mallSuccessAdviceTitle"><summary>给钱包一点缓冲</summary>
-                  <h3 id="mallSuccessAdviceTitle">给钱包一点缓冲</h3>
-                  <ul id="mallSuccessAdviceList" aria-live="polite">
-                    <li>先把它留在订单里，明天再回来决定。</li>
-                  </ul>
-                </details>
                 <div class="mall-success-actions"><button class="app-back-action" id="mallSuccessBackButton" type="button"><span class="app-back-action-icon" aria-hidden="true"><img src="./assets/figma-chevron-left.svg" alt="" /></span><span>返回</span></button><button id="mallSuccessContinueButton" type="button">再看看</button></div>
-                <small class="mall-success-note">已加入订单 · 当前状态为欲望冷却中 · 没有支付和发货</small>
               </div>
             </section>
           </section>
