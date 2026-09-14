@@ -5148,7 +5148,16 @@ window.addEventListener('storage', (event) => {
   if (event.key === AI_REVOCATION_STORAGE_KEY && event.newValue) applyExternalConsentRevocation();
   if (event.key === STORAGE_KEY) applyExternalBusinessState(event.newValue);
 });
-window.addEventListener('pagehide', () => {
+function handlePageHide(event) {
+  if (event.persisted) {
+    if (cancelAiRequest('page-hidden')) aiUiState = { status: 'idle', message: '' };
+    gachaponMotion.setActive(false);
+    gestureController.stop('hidden');
+    orientationController.stop('hidden');
+    if (activeActivity === 'peel') peelGameController.pause('hidden');
+    roomIntro.stopVideo();
+    return;
+  }
   aiConsentChannel?.close();
   gachaponMotion.destroy();
   peelCloseOptions = { updateHistory: false, resumeGesture: false, restoreFocus: false };
@@ -5157,7 +5166,25 @@ window.addEventListener('pagehide', () => {
   orientationController.destroy();
   document.removeEventListener('keydown', handlePeelActivityKeydown, { capture: true });
   sceneViewportMedia.removeEventListener('change', syncSceneDefaultView);
-}, { once: true });
+}
+
+function handlePageShow(event) {
+  if (!event.persisted) return;
+  // Storage and consent may have changed while this document was frozen.
+  try {
+    applyExternalBusinessState(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    // Keep the current in-memory experience when storage is unavailable.
+  }
+  if (aiConsentRevokedByFallback()) applyExternalConsentRevocation();
+  renderAll();
+  gachaponMotion.setActive(activePanel === 'clinic');
+  if (activeActivity === 'peel') peelGameController.resume();
+  if (app.dataset.roomPhase === 'entry') roomIntro.startEntryVideo();
+}
+
+window.addEventListener('pagehide', handlePageHide);
+window.addEventListener('pageshow', handlePageShow);
 
 sceneFrame.addEventListener('panoramaready', () => {
   sceneStatus.textContent = '全景已就绪 · 拖动环视';
