@@ -587,3 +587,9 @@ type ValidatedAiResult = {
 入口使用 `assets/room-entry-optimized.mp4`，保留原始 `room-entry-user.mp4` 供重新编码。衍生视频保留完整 4 秒画面，输出 1920×1080、30 fps、H.264 CRF 23、无音轨、faststart；视频保持静音循环，`preload=none`，仅开始播放时加载，减少动态效果下不请求视频。6 张扭蛋图片使用同尺寸无损 WebP 与原生懒加载，进入消费测试后才请求。
 
 可复现编码参数：`ffmpeg -i assets/room-entry-user.mp4 -map 0:v:0 -an -vf 'scale=1920:-2:flags=lanczos,fps=30' -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -movflags +faststart -map_metadata -1 assets/room-entry-optimized.mp4`。各扭蛋图使用 `cwebp -lossless -m 6` 转换，保留原 PNG。
+
+### 订单与房间渲染预算（2026-09-14）
+
+状态更新时重算公共指标，并只重绘当前功能页；切换页面时从完整源记录渲染目标页。订单列表按创建时间倒序，每页最多 30 笔，切换状态或时间筛选回到第一页；编辑后的定位会切换到订单所在页。筛选计数、金额、人格、目标和导出始终使用完整记录，不受分页影响。
+
+房间白板每页最多显示 16 张订单便签，按 4×4 排列并提供前后翻页，数据删除后自动收敛到有效页。隐藏功能页更新时不重建白板，回到房间后同步；可见便签内容未变化时复用 DOM。便签投影每次统一读取容器尺寸，金额和日期使用共享格式化器，避免随订单数重复分配。

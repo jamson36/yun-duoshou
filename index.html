@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260914-ready-timeout-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260914-bounded-render-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260914-soft3d" />
-  <script type="module" src="./app.js?v=20260914-ready-timeout-1"></script>
+  <script type="module" src="./app.js?v=20260914-bounded-render-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -517,6 +517,11 @@
                   <p class="order-data-note">导出默认不包含演示订单和演示目标；所有文件只在当前浏览器生成。</p>
                 </details>
                 <div class="order-list" id="orderList"></div>
+                <nav class="order-pagination" id="orderPagination" aria-label="订单分页" hidden>
+                  <button id="orderPagePrevious" type="button" aria-controls="orderList">上一页</button>
+                  <span id="orderPageStatus" role="status" aria-live="polite"></span>
+                  <button id="orderPageNext" type="button" aria-controls="orderList">下一页</button>
+                </nav>
               </section>
             </div>
             <div class="device-tabs" role="navigation" aria-label="手机功能">

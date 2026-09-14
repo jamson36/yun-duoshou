@@ -1,4 +1,6 @@
 const NOTE_COLORS = Object.freeze(['yellow', 'cyan', 'coral', 'acid']);
+export const SCENE_ORDER_PAGE_SIZE = 16;
+const AMOUNT_FORMATTER = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 });
 
 const DEFAULT_NOTE = Object.freeze({
   x: 0.52,
@@ -98,7 +100,7 @@ export function invertSurfacePoint(surface, target) {
 }
 
 function formatAmount(value) {
-  return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  return AMOUNT_FORMATTER.format(Number(value || 0));
 }
 
 function distance(from, to) {
@@ -116,6 +118,10 @@ export class SceneBudgetWhiteboard {
     this.note = null;
     this.notes = new Map();
     this.drag = null;
+    this.orderPage = 0;
+    this.orderItems = [];
+    this.orderPagination = null;
+    this.renderSignature = '';
 
     this.layer.addEventListener('pointerdown', (event) => this.startDrag(event));
     this.layer.addEventListener('pointermove', (event) => this.dragNote(event));
@@ -134,7 +140,10 @@ export class SceneBudgetWhiteboard {
   }
 
   render({ items = [], activeGoalId = null, selectedGoalId = null, active = false }) {
-    this.layer.replaceChildren();
+    const signature = JSON.stringify({ items, activeGoalId, selectedGoalId, active });
+    if (signature === this.renderSignature) return;
+    this.renderSignature = signature;
+    this.notes.forEach(({ element }) => element.remove());
     this.note = null;
     this.notes.clear();
     this.layer.classList.toggle('is-active', Boolean(active));
@@ -144,12 +153,70 @@ export class SceneBudgetWhiteboard {
     this.updateProjection();
   }
 
+  renderOrders(orders = []) {
+    this.orderItems = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const pageCount = Math.max(1, Math.ceil(orders.length / SCENE_ORDER_PAGE_SIZE));
+    this.orderPage = clamp(this.orderPage, 0, pageCount - 1);
+    const start = this.orderPage * SCENE_ORDER_PAGE_SIZE;
+    const items = this.orderItems.slice(start, start + SCENE_ORDER_PAGE_SIZE).map((order, index) => ({
+      goal: {
+        id: order.id, name: order.name, amount: order.amount, status: order.status, demo: order.demo,
+        note: { x: 0.2 + (index % 4) * 0.2, y: 0.18 + Math.floor(index / 4) * 0.2, color: NOTE_COLORS[index % 4], rotation: index % 2 ? 3 : -3 },
+      },
+      orderNote: true,
+    }));
+    this.render({ items });
+    if (pageCount > 1 && !this.orderPagination) this.createOrderPagination();
+    if (this.orderPagination) {
+      this.pagePrevious.disabled = this.orderPage === 0;
+      this.pageNext.disabled = this.orderPage === pageCount - 1;
+      this.pageStatus.textContent = `${this.orderPage + 1} / ${pageCount}`;
+      this.orderPagination.setAttribute('aria-label', `白板订单分页，共 ${orders.length} 笔`);
+      this.updatePageProjection();
+    }
+  }
+
+  createOrderPagination() {
+    this.orderPagination = document.createElement('nav');
+    this.orderPagination.className = 'scene-order-pagination';
+    this.pageStatus = document.createElement('span');
+    this.pageStatus.setAttribute('role', 'status');
+    const createButton = (label, text, delta) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = text;
+      button.setAttribute('aria-label', label);
+      button.addEventListener('click', () => {
+        this.orderPage += delta;
+        this.renderOrders(this.orderItems);
+        this.announce(`白板第 ${this.pageStatus.textContent} 页，共 ${this.orderItems.length} 笔订单。`);
+      });
+      return button;
+    };
+    this.pagePrevious = createButton('白板上一页', '‹', -1);
+    this.pageNext = createButton('白板下一页', '›', 1);
+    this.orderPagination.append(this.pagePrevious, this.pageStatus, this.pageNext);
+    this.layer.appendChild(this.orderPagination);
+  }
+
+  updatePageProjection() {
+    if (!this.orderPagination) return;
+    const anchor = surfacePoint(this.surface, 0.5, 0.96);
+    const point = this.panorama.projectPoint(anchor.yaw, anchor.pitch);
+    this.orderPagination.hidden = this.orderItems.length <= SCENE_ORDER_PAGE_SIZE
+      || point.localZ <= 0.05 || point.x < 90 || point.x > this.layer.clientWidth - 90
+      || point.y < 24 || point.y > this.layer.clientHeight - 24;
+    this.orderPagination.style.left = `${point.x}px`;
+    this.orderPagination.style.top = `${point.y}px`;
+  }
+
   createNote({ goal, saved = 0, percent = 0, orderNote = false }, activeGoalId, selectedGoalId) {
     const noteMeta = constrainGoalNote(goal.note);
     const note = document.createElement('article');
     note.className = `scene-budget-note is-${noteMeta.color}`;
     if (orderNote) {
       note.classList.add('is-order-note');
+      note.dataset.orderId = goal.id;
       note.setAttribute('aria-label', `${goal.name}，${goal.amount} 元${goal.demo ? '，演示' : ''}`);
       const title = document.createElement('strong');
       title.textContent = goal.name;
@@ -206,10 +273,12 @@ export class SceneBudgetWhiteboard {
   }
 
   updateProjection() {
-    this.notes.forEach((record) => this.updateNoteProjection(record));
+    const frame = { width: this.layer.clientWidth || 1, height: this.layer.clientHeight || 1 };
+    this.notes.forEach((record) => this.updateNoteProjection(record, frame));
+    this.updatePageProjection();
   }
 
-  updateNoteProjection(record) {
+  updateNoteProjection(record, frame = { width: this.layer.clientWidth || 1, height: this.layer.clientHeight || 1 }) {
     const { element, meta } = record;
     const center = surfacePoint(this.surface, meta.x, meta.y);
     const point = this.panorama.projectPoint(center.yaw, center.pitch);
@@ -227,8 +296,8 @@ export class SceneBudgetWhiteboard {
     const localBoardHeight = distance(top, bottom) / (verticalDelta * 2);
     const noteWidth = Math.min(localBoardWidth * 0.16, localBoardHeight * 0.14, 112);
     const boardAngle = Math.atan2(right.y - left.y, right.x - left.x) * (180 / Math.PI);
-    const stageWidth = this.layer.clientWidth || 1;
-    const stageHeight = this.layer.clientHeight || 1;
+    const stageWidth = frame.width;
+    const stageHeight = frame.height;
     const visible = point.localZ > 0.05
       && point.x > -noteWidth
       && point.x < stageWidth + noteWidth

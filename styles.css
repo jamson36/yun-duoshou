@@ -12991,3 +12991,15 @@ body.reduce-motion :is(
 #commerceDetailView::-webkit-scrollbar, #newPhoneScreen::-webkit-scrollbar { display: none; width: 0; height: 0; }
 #goalController .controller-save { width: min(672px, 76%); min-height: 44px; margin: 18px auto 0; border: 0; border-radius: 18px; box-shadow: 0 14px 24px #ff9e3940; font-size: 16px; background: linear-gradient(100deg, #ffcb25, #ff9b36); }
 @media (max-width: 640px) { #goalController .controller-save { width: calc(100% - 32px); } }
+
+/* Long order histories keep a bounded set of cards and scene notes. */
+.order-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 24px 0; color: #654733; font-size: 13px; }
+.order-pagination[hidden], .scene-order-pagination[hidden] { display: none; }
+.order-pagination button, .scene-order-pagination button { min-width: 44px; min-height: 44px; border: 1px solid #d7bea5; border-radius: 12px; background: #fff8ec; color: #63452e; font: inherit; cursor: pointer; }
+.order-pagination button { padding: 8px 12px; }
+.order-pagination button:disabled, .scene-order-pagination button:disabled { opacity: .45; cursor: default; }
+.order-pagination button:focus-visible, .scene-order-pagination button:focus-visible { outline: 3px solid #b95512; outline-offset: 3px; }
+.order-list { scroll-margin-top: 20px; }
+.scene-order-pagination { position: absolute; display: flex; align-items: center; gap: 8px; padding: 3px; border-radius: 14px; background: #fff4df; box-shadow: 0 3px 10px #47322c35; color: #63452e; font-size: 12px; transform: translate(-50%, -50%); pointer-events: auto; }
+.scene-order-pagination span { min-width: 46px; text-align: center; }
+.scene-order-pagination button { font-size: 24px; }

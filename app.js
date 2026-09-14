@@ -2,7 +2,7 @@ import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260914
 import { PanoramaRoom } from './panorama.js?v=20260914-ready-timeout-1';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260913-live-phone-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
-import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260913-live-phone-1';
+import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260914-bounded-render-1';
 import { GoalDatePicker, isDateOnOrAfter, normalizeDateValue } from './goal-date-picker.js?v=20260905-interaction-audit-1';
 import { MAX_BUDGET_GOAL_AMOUNT, activeBudgetGoal, goalForSavedOrder, migrateBudgetState, nextGoalNote, normalizeBudgetGoal, validateBudgetGoalAmount } from './budget-goals.js?v=20260831-goal-limit-1';
 import { isFigmaPersonaCardId, resolvePersonaPresentation } from './persona-presentations.js?v=20260913-clinic-report-1';
@@ -26,6 +26,9 @@ const TEST_HISTORY_STORAGE_KEY = 'spree-test-history-v1';
 const RETURN_TO_ROOM_ON_LOAD_KEY = 'spree-return-room-on-load';
 const AI_REVOCATION_COOKIE = 'spree_ai_revoked';
 const PERSONA_ART_VERSION = '20260831-figma-4x';
+const ORDER_PAGE_SIZE = 30;
+const AMOUNT_FORMATTER = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 });
+const ORDER_DATE_FORMATTER = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 function personaArtUrl(path) {
   const value = String(path || '').replace(/^\.\//, '');
@@ -433,6 +436,7 @@ let activePanel = null;
 let activeTrigger = null;
 let activeFilter = 'all';
 let activeTimeFilter = 'all';
+let orderPage = 0;
 let editingOrderId = null;
 let activeClinicPeriod = 30;
 let clinicView = 'start';
@@ -838,6 +842,7 @@ function openPeelBusinessPanel(panel, trigger, commerceType = 'shop') {
 }
 
 function focusPeelOrder(orderId) {
+  renderOrders({ focusOrderId: orderId });
   const action = [...orderList.querySelectorAll('[data-order-action]')]
     .find((button) => button.dataset.orderId === String(orderId));
   action?.focus({ preventScroll: true });
@@ -1468,7 +1473,7 @@ function createLocalId(prefix) {
 }
 
 function money(value) {
-  return `¥${Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+  return `¥${AMOUNT_FORMATTER.format(Number(value || 0))}`;
 }
 
 function sameLocalDay(dateA, dateB = new Date()) {
@@ -1972,7 +1977,7 @@ function applyPanel(panel, trigger = null) {
     focusPanel.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     const resetComplete = panorama.resetView();
-    if (previousPanel === 'goals') renderGoal();
+    renderActivePanel();
     setMascotSpeech(idleSpeech());
     gestureController.resumeFromPanel();
     restorePanelReturnFocus(returnTarget, resetComplete);
@@ -1989,8 +1994,7 @@ function applyPanel(panel, trigger = null) {
   panorama.focusPanel(activePanel);
   setMascotSpeech(PANEL_META[activePanel].speech);
   if (window.innerWidth <= 820) document.body.style.overflow = 'hidden';
-  if (previousPanel === 'goals' || activePanel === 'goals') renderGoal();
-  if (activePanel === 'clinic') renderClinic();
+  renderActivePanel();
   const panelAtSchedule = activePanel;
   window.requestAnimationFrame(() => {
     if (activePanel !== panelAtSchedule) return;
@@ -2667,11 +2671,23 @@ function renderOrderEditor() {
   cancelOrderEditButton.hidden = !editingOrderId;
 }
 
-function renderOrders() {
+function renderOrders({ focusOrderId = null } = {}) {
   const filtered = state.orders
     .filter((order) => activeFilter === 'all' || order.status === activeFilter)
     .filter((order) => orderMatchesTimeFilter(order, activeTimeFilter))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const focusedIndex = focusOrderId ? filtered.findIndex((order) => order.id === String(focusOrderId)) : -1;
+  if (focusedIndex >= 0) orderPage = Math.floor(focusedIndex / ORDER_PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / ORDER_PAGE_SIZE));
+  orderPage = Math.min(Math.max(0, orderPage), pageCount - 1);
+  const pageStart = orderPage * ORDER_PAGE_SIZE;
+  const visibleOrders = filtered.slice(pageStart, pageStart + ORDER_PAGE_SIZE);
+  const pagination = document.querySelector('#orderPagination');
+  pagination.hidden = pageCount <= 1;
+  document.querySelector('#orderPagePrevious').disabled = orderPage === 0;
+  document.querySelector('#orderPageNext').disabled = orderPage === pageCount - 1;
+  document.querySelector('#orderPageStatus').textContent = `第 ${orderPage + 1} / ${pageCount} 页 · ${filtered.length} 笔`;
 
   document.querySelectorAll('[data-filter]').forEach((button) => {
     const isActive = button.dataset.filter === activeFilter;
@@ -2705,14 +2721,14 @@ function renderOrders() {
     return;
   }
 
-  orderList.innerHTML = filtered.map((order) => {
-    const created = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(order.createdAt));
+  orderList.innerHTML = visibleOrders.map((order) => {
+    const created = ORDER_DATE_FORMATTER.format(new Date(order.createdAt));
     const orderId = escapeHtml(order.id);
     const statusActions = allowedOrderStatusActions(order.status);
     return `
       <article class="order-ticket">
         <div class="order-ticket-main">
-          <img class="order-ticket-thumb" src="${orderThumbnailFor(order)}" alt="" width="78" height="78" />
+          <img class="order-ticket-thumb" src="${orderThumbnailFor(order)}" alt="" width="78" height="78" loading="lazy" decoding="async" />
           <div class="order-ticket-copy">
             <h3>${escapeHtml(order.name)}</h3>
             <p class="order-ticket-meta"><span>${escapeHtml(order.category)} · ${escapeHtml(order.reason)}</span><time datetime="${escapeHtml(order.createdAt)}">${created}</time></p>
@@ -2728,6 +2744,14 @@ function renderOrders() {
         </div>
       </article>`;
   }).join('');
+}
+
+function changeOrderPage(delta) {
+  orderPage += delta;
+  renderOrders();
+  const firstAction = orderList.querySelector('[data-order-action]');
+  firstAction?.focus({ preventScroll: true });
+  orderList.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 function setOrderTimeFilterMenu(open, { focus = false } = {}) {
@@ -3733,24 +3757,30 @@ function renderGoal() {
   document.querySelector('#goalSummary').textContent = goal
     ? `当前目标${goal.demo ? '（演示）' : ''}：${goal.name}，还差 ${money(Math.max(0, amount - saved))}。`
     : '还没有设定目标。';
-  const items = state.orders.map((order, index) => ({
-    goal: { ...order, note: { x: 0.2 + (index % 4) * 0.2, y: 0.18 + (Math.floor(index / 4) % 4) * 0.2 + (Math.floor(index / 16) % 3) * 0.015, color: ['yellow', 'cyan', 'coral', 'acid'][index % 4], rotation: index % 2 ? 3 : -3 } },
-    orderNote: true,
-  }));
-  sceneWhiteboard.render({ items, activeGoalId: state.activeGoalId, selectedGoalId, active: activePanel === 'goals' });
   renderGoalList();
   renderGoalEditor();
 }
 
+function renderActivePanel() {
+  if (activePanel === 'new') {
+    renderOrderDashboard();
+    renderCommerceShell();
+    renderOrderEditor();
+  } else if (activePanel === 'orders') {
+    renderOrders();
+  } else if (activePanel === 'clinic') {
+    renderClinic();
+    renderTestHistory();
+  } else if (activePanel === 'goals') {
+    renderGoal();
+  } else {
+    sceneWhiteboard.renderOrders(state.orders);
+  }
+}
+
 function renderAll() {
   renderMetrics();
-  renderOrderDashboard();
-  renderCommerceShell();
-  renderOrderEditor();
-  renderOrders();
-  renderClinic();
-  renderGoal();
-  renderTestHistory();
+  renderActivePanel();
 }
 
 function createOrder(formData, { showReceipt = true } = {}) {
@@ -4970,6 +5000,7 @@ orderList.addEventListener('click', (event) => {
 document.querySelectorAll('[data-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     activeFilter = button.dataset.filter;
+    orderPage = 0;
     renderOrders();
   });
 });
@@ -4989,9 +5020,13 @@ orderTimeFilterMenu.addEventListener('click', (event) => {
   const option = event.target.closest('[data-time-filter]');
   if (!option) return;
   activeTimeFilter = option.dataset.timeFilter;
+  orderPage = 0;
   renderOrders();
   setOrderTimeFilterMenu(false, { focus: true });
 });
+
+document.querySelector('#orderPagePrevious').addEventListener('click', () => changeOrderPage(-1));
+document.querySelector('#orderPageNext').addEventListener('click', () => changeOrderPage(1));
 
 orderTimeFilterMenu.addEventListener('keydown', (event) => {
   if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
