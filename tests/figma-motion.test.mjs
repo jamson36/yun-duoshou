@@ -56,7 +56,7 @@ test('人格扭蛋接入真实碰撞控制器并完整处理生命周期', () =>
   assert.match(html, /class="gachapon-chamber"/);
   assert.equal((html.match(/class="gachapon-token\s+is-/g) || []).length, 6);
   for (const asset of ['shopping', 'food', 'drink', 'headphones', 'shoes', 'game']) {
-    assert.match(html, new RegExp(`class="gachapon-token is-${asset}"><img src="\\.\\/assets\\/gachapon-ball-${asset}\\.png"`));
+    assert.match(html, new RegExp(`class="gachapon-token is-${asset}"><img src="\\.\\/assets\\/gachapon-ball-${asset}\\.webp"[^>]*loading="lazy"`));
   }
   assert.match(appSource, /createGachaponMotion\(\{/);
   assert.match(appSource, /gachaponMotion\.setState\(machineState\)/);

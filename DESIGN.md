@@ -581,3 +581,9 @@ type ValidatedAiResult = {
 ### 静态资源分段下载（2026-09-14）
 
 静态资源 GET 支持单个 bytes 范围（含后缀和开放终点），成功返回 206 与精确 Content-Range/Content-Length，无法满足的范围返回 416。HEAD 忽略 Range；不支持的单位、多范围、无效语法或无法验证的 If-Range 返回完整表示。继续执行资源白名单与 1 小时缓存，下载中断时关闭文件流。语义依据 RFC 9110 第 14 节：https://www.rfc-editor.org/rfc/rfc9110.html#section-14。
+
+### 首屏媒体预算（2026-09-14）
+
+入口使用 `assets/room-entry-optimized.mp4`，保留原始 `room-entry-user.mp4` 供重新编码。衍生视频保留完整 4 秒画面，输出 1920×1080、30 fps、H.264 CRF 23、无音轨、faststart；视频保持静音循环，`preload=none`，仅开始播放时加载，减少动态效果下不请求视频。6 张扭蛋图片使用同尺寸无损 WebP 与原生懒加载，进入消费测试后才请求。
+
+可复现编码参数：`ffmpeg -i assets/room-entry-user.mp4 -map 0:v:0 -an -vf 'scale=1920:-2:flags=lanczos,fps=30' -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p -movflags +faststart -map_metadata -1 assets/room-entry-optimized.mp4`。各扭蛋图使用 `cwebp -lossless -m 6` 转换，保留原 PNG。

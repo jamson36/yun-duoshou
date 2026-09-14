@@ -177,8 +177,8 @@
           <section class="room-intro-gate" id="roomIntroGate" aria-label="让你花个爽！房间开屏" aria-busy="true">
             <div class="room-load-panel"><span>正在准备你的房间</span><progress id="roomLoadProgress" max="100" value="0" aria-label="房间准备进度"></progress><small>让想买的心情，先休息一下。</small></div>
             <div class="entry-loop-stage">
-              <video class="entry-background-video" id="roomEntryVideo" muted playsinline loop preload="auto" poster="./assets/room-entry-video-poster.webp" aria-hidden="true" tabindex="-1">
-                <source src="./assets/room-entry-user.mp4" type="video/mp4" />
+              <video class="entry-background-video" id="roomEntryVideo" muted playsinline loop preload="none" poster="./assets/room-entry-video-poster.webp" aria-hidden="true" tabindex="-1">
+                <source src="./assets/room-entry-optimized.mp4" type="video/mp4" />
               </video>
               <div class="room-entry-lockup" id="roomEntryLockup" aria-hidden="true" inert>
                 <p class="room-entry-welcome"><span>WELCOME TO</span><b>Have a great time!</b></p>
@@ -543,12 +543,12 @@
                       <i class="gachapon-glow"></i>
                       <img src="./assets/personality-gachapon-figma.png" alt="" />
                       <i class="gachapon-chamber"></i>
-                      <span class="gachapon-token is-shopping"><img src="./assets/gachapon-ball-shopping.png" alt="" decoding="async" draggable="false" /></span>
-                      <span class="gachapon-token is-food"><img src="./assets/gachapon-ball-food.png" alt="" decoding="async" draggable="false" /></span>
-                      <span class="gachapon-token is-drink"><img src="./assets/gachapon-ball-drink.png" alt="" decoding="async" draggable="false" /></span>
-                      <span class="gachapon-token is-headphones"><img src="./assets/gachapon-ball-headphones.png" alt="" decoding="async" draggable="false" /></span>
-                      <span class="gachapon-token is-shoes"><img src="./assets/gachapon-ball-shoes.png" alt="" decoding="async" draggable="false" /></span>
-                      <span class="gachapon-token is-game"><img src="./assets/gachapon-ball-game.png" alt="" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-shopping"><img src="./assets/gachapon-ball-shopping.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-food"><img src="./assets/gachapon-ball-food.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-drink"><img src="./assets/gachapon-ball-drink.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-headphones"><img src="./assets/gachapon-ball-headphones.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-shoes"><img src="./assets/gachapon-ball-shoes.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
+                      <span class="gachapon-token is-game"><img src="./assets/gachapon-ball-game.webp" alt="" loading="lazy" decoding="async" draggable="false" /></span>
                       <span class="gachapon-prize" id="gachaponPrize"><b>?</b><small>等待抽取</small></span>
                     </div>
                     <button class="primary-action gachapon-action" id="analyzeButton" type="button"><span>开始测试</span><b>＋</b></button>
