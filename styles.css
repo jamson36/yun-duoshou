@@ -12763,6 +12763,8 @@ body.reduce-motion :is(
 .room-load-panel progress::-webkit-progress-value { background: #fb8924; border-radius: 20px; }
 .room-load-panel progress::-moz-progress-bar { background: #fb8924; }
 .room-load-panel small { font-size: 12px; }
+.room-load-panel .room-load-detail { font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
+.room-intro-gate .room-entry-lockup .room-entry-load-notice { position: absolute; top: 80%; left: 6%; width: 88%; margin: 0; color: #674124; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-align: center; }
 .room-intro-gate .intro-pixel-canvas, .room-intro-gate .intro-loading-state, .room-intro-gate .intro-system-status { display: none; }
 .room-intro-gate .entry-loop-stage { inset: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none; }
 .room-intro-gate .entry-loop-stage .room-entry-lockup { inset: 0; width: 100%; height: 100%; max-width: none; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; transform: none; }
@@ -12802,6 +12804,7 @@ body.reduce-motion :is(
 .scene-budget-note.is-order-note > small { font-size: calc(var(--scene-note-width) * .08); }
 @media (max-width: 720px) {
   .room-intro-gate .entry-background-video { filter: blur(8px); object-position: 65% center; transform: scale(1.04); }
+  .room-intro-gate .room-entry-lockup .room-entry-load-notice { top: 65%; left: 8%; width: 84%; padding: 8px; border-radius: 8px; background: rgba(255, 248, 232, .9); }
   .room-intro-gate .entry-loop-stage { background-position: 65% center; }
   .room-intro-gate .room-entry-welcome, .room-intro-gate .room-entry-dots { display: none; }
   .room-intro-gate .room-entry-title-art { left: 3%; top: 32%; width: 94%; height: 23%; }

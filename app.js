@@ -1,5 +1,5 @@
-import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260914-ready-timeout-1';
-import { PanoramaRoom } from './panorama.js?v=20260914-ready-timeout-1';
+import { ENTRY_TRANSITION_MS, RoomIntro } from './intro-transition.js?v=20260914-real-progress-1';
+import { PanoramaRoom } from './panorama.js?v=20260914-real-progress-1';
 import { ACTIVITY_HOTSPOTS, FEATURE_HOTSPOTS, SCENE_DEFAULT_VIEW, SCENE_INTRO_VIEW, SCENE_MOBILE_DEFAULT_VIEW, SCENE_WHITEBOARD_SURFACE, createPackageHotspots } from './scene-config.js?v=20260913-live-phone-1';
 import { AXIS_META, buildDiagnosisRequest, calculateGoalProgress, scorePersonality } from './personality-scoring.js?v=20260830-persona-hybrid-3';
 import { SceneBudgetWhiteboard, normalizeGoalNote } from './budget-whiteboard.js?v=20260914-bounded-render-1';
@@ -960,6 +960,9 @@ const roomIntro = new RoomIntro({
   app,
   gate: roomIntroGate,
   loadingProgress: document.querySelector('#roomLoadProgress'),
+  loadingTitle: document.querySelector('#roomLoadTitle'),
+  loadingDetail: document.querySelector('#roomLoadDetail'),
+  loadingNotice: document.querySelector('#roomLoadNotice'),
   ready: panorama.whenReady(),
   onReadyTimeout: () => panorama.showStaticFallback(),
   video: document.querySelector('#roomIntroVideo'),
@@ -976,6 +979,7 @@ const roomIntro = new RoomIntro({
   }),
   onComplete: completeRoomEntry,
 });
+panorama.addLoadObserver((progress) => roomIntro.updateLoading(progress));
 
 const sceneWhiteboard = new SceneBudgetWhiteboard({
   layer: sceneWhiteboardLayer,

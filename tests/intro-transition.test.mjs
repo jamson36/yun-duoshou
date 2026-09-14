@@ -87,6 +87,9 @@ function createIntroHarness({
   };
   const app = { dataset: {} };
   const status = { textContent: '' };
+  const loadingTitle = { textContent: '' };
+  const loadingDetail = { textContent: '' };
+  const loadingNotice = { textContent: '', hidden: true };
   const lockup = {
     inert: true,
     setAttribute(name, value) { lockupAttributes.set(name, value); },
@@ -97,6 +100,9 @@ function createIntroHarness({
   };
   const intro = new RoomIntro({
     loadingProgress,
+    loadingTitle,
+    loadingDetail,
+    loadingNotice,
     ready,
     onReadyTimeout,
     app,
@@ -123,6 +129,9 @@ function createIntroHarness({
     lockupAttributes,
     status,
     timers,
+    loadingTitle,
+    loadingDetail,
+    loadingNotice,
     restore() {
       globalThis.window = originalWindow;
       globalThis.requestAnimationFrame = originalRequestAnimationFrame;
@@ -416,9 +425,12 @@ test('全景请求挂起时超时开放入口，晚到的成功不会重新锁�
     assert.equal(fallbackCalls, 1);
     assert.equal(harness.enterButton.disabled, false);
     assert.equal(harness.gateAttributes.get('aria-busy'), 'false');
+    assert.notEqual(harness.intro.loadingProgress.value, 100, '超时不伪装成下载完成');
+    assert.equal(harness.loadingNotice.hidden, false);
+    assert.match(harness.loadingNotice.textContent, /静态/);
     await harness.intro.enter();
     assert.equal(harness.app.dataset.roomPhase, 'room');
-    complete();
+    complete({ fallback: false });
     await Promise.resolve();
     assert.equal(harness.app.dataset.roomPhase, 'room');
     assert.equal(harness.timers.size, 0);
@@ -436,5 +448,57 @@ test('全景准备失败立即开放入口并清理超时任务', async () => {
     await Promise.resolve();
     assert.equal(harness.enterButton.disabled, false);
     assert.equal(harness.timers.size, 0);
+    assert.notEqual(harness.intro.loadingProgress.value, 100);
+    assert.equal(harness.loadingNotice.hidden, false);
+  } finally { harness.restore(); }
+});
+
+test('真实字节进度可回放，下载与场景准备分阶段且不受减少动态影响', () => {
+  const progress = { value: undefined, removeAttribute() { this.value = undefined; } };
+  const harness = createIntroHarness({ loadingProgress: progress, ready: new Promise(() => {}) });
+  try {
+    harness.intro.updateLoading({ phase: 'downloading', loaded: 256 * 1024, total: 1024 * 1024 });
+    harness.intro.start();
+    assert.equal(progress.value, 25);
+    assert.equal(harness.loadingDetail.textContent, '25% · 256 KB / 1.0 MB');
+    harness.intro.setReducedMotion(true);
+    harness.intro.setReducedMotion(false);
+    assert.equal(progress.value, 25);
+    assert.equal(harness.frames.size, 0);
+    harness.intro.updateLoading({ phase: 'preparing' });
+    assert.equal(progress.value, undefined, '图片解码期间不用下载百分比代替场景进度');
+    assert.equal(harness.loadingTitle.textContent, '正在准备场景');
+    assert.equal(harness.enterButton.disabled, true);
+  } finally { harness.restore(); }
+});
+
+test('总大小未知或计数不可比较时只展示已下载大小', () => {
+  const progress = { value: 0, removeAttribute() { this.value = undefined; } };
+  const harness = createIntroHarness({ loadingProgress: progress, ready: new Promise(() => {}) });
+  try {
+    harness.intro.start();
+    for (const total of [null, 0, 100, Infinity]) {
+      harness.intro.updateLoading({ phase: 'downloading', loaded: 256 * 1024, total });
+      assert.equal(progress.value, undefined);
+      assert.equal(harness.loadingDetail.textContent, '已下载 256 KB · 总大小未知');
+      assert.equal(harness.enterButton.disabled, true);
+    }
+  } finally { harness.restore(); }
+});
+
+test('降级就绪不填满进度，晚到成功只清除提示而不改变入口状态', async () => {
+  const progress = { value: 0, removeAttribute() { this.value = undefined; } };
+  const harness = createIntroHarness({ loadingProgress: progress, ready: Promise.resolve({ fallback: true }) });
+  try {
+    harness.intro.updateLoading({ phase: 'downloading', loaded: 37, total: 100 });
+    harness.intro.start();
+    await Promise.resolve();
+    assert.equal(progress.value, 37);
+    assert.equal(harness.loadingNotice.hidden, false);
+    assert.equal(harness.app.dataset.roomPhase, 'entry');
+    harness.intro.updateLoading({ phase: 'ready' });
+    assert.equal(harness.loadingNotice.hidden, true);
+    assert.equal(harness.app.dataset.roomPhase, 'entry');
+    assert.equal(harness.enterButton.disabled, false);
   } finally { harness.restore(); }
 });

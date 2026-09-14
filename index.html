@@ -7,9 +7,9 @@
     <meta name="description" content="让你花个爽！——走进你的钱包全景房间，先假装下单，再认真决定。" />
     <title>让你花个爽！</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d7ff43'/%3E%3Cpath d='M15 16h34v8H15zm4 14h26v8H19zm8 14h10v8H27z' fill='%23101016'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./styles.css?v=20260914-bounded-render-1" />
+  <link rel="stylesheet" href="./styles.css?v=20260914-real-progress-1" />
   <link rel="stylesheet" href="./peel-game-refined.css?v=20260914-soft3d" />
-  <script type="module" src="./app.js?v=20260914-bounded-render-1"></script>
+  <script type="module" src="./app.js?v=20260914-real-progress-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -175,7 +175,12 @@
           <canvas class="panorama-canvas" id="panoramaCanvas" aria-hidden="true"></canvas>
           <div class="panorama-loading" aria-hidden="true"><i></i><span>ROOM LOADING</span></div>
           <section class="room-intro-gate" id="roomIntroGate" aria-label="让你花个爽！房间开屏" aria-busy="true">
-            <div class="room-load-panel"><span>正在准备你的房间</span><progress id="roomLoadProgress" max="100" value="0" aria-label="房间准备进度"></progress><small>让想买的心情，先休息一下。</small></div>
+            <div class="room-load-panel">
+              <span id="roomLoadTitle">正在下载全景背景</span>
+              <progress id="roomLoadProgress" max="100" aria-labelledby="roomLoadTitle" aria-describedby="roomLoadDetail"></progress>
+              <span class="room-load-detail" id="roomLoadDetail">正在连接房间资源…</span>
+              <small>让想买的心情，先休息一下。</small>
+            </div>
             <div class="entry-loop-stage">
               <video class="entry-background-video" id="roomEntryVideo" muted playsinline loop preload="none" poster="./assets/room-entry-video-poster.webp" aria-hidden="true" tabindex="-1">
                 <source src="./assets/room-entry-optimized.mp4" type="video/mp4" />
@@ -187,6 +192,7 @@
                 <button class="enter-room-button" id="enterRoomButton" type="button" aria-label="进入房间" disabled>
                   <span>点击开始</span>
                 </button>
+                <p class="room-entry-load-notice" id="roomLoadNotice" hidden></p>
                 <small><i aria-hidden="true">——————</i> 假装下单，真的回血 <i aria-hidden="true">——————</i></small>
               </div>
             </div>

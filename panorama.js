@@ -254,6 +254,8 @@ export class PanoramaRoom {
     this.idleView = { ...defaultView };
     this.hotspotElements = new Map();
     this.projectionObservers = new Set();
+    this.loadObservers = new Set();
+    this.loadState = { phase: 'downloading', loaded: 0, total: null };
     this.pointer = null;
     this.animation = null;
     this.reducedMotion = false;
@@ -281,10 +283,23 @@ export class PanoramaRoom {
     return this.readyPromise;
   }
 
+  addLoadObserver(callback) {
+    this.loadObservers.add(callback);
+    callback(this.loadState);
+    return () => this.loadObservers.delete(callback);
+  }
+
+  reportLoad(update) {
+    if (this.destroyed) return;
+    this.loadState = { ...this.loadState, ...update };
+    this.loadObservers.forEach((callback) => callback(this.loadState));
+  }
+
   showStaticFallback(message = '全景加载较慢，已显示静态场景，顶部功能仍可使用。') {
     if (this.destroyed || this.ready) return;
     this.stage.classList.add('is-static-fallback', 'is-image-missing');
     this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
+    this.reportLoad({ phase: 'fallback' });
     this.finishReady({ fallback: true, message });
   }
 
@@ -304,6 +319,7 @@ export class PanoramaRoom {
       this.stage.style.setProperty('--panorama-image', `url("${this.imageUrl}")`);
       const message = '浏览器不支持 WebGL，已显示静态场景。';
       this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: message }));
+      this.reportLoad({ phase: 'fallback' });
       this.finishReady({ fallback: true, message });
       this.projectHotspots();
       return;
@@ -400,47 +416,116 @@ export class PanoramaRoom {
       this.stage.classList.add('is-static-fallback');
       this.stage.style.setProperty('--panorama-image', `url("${this.imageUrl}")`);
       this.stage.dispatchEvent(new CustomEvent('panoramaerror', { detail: error.message }));
+      this.reportLoad({ phase: 'fallback' });
       this.finishReady({ fallback: true, message: error.message });
     }
   }
 
   loadTexture() {
+    // One cacheable request supplies both native byte progress and the image.
+    const request = new XMLHttpRequest();
+    this.textureRequest = request;
+    request.open('GET', this.imageUrl);
+    request.responseType = 'blob';
+    request.onprogress = ({ loaded, total, lengthComputable }) => {
+      if (request.status < 200 || request.status >= 300) return;
+      this.reportLoad({
+        phase: 'downloading',
+        loaded,
+        total: lengthComputable && total > 0 && loaded <= total ? total : null,
+      });
+    };
+    request.onerror = request.onabort = () => {
+      this.textureRequest = null;
+      this.showStaticFallback('全景图片下载失败，已显示静态场景，顶部功能仍可使用。');
+    };
+    request.onload = () => {
+      this.textureRequest = null;
+      if (this.destroyed) return;
+      if (request.status < 200 || request.status >= 300 || !request.response?.size) {
+        this.showStaticFallback('全景图片下载失败，已显示静态场景，顶部功能仍可使用。');
+        return;
+      }
+      this.reportLoad({ phase: 'preparing' });
+      try {
+        this.textureSourceUrl = URL.createObjectURL(request.response);
+        this.prepareTexture(this.textureSourceUrl);
+      } catch {
+        this.releaseTextureSource();
+        this.showStaticFallback('全景图片准备失败，已显示静态场景，顶部功能仍可使用。');
+      }
+    };
+    request.send();
+  }
+
+  releaseTextureSource() {
+    if (this.textureImage) {
+      this.textureImage.onload = null;
+      this.textureImage.onerror = null;
+      this.textureImage = null;
+    }
+    if (this.textureSourceUrl) URL.revokeObjectURL(this.textureSourceUrl);
+    this.textureSourceUrl = null;
+  }
+
+  stopLoading() {
+    this.destroyed = true;
+    this.textureRequest?.abort();
+    this.textureRequest = null;
+    this.releaseTextureSource();
+    this.loadObservers.clear();
+  }
+
+  prepareTexture(sourceUrl) {
     const image = new Image();
+    this.textureImage = image;
     image.decoding = 'async';
     image.onload = () => {
       if (this.destroyed) return;
-      this.sourceAspect = image.width / image.height;
       const gl = this.gl;
-      const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-      let source = image;
-      if (image.width > maxSize || image.height > maxSize) {
-        const scale = Math.min(maxSize / image.width, maxSize / image.height);
-        const resized = document.createElement('canvas');
-        resized.width = Math.floor(image.width * scale);
-        resized.height = Math.floor(image.height * scale);
-        resized.getContext('2d').drawImage(image, 0, 0, resized.width, resized.height);
-        source = resized;
+      let texture = null;
+      try {
+        this.sourceAspect = image.width / image.height;
+        const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+        let source = image;
+        if (image.width > maxSize || image.height > maxSize) {
+          const scale = Math.min(maxSize / image.width, maxSize / image.height);
+          const resized = document.createElement('canvas');
+          resized.width = Math.floor(image.width * scale);
+          resized.height = Math.floor(image.height * scale);
+          resized.getContext('2d').drawImage(image, 0, 0, resized.width, resized.height);
+          source = resized;
+        }
+        texture = gl.createTexture();
+        if (!texture) throw new Error('Texture unavailable');
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+        if (gl.getError() !== gl.NO_ERROR) throw new Error('Texture upload failed');
+        this.texture = texture;
+        this.ready = true;
+        this.stage.classList.remove('is-static-fallback', 'is-image-missing');
+        this.stage.classList.add('is-ready');
+        this.stage.dispatchEvent(new CustomEvent('panoramaready'));
+        this.reportLoad({ phase: 'ready' });
+        this.finishReady({ fallback: false, message: '全景已就绪' });
+        this.requestRender();
+      } catch {
+        if (texture) gl.deleteTexture(texture);
+        this.showStaticFallback('全景图片准备失败，已显示静态场景，顶部功能仍可使用。');
+      } finally {
+        this.releaseTextureSource();
       }
-      const texture = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-      this.texture = texture;
-      this.ready = true;
-      this.stage.classList.remove('is-static-fallback', 'is-image-missing');
-      this.stage.classList.add('is-ready');
-      this.stage.dispatchEvent(new CustomEvent('panoramaready'));
-      this.finishReady({ fallback: false, message: '全景已就绪' });
-      this.requestRender();
     };
     image.onerror = () => {
+      this.releaseTextureSource();
       this.showStaticFallback('全景图片加载失败，已显示静态场景，顶部功能仍可使用。');
     };
-    image.src = this.imageUrl;
+    image.src = sourceUrl;
   }
 
   createHotspots() {
@@ -574,6 +659,9 @@ export class PanoramaRoom {
     this.stage.addEventListener('wheel', this.onWheel, { passive: false });
     this.stage.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('pagehide', (event) => {
+      if (!event.persisted) this.stopLoading();
+    });
     this.resizeObserver = new ResizeObserver(() => this.requestRender());
     this.resizeObserver.observe(this.stage);
   }

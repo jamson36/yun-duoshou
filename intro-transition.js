@@ -1,6 +1,13 @@
 export const INTRO_DURATION_MS = 3000;
 export const ROOM_READY_TIMEOUT_MS = 5000;
 export const ENTRY_TRANSITION_MS = 420;
+const STATIC_ENTRY_NOTICE = '背景暂未就绪，已切换静态画面，可以开始使用。';
+
+function formatDownloadBytes(bytes) {
+  return bytes < 1024 * 1024
+    ? `${Math.floor(bytes / 1024)} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -38,6 +45,9 @@ export class RoomIntro {
     enterButton,
     video = null,
     loadingProgress = null,
+    loadingTitle = null,
+    loadingDetail = null,
+    loadingNotice = null,
     ready = Promise.resolve(),
     onReadyTimeout = null,
     entryVideo = null,
@@ -54,6 +64,10 @@ export class RoomIntro {
     this.enterButton = enterButton;
     this.video = video;
     this.loadingProgress = loadingProgress;
+    this.loadingTitle = loadingTitle;
+    this.loadingDetail = loadingDetail;
+    this.loadingNotice = loadingNotice;
+    this.loadState = { phase: 'downloading', loaded: 0, total: null };
     this.ready = ready;
     this.onReadyTimeout = onReadyTimeout;
     this.entryVideo = entryVideo;
@@ -192,6 +206,7 @@ export class RoomIntro {
       if (!this.reducedMotion && this.app.dataset.roomPhase === 'entry') this.startEntryVideo();
       return;
     }
+    if (this.loadingProgress) return;
     if (this.reducedMotion) {
       if (this.frame !== null) cancelAnimationFrame(this.frame);
       this.frame = null;
@@ -204,7 +219,44 @@ export class RoomIntro {
   }
 
   setStatus(message) {
-    this.status.textContent = message;
+    if (this.status.textContent !== message) this.status.textContent = message;
+  }
+
+  updateLoading(state) {
+    this.loadState = state;
+    if (!this.loadingProgress || !this.started) return;
+    if (state.phase === 'ready' && this.loadingNotice) this.loadingNotice.hidden = true;
+    if (this.finished) return;
+
+    let title = '正在下载全景背景';
+    let detail = '正在连接房间资源…';
+    if (state.phase === 'downloading') {
+      const loaded = Math.max(0, Number(state.loaded) || 0);
+      const total = Number(state.total);
+      if (Number.isFinite(total) && total > 0 && loaded <= total) {
+        const percent = Math.floor((loaded / total) * 100);
+        this.loadingProgress.value = percent;
+        detail = `${percent}% · ${formatDownloadBytes(loaded)} / ${formatDownloadBytes(total)}`;
+      } else {
+        this.loadingProgress.removeAttribute('value');
+        if (loaded > 0) detail = `已下载 ${formatDownloadBytes(loaded)} · 总大小未知`;
+      }
+    } else if (state.phase === 'preparing') {
+      title = '正在准备场景';
+      detail = '背景下载完成，正在展开房间。';
+      this.loadingProgress.removeAttribute('value');
+    } else if (state.phase === 'ready') {
+      title = '房间已准备好';
+      detail = '现在可以开始。';
+      this.loadingProgress.value = 100;
+    } else {
+      title = '已切换静态背景';
+      detail = STATIC_ENTRY_NOTICE;
+    }
+    if (this.loadingTitle) this.loadingTitle.textContent = title;
+    if (this.loadingDetail) this.loadingDetail.textContent = detail;
+    // Announce phase changes only, not every download packet.
+    this.setStatus(title);
   }
 
   resize() {
@@ -229,15 +281,13 @@ export class RoomIntro {
     this.setStatus('房间正在显现，进入按钮会在动画结束后出现。');
     this.startedAt = performance.now();
     if (this.loadingProgress) {
-      this.setStatus('正在准备房间，完成后显示开始按钮。');
-      this.loadingProgress.removeAttribute('value');
+      this.updateLoading(this.loadState);
       this.finishTimer = window.setTimeout(() => {
         if (this.finished) return;
         this.onReadyTimeout?.();
-        this.finish();
-        this.setStatus('房间背景仍在加载，可以先进入使用。');
+        this.finish({ fallback: true });
       }, ROOM_READY_TIMEOUT_MS);
-      Promise.resolve(this.ready).then(() => this.finish(), () => this.finish());
+      Promise.resolve(this.ready).then((result) => this.finish(result), () => this.finish({ fallback: true }));
       return;
     }
     // The reveal clock starts independently from the panorama asset request.
@@ -259,7 +309,7 @@ export class RoomIntro {
     this.frame = null;
     this.finishTimer = null;
     this.stopVideo();
-    this.draw(1);
+    if (!this.loadingProgress) this.draw(1);
     this.enterButton.disabled = true;
     this.lockup.inert = true;
     this.lockup.setAttribute('aria-hidden', 'true');
@@ -290,7 +340,6 @@ export class RoomIntro {
     this.renderProgress = Math.max(this.renderProgress, clamp(progress, 0, 1));
     progress = this.renderProgress;
     if (this.loadingProgress) {
-      this.loadingProgress.value = Math.round(progress * 100);
       return;
     }
     const context = this.canvas.getContext('2d');
@@ -343,7 +392,7 @@ export class RoomIntro {
     }
   }
 
-  finish() {
+  finish({ fallback = false } = {}) {
     if (this.finished) return;
     this.finished = true;
     if (this.frame !== null) cancelAnimationFrame(this.frame);
@@ -353,14 +402,19 @@ export class RoomIntro {
     // The three-second room reveal is a one-shot gate. The separate Figma 4:5
     // entry composition owns the waiting loop after the gate completes.
     this.stopOpeningVideo();
-    this.draw(1);
+    if (!this.loadingProgress) this.draw(1);
+    else if (!fallback) this.loadingProgress.value = 100;
+    if (this.loadingNotice) {
+      this.loadingNotice.textContent = fallback ? STATIC_ENTRY_NOTICE : '';
+      this.loadingNotice.hidden = !fallback;
+    }
     this.app.dataset.roomPhase = 'entry';
     this.gate.setAttribute('aria-busy', 'false');
     this.gate.classList.add('is-entry-ready');
     this.lockup.inert = false;
     this.lockup.setAttribute('aria-hidden', 'false');
     this.enterButton.disabled = false;
-    this.setStatus('房间已经显现。现在可以进入。');
+    this.setStatus(fallback ? STATIC_ENTRY_NOTICE : '房间已经显现。现在可以进入。');
     this.startEntryVideo();
   }
 
