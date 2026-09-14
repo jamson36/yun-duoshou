@@ -162,6 +162,7 @@ BOOT → ASSET_LOADING → INTRO_CLIP → ENTRY_LOOP → ENTERING → IDLE
 - `ASSET_LOADING` 预载开屏视频、静态封面和房间全景；任一视频失败时立即切换清晰静态封面，不能白屏或阻断开始入口。
 - `INTRO_CLIP` 播放约 3 秒一次性开场片段；它与随后的 `ENTRY_LOOP` 均铺满视口，不得出现视频与背景分层、露边或尺寸变化。
 - `ENTRY_LOOP` 使用 Figma 节点 `4:5` 对应画面自动静音循环，只呈现一个“开始”入口；不显示三个功能入口、帮助、设置或导入演示数据。
+- 入口视频 `room-entry-user.mp4` 的静态封面使用其首帧派生资源 `room-entry-video-poster.webp`，封面不包含标题、按钮或卡片。桌面右侧半透明卡片和入口内容由同一套 DOM/CSS 持续承载，视频加载、循环或失败回退时均保留，避免旧合成封面产生重复叠影。
 - `ENTERING` 点击“开始”后在约 420ms 内自然过渡到默认房间视角，结束后才显示热点、顶部语义入口和房间业务状态。
 - `FOCUS_AREA` 与 `INSPECT_OBJECT` 合计以 300–500ms 为目标，不能阻挡表单和主要操作出现。
 - 同一时间只允许一个区域处于 `INSPECT_OBJECT`、`PANEL_OPEN` 或 `INTERACTING`，切换区域时先结束上一物件的悬浮 / 高亮状态。

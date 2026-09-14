@@ -51,7 +51,7 @@ test('加载进度代替开场视频，用户入口视频循环播放', () => {
   assert.match(html, /<progress id="roomLoadProgress"/);
   assert.match(entryVideo, /\bloop\b/);
   assert.match(entryVideo, /room-entry-user\.mp4/);
-  assert.match(entryVideo, /room-entry-poster-hq\.webp/);
+  assert.match(entryVideo, /room-entry-video-poster\.webp/);
   assert.doesNotMatch(css, /is-entry-video-playing \.room-entry-title-art[\s\S]*?opacity:\s*0/);
   assert.doesNotMatch(css, /is-entry-video-playing \.enter-room-button[\s\S]*?color:\s*transparent/);
   assert.match(
