@@ -418,6 +418,7 @@ export class RoomGestureController {
         gesture: data.gesture,
         score,
         landmarks,
+        capturedAt: Number.isFinite(this.frameGate.lastCaptureAt) ? this.frameGate.lastCaptureAt : handledAt,
         at: handledAt,
       });
       return;

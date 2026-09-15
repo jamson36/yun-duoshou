@@ -40,6 +40,8 @@ const GAME_DURATION_MS = 45_000;
 const MIXED_PHASE_START_MS = 20_000;
 const FOCUS_PHASE_START_MS = 38_000;
 const SPAWN_INTERVAL_MS = 1_150;
+const GESTURE_SPAWN_INTERVAL_MS = 1_500;
+const GESTURE_MOTION_SCALE = 0.78;
 const GRAVITY = 1.9;
 const PEEL_COPY_FAMILY_SET = new Set(PEEL_COPY_FAMILIES);
 const CATEGORY_ALIASES = Object.freeze({
@@ -168,6 +170,7 @@ export function createPeelGame({
   tutorialCompleted = false,
   orders = [],
   reducedMotion = false,
+  inputMode = 'pointer',
 } = {}) {
   return {
     version: PEEL_GAME_VERSION,
@@ -177,6 +180,7 @@ export function createPeelGame({
     elapsedMs: 0,
     tutorialCompleted: Boolean(tutorialCompleted),
     reducedMotion: Boolean(reducedMotion),
+    inputMode: ['gesture', 'keyboard'].includes(inputMode) ? inputMode : 'pointer',
     entities: [],
     reveals: [],
     copyHistory: [],
@@ -220,17 +224,21 @@ function createEntity(state, { item, phase, tutorial = false }) {
   const x = tutorial ? 0.5 : 0.18 + unitFromSeed(`${entitySeed}:x`) * 0.64;
   const horizontalDirection = unitFromSeed(`${entitySeed}:direction`) > 0.5 ? 1 : -1;
   const reducedMotion = state.reducedMotion && !tutorial;
+  const motionScale = !tutorial && !reducedMotion && state.inputMode === 'gesture'
+    ? GESTURE_MOTION_SCALE
+    : 1;
 
   return {
     id: `peel-entity-${ordinal}`,
     item,
     x,
     y: tutorial ? 1.08 : reducedMotion ? 1.02 : 1.08,
-    vx: tutorial || reducedMotion ? 0 : horizontalDirection * (0.04 + unitFromSeed(`${entitySeed}:vx`) * 0.13),
-    vy: tutorial ? -0.7 : reducedMotion ? -0.42 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28),
-    gravity: tutorial ? 0.38 : reducedMotion ? 0.36 : GRAVITY,
+    vx: tutorial || reducedMotion ? 0 : horizontalDirection * (0.04 + unitFromSeed(`${entitySeed}:vx`) * 0.13) * motionScale,
+    vy: tutorial ? -0.7 : reducedMotion ? -0.42 : -(1.72 + unitFromSeed(`${entitySeed}:vy`) * 0.28) * motionScale,
+    // Scale gravity quadratically so the slower flight follows the same arc and apex.
+    gravity: tutorial ? 0.38 : reducedMotion ? 0.36 : GRAVITY * motionScale ** 2,
     rotation: unitFromSeed(`${entitySeed}:rotation`) * Math.PI * 2,
-    rotationVelocity: tutorial || reducedMotion ? 0 : (unitFromSeed(`${entitySeed}:spin`) - 0.5) * 2.2,
+    rotationVelocity: tutorial || reducedMotion ? 0 : (unitFromSeed(`${entitySeed}:spin`) - 0.5) * 2.2 * motionScale,
     radius: tutorial ? 0.12 : phase === 'focus' ? 0.115 : 0.082,
     shells: makeShells(copies),
     coreRevealed: false,
@@ -480,8 +488,9 @@ export function advanceRound(state, deltaMs = 0) {
   }
 
   let accumulator = state.spawnAccumulatorMs + safeDeltaMs;
-  let spawnCount = Math.floor(accumulator / SPAWN_INTERVAL_MS);
-  accumulator %= SPAWN_INTERVAL_MS;
+  const spawnIntervalMs = state.inputMode === 'gesture' ? GESTURE_SPAWN_INTERVAL_MS : SPAWN_INTERVAL_MS;
+  let spawnCount = Math.floor(accumulator / spawnIntervalMs);
+  accumulator %= spawnIntervalMs;
   spawnCount = Math.min(spawnCount, 3);
   next = { ...next, spawnAccumulatorMs: accumulator };
   for (let index = 0; index < spawnCount; index += 1) {

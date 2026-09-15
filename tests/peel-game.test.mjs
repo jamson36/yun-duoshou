@@ -84,6 +84,58 @@ test('正式商品从底部向上抛出并按抛物线受重力下落', () => {
   assert.ok(moved.vy > launched.vy, '重力应让上抛速度逐步转向下落');
 });
 
+test('手势模式延长飞行时间但保留轨迹高度和横向落点，普通输入保持原节奏', () => {
+  for (const seed of ['slow-arc-a', 'slow-arc-b', 'slow-arc-c']) {
+    let pointer = startRound(createPeelGame({ seed, tutorialCompleted: true }));
+    let gesture = startRound(createPeelGame({ seed, tutorialCompleted: true, inputMode: 'gesture' }));
+    const keyboard = startRound(createPeelGame({ seed, tutorialCompleted: true, inputMode: 'keyboard' }));
+    assert.deepEqual(keyboard.entities, pointer.entities);
+    const normal = pointer.entities[0];
+    const slow = gesture.entities[0];
+    const normalApex = normal.y - normal.vy ** 2 / (2 * normal.gravity);
+    const slowApex = slow.y - slow.vy ** 2 / (2 * slow.gravity);
+    assert.ok(Math.abs(normalApex - slowApex) < 1e-9);
+    const flightRatio = (slow.vy / slow.gravity) / (normal.vy / normal.gravity);
+    assert.ok(flightRatio > 1.27 && flightRatio < 1.29, '物品滞空时间应延长约 28%');
+    for (const delta of [80, 200, 350]) {
+      pointer = advanceRound(pointer, delta * 0.78);
+      gesture = advanceRound(gesture, delta);
+      for (const field of ['x', 'y', 'rotation']) {
+        assert.ok(Math.abs(pointer.entities[0][field] - gesture.entities[0][field]) < 1e-9, field);
+      }
+    }
+    assert.equal(advanceRound(gesture, 45_000).status, PEEL_GAME_STATUS.SUMMARY);
+    assert.equal(gesture.durationMs, 45_000);
+  }
+});
+
+test('手势模式每 1.5 秒抛出新物品，暂停不累计额外出场', () => {
+  const config = { seed: 'gesture-spawn', tutorialCompleted: true };
+  const pointer = advanceRound(startRound(createPeelGame(config)), 1_150);
+  let gesture = advanceRound(startRound(createPeelGame({ ...config, inputMode: 'gesture' })), 1_150);
+  assert.equal(pointer.nextEntityOrdinal, 2);
+  assert.equal(gesture.nextEntityOrdinal, 1);
+  const paused = advanceRound(pauseRound(gesture), 3_000);
+  gesture = advanceRound(resumeRound(paused), 349);
+  assert.equal(gesture.nextEntityOrdinal, 1);
+  gesture = advanceRound(gesture, 1);
+  assert.equal(gesture.nextEntityOrdinal, 2);
+  assert.equal(gesture.elapsedMs, 1_500);
+});
+
+test('手势教学仍到顶悬停，减少动态保留既有低速垂直运动', () => {
+  const tutorial = startRound(createPeelGame({ seed: 'slow-tutorial', inputMode: 'gesture' }));
+  const waiting = advanceRound(tutorial, 3_000);
+  assert.equal(waiting.entities[0].frozen, true);
+  assert.equal(waiting.elapsedMs, 0);
+  const config = { seed: 'slow-reduced', tutorialCompleted: true, reducedMotion: true };
+  const normal = startRound(createPeelGame(config));
+  const gesture = startRound(createPeelGame({ ...config, inputMode: 'gesture' }));
+  assert.deepEqual(gesture.entities, normal.entities);
+  assert.equal(gesture.entities[0].vx, 0);
+  assert.equal(gesture.entities[0].rotationVelocity, 0);
+});
+
 test('轨迹只逐层剥开话术外壳，商品本体不可继续切割', () => {
   let game = startRound(createPeelGame({ seed: 'peel-once', tutorialCompleted: true }));
   game = advanceRound(game, 360);

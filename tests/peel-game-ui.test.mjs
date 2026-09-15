@@ -305,6 +305,96 @@ test('体感刀锋在稀疏识别帧之间逐帧追踪，并保留亚像素位�
   assert.ok(secondX > 69.9, '32ms 内应完成至少 86% 的显示层追随，避免额外拖尾');
 });
 
+test('恢复定位会唤醒悬停教学刀锋，跨过商品也不计分或开始计时', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'cursor-only' });
+  setup.controller.start('gesture');
+  setup.frames.run(0);
+  setup.frames.run(3000);
+  assert.equal(setup.frames.size, 0);
+  const target = setup.controller.getState().entities[0];
+  for (const x of [0, 1]) {
+    setup.controller.updateGestureCursor({ x, y: target.y });
+    assert.equal(setup.frames.size, 1);
+    for (let step = 1; step <= 20; step++) setup.frames.run(3000 + x * 400 + step * 16);
+    const visibleX = Number.parseFloat(setup.elements.blade.style.values.get('--blade-x')) / 100;
+    assert.ok(Math.abs(visibleX - x) < 0.001);
+    assert.equal(setup.controller.getState().score.peeledShells, 0);
+    assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.TUTORIAL);
+    assert.equal(setup.controller.getState().elapsedMs, 0);
+    assert.equal(setup.controller.getDiagnostics().impactRings, 0);
+  }
+});
+
+test('同一显示帧内多个手势即时判定命中，只绘制一次，刀锋追随最新位置', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'gesture-batch', tutorialCompleted: true });
+  setup.controller.start('gesture');
+  setup.frames.run(0);
+  const target = setup.controller.getState().entities[0];
+  const drawCount = () => setup.drawCalls.filter(([method]) => method === 'clearRect').length;
+  const before = drawCount();
+  setup.controller.applySegment({ from: { x: 0, y: target.y }, to: { x: 1, y: target.y }, at: 5 });
+  assert.equal(setup.controller.getState().score.peeledShells, 1, '不等待显示帧才计算命中');
+  setup.controller.applySegment({ from: { x: 1, y: 0.1 }, to: { x: 0.1, y: 0.1 }, at: 8 });
+  assert.equal(drawCount(), before);
+  assert.equal(setup.frames.size, 1);
+  setup.frames.run(16);
+  assert.equal(drawCount(), before + 1);
+  assert.ok(Number.parseFloat(setup.elements.blade.style.values.get('--blade-x')) < 50);
+});
+
+test('无效定位、暂停和关闭后不移动刀锋，普通输入不接受手势定位', async () => {
+  for (const mode of ['gesture', 'pointer']) {
+    const setup = harness();
+    await setup.controller.open({ seed: 'cursor-lifecycle', tutorialCompleted: true });
+    setup.controller.start(mode);
+    setup.frames.run(0);
+    for (const point of [null, { x: NaN, y: 0.5 }, { x: 0.2, y: Infinity }, { x: '0.2', y: 0.5 }]) {
+      setup.controller.updateGestureCursor(point);
+    }
+    if (mode === 'pointer') setup.controller.updateGestureCursor({ x: 0.2, y: 0.5 });
+    setup.frames.run(16);
+    assert.equal(setup.elements.blade.style.values.get('--blade-x'), '50.000%');
+    setup.controller.pause('hand-lost');
+    setup.controller.updateGestureCursor({ x: 0.2, y: 0.5 });
+    assert.equal(setup.frames.size, 0);
+    setup.controller.close();
+    setup.controller.updateGestureCursor({ x: 0.2, y: 0.5 });
+    assert.equal(setup.frames.size, 0);
+  }
+});
+
+test('手势起局和重玩都采用较慢节奏，重新选择普通输入恢复普通节奏', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'gesture-pace' });
+  setup.controller.start('gesture');
+  setup.elements.skipTutorialButton.dispatch('click');
+  setup.frames.run(0);
+  setup.frames.run(1_150);
+  assert.equal(setup.controller.getState().nextEntityOrdinal, 0);
+  setup.frames.run(1_500);
+  assert.equal(setup.controller.getState().nextEntityOrdinal, 1);
+  const replay = setup.controller.replay();
+  assert.equal(replay.inputMode, 'gesture');
+  assert.ok(Math.abs(replay.entities[0].vy) < 1.6);
+  setup.frames.run(2_000);
+  setup.frames.run(3_150);
+  assert.equal(setup.controller.getState().nextEntityOrdinal, 1);
+  setup.frames.run(3_500);
+  assert.equal(setup.controller.getState().nextEntityOrdinal, 2);
+
+  setup.controller.close();
+  await setup.controller.open({ seed: 'gesture-pace', tutorialCompleted: true });
+  const pointer = setup.controller.start('pointer');
+  assert.equal(pointer.inputMode, 'pointer');
+  assert.ok(Math.abs(pointer.entities[0].vy) >= 1.72);
+  setup.frames.run(4_000);
+  setup.frames.run(5_150);
+  assert.equal(setup.controller.getState().nextEntityOrdinal, 2);
+  setup.controller.destroy();
+});
+
 test('教学商品悬停后，手势唤醒刀锋追踪且不会启动正式倒计时', async () => {
   const setup = harness();
   await setup.controller.open({ seed: 'gesture-tutorial-idle' });
@@ -441,4 +531,67 @@ test('切割反馈有数量上限，并在连续慢帧时自动收敛为基础�
   assert.equal(reducedDiagnostics.effectQuality, 'essential');
   assert.equal(reducedDiagnostics.impactRings, 0);
   assert.equal(reducedDiagnostics.signalGlyphs, 0);
+});
+
+test('30fps 进入基础效果档后，切中仍分成两片并持续移动、按时清理', async () => {
+  for (const mode of ['pointer', 'gesture']) {
+    const setup = harness();
+    await setup.controller.open({ seed: 'split-at-30fps', tutorialCompleted: true });
+    setup.controller.start(mode);
+    setup.frames.run(0);
+    for (let index = 1; index <= 20; index++) setup.frames.run(index * 1000 / 30);
+    assert.equal(setup.controller.getDiagnostics().effectQuality, 'essential');
+    const target = setup.controller.getState().entities.find(entity => !entity.coreRevealed);
+    const at = 20 * 1000 / 30;
+    setup.controller.applySegment({
+      from: { x: target.x - target.radius, y: target.y },
+      to: { x: target.x + target.radius, y: target.y },
+      at,
+    });
+    assert.equal(setup.controller.getState().score.peeledShells, 1);
+    assert.equal(setup.controller.getDiagnostics().shellShards, 2, '性能降级不能取消分裂反馈');
+    assert.equal(setup.controller.getDiagnostics().signalGlyphs, 0, '只收敛附加装饰');
+    const splitPositions = () => {
+      const positions = [];
+      let position;
+      for (const [method, ...args] of setup.drawCalls) {
+        if (method === 'translate') position = args;
+        if (method === 'clip') positions.push(position);
+      }
+      return positions;
+    };
+    setup.drawCalls.length = 0;
+    setup.frames.run(at + 1000 / 30);
+    const first = splitPositions();
+    assert.equal(first.length, 2, '实际绘制左右两片');
+    setup.drawCalls.length = 0;
+    setup.frames.run(at + 2000 / 30);
+    const second = splitPositions();
+    assert.ok(second[0][0] < first[0][0], '左半片继续向左运动');
+    assert.ok(second[1][0] > first[1][0], '右半片继续向右运动');
+    setup.frames.run(at + 500);
+    assert.equal(setup.controller.getDiagnostics().shellShards, 2);
+    setup.frames.run(at + 570);
+    assert.equal(setup.controller.getDiagnostics().shellShards, 0);
+    setup.controller.close();
+    assert.equal(setup.frames.size, 0);
+  }
+});
+
+test('主动减少动态效果时仍使用静态反馈，不生成分裂飞散', async () => {
+  const setup = harness({ reducedMotion: true });
+  await setup.controller.open({ seed: 'split-reduced', tutorialCompleted: true });
+  setup.controller.start('gesture');
+  const target = setup.controller.getState().entities[0];
+  setup.controller.applySegment({
+    from: { x: target.x - target.radius, y: target.y },
+    to: { x: target.x + target.radius, y: target.y },
+    at: 0,
+  });
+  setup.frames.run(0);
+  setup.frames.run(33);
+  assert.equal(setup.controller.getState().score.peeledShells, 1);
+  assert.equal(setup.controller.getDiagnostics().shellShards, 0);
+  assert.equal(setup.drawCalls.filter(([method]) => method === 'clip').length, 0);
+  assert.equal(setup.controller.getDiagnostics().impactRings, 0);
 });

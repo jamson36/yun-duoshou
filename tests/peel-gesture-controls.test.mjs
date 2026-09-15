@@ -13,16 +13,92 @@ function frame({ x = 0.2, y = 0.4, gesture = 'Pointing_Up', score = 0.95 } = {})
   return { gesture, score, landmarks };
 }
 
-test('首帧只建立镜像锚点，第二帧才输出归一化切割线段', () => {
+function movingHandFrame(options = {}) {
+  const result = frame(options);
+  const tip = result.landmarks[8];
+  [9, 13, 17].forEach((index, offset) => {
+    result.landmarks[index] = { x: tip.x + 0.025 * (offset + 1), y: tip.y + 0.16, z: 0 };
+  });
+  return result;
+}
+
+test('首帧只定位刀锋并建立镜像锚点，第二帧才输出切割线段', () => {
   const mapper = createPeelGestureMapper({ smoothing: 1 });
 
-  assert.equal(mapper.update(frame({ x: 0.2, y: 0.4 }), 0), null);
+  assert.deepEqual(mapper.update(frame({ x: 0.2, y: 0.4 }), 0), {
+    type: 'cursor', to: { x: 0.8, y: 0.4 }, at: 0,
+  });
   assert.deepEqual(mapper.update(frame({ x: 0.3, y: 0.5 }), 16), {
     type: 'segment',
     from: { x: 0.8, y: 0.4 },
     to: { x: 0.7, y: 0.5 },
     at: 16,
   });
+});
+
+test('1.8 倍位移在保持镜像方向的同时放大水平和垂直行程', () => {
+  const mapper = createPeelGestureMapper({ smoothing: 1, controlGain: 1.8 });
+  assert.deepEqual(mapper.update(frame({ x: 0.5, y: 0.5 }), 0), {
+    type: 'cursor', to: { x: 0.5, y: 0.5 }, at: 0,
+  });
+  const segment = mapper.update(frame({ x: 0.4, y: 0.6 }), 33);
+  assert.deepEqual(segment.from, { x: 0.5, y: 0.5 });
+  assert.ok(Math.abs(segment.to.x - 0.68) < 1e-9);
+  assert.ok(Math.abs(segment.to.y - 0.68) < 1e-9);
+});
+
+test('镜头中央约 56% 范围可抵达舞台四边，不需要手指到镜头边缘', () => {
+  const halfRange = 0.5 / 1.8;
+  for (const [x, y, expected] of [
+    [0.5 + halfRange, 0.5, { x: 0, y: 0.5 }],
+    [0.5 - halfRange, 0.5, { x: 1, y: 0.5 }],
+    [0.5, 0.5 - halfRange, { x: 0.5, y: 0 }],
+    [0.5, 0.5 + halfRange, { x: 0.5, y: 1 }],
+  ]) {
+    const mapper = createPeelGestureMapper({ smoothing: 1, controlGain: 1.8 });
+    mapper.update(movingHandFrame({ x: 0.5, y: 0.5 }), 0);
+    const segment = mapper.update(movingHandFrame({ x, y }), 33);
+    assert.equal(segment?.type, 'segment');
+    assert.ok(Math.abs(segment.to.x - expected.x) < 1e-9);
+    assert.ok(Math.abs(segment.to.y - expected.y) < 1e-9);
+  }
+});
+
+test('增益后的长线段不触发原始跳变阈值，小幅手抖仍按原始坐标过滤', () => {
+  const mapper = createPeelGestureMapper({ smoothing: 1, controlGain: 1.8 });
+  mapper.update(frame({ x: 0.375, y: 0.5 }), 0);
+  const longSegment = mapper.update(frame({ x: 0.625, y: 0.5 }), 33);
+  assert.equal(longSegment?.type, 'segment');
+  assert.ok(Math.abs(longSegment.from.x - longSegment.to.x - 0.45) < 1e-9);
+  assert.equal(mapper.update(frame({ x: 0.628, y: 0.5 }), 66), null);
+  assert.equal(mapper.update(frame({ x: 0.632, y: 0.5 }), 99)?.type, 'segment');
+});
+
+test('超出舒适区夹在舞台边界，不重复切割，返回时从边界连续跟随', () => {
+  const mapper = createPeelGestureMapper({ smoothing: 1, controlGain: 1.8 });
+  mapper.update(frame({ x: 0.3, y: 0.5 }), 0);
+  const edge = mapper.update(frame({ x: 0.15, y: 0.5 }), 33);
+  assert.equal(edge.to.x, 1);
+  assert.equal(mapper.update(frame({ x: 0.1, y: 0.5 }), 66), null);
+  assert.equal(mapper.update(frame({ x: 0.2, y: 0.5 }), 99), null);
+  const returned = mapper.update(frame({ x: 0.3, y: 0.5 }), 132);
+  assert.equal(returned.from.x, 1);
+  assert.ok(Math.abs(returned.to.x - 0.86) < 1e-9);
+});
+
+test('放大控制范围仍拒绝原始跳变，丢手恢复也不能跨空白补刀', () => {
+  for (const interrupt of ['jump', 'lost']) {
+    const mapper = createPeelGestureMapper({ smoothing: 1, controlGain: 1.8 });
+    mapper.update(movingHandFrame({ x: 0.2, y: 0.5 }), 0);
+    if (interrupt === 'lost') mapper.update(null, 33);
+    const reanchored = mapper.update(movingHandFrame({ x: 0.9, y: 0.5 }), 66);
+    if (interrupt === 'jump') assert.equal(reanchored, null);
+    else assert.deepEqual(reanchored, { type: 'cursor', to: { x: 0, y: 0.5 }, at: 66 });
+    const segment = mapper.update(movingHandFrame({ x: 0.7, y: 0.5 }), 99);
+    assert.equal(segment?.type, 'segment');
+    assert.equal(segment.from.x, 0);
+    assert.ok(Math.abs(segment.to.x - 0.14) < 1e-9);
+  }
 });
 
 test('低置信度或非指向手势不生成剥壳轨迹', () => {
@@ -62,7 +138,7 @@ test('持续不确定超过 150ms 必须重新确认，弱识别不能无限续�
   }
   assert.equal(mapper.update(frame({ x: 0.36, score: 0.5 }), 151), null);
   assert.equal(mapper.update(frame({ x: 0.4, gesture: 'None' }), 184), null);
-  assert.equal(mapper.update(frame({ x: 0.42 }), 217), null, '重新确认的首帧不能连接过期轨迹');
+  assert.equal(mapper.update(frame({ x: 0.42 }), 217)?.type, 'cursor', '重新确认只定位，不连接过期轨迹');
   assert.equal(mapper.update(frame({ x: 0.44 }), 250)?.type, 'segment');
 });
 
@@ -73,7 +149,7 @@ test('明确的其他手势立即停刀，再伸食指时不跨越中性轨迹',
       mapper.update(frame(), 0);
       assert.equal(mapper.update(frame({ x: 0.25, gesture, score }), 33), null);
       assert.equal(mapper.update(frame({ x: 0.3, gesture: 'None' }), 66), null);
-      assert.equal(mapper.update(frame({ x: 0.35 }), 99), null);
+      assert.equal(mapper.update(frame({ x: 0.35 }), 99)?.type, 'cursor');
       const segment = mapper.update(frame({ x: 0.4 }), 132);
       assert.deepEqual(segment.from, { x: 0.65, y: 0.4 });
     }
@@ -115,7 +191,9 @@ test('丢手即断开轨迹，短暂丢手恢复也不跨空白补刀', () => {
   mapper.update(frame(), 0);
   assert.equal(mapper.update(null, 33), null);
   assert.equal(mapper.update(frame({ x: 0.3, score: 0.5 }), 66), null);
-  assert.equal(mapper.update(frame({ x: 0.35 }), 99), null);
+  assert.deepEqual(mapper.update(frame({ x: 0.35 }), 99), {
+    type: 'cursor', to: { x: 0.65, y: 0.4 }, at: 99,
+  });
   assert.deepEqual(mapper.update(frame({ x: 0.4 }), 132).from, { x: 0.65, y: 0.4 });
 });
 
@@ -129,7 +207,7 @@ test('坐标仍在但姿势分数低不算丢手，暂停只由真实坐标丢�
   assert.deepEqual(mapper.update(null, 1600), { type: 'pause', reason: 'hand-lost' });
   assert.deepEqual(mapper.update(frame({ gesture: 'None', score: 0 }), 1633), { type: 'resume' });
   assert.equal(mapper.update(frame({ x: 0.3, score: 0.3 }), 1666), null);
-  assert.equal(mapper.update(frame({ x: 0.32 }), 1699), null);
+  assert.equal(mapper.update(frame({ x: 0.32 }), 1699)?.type, 'cursor');
   assert.equal(mapper.update(frame({ x: 0.34 }), 1732)?.type, 'segment');
 });
 
@@ -148,14 +226,16 @@ test('手部坐标缺失或无效时停止，不能只凭食指点或姿势高�
     const mapper = createPeelGestureMapper({ smoothing: 1 });
     mapper.update(frame(), 0);
     assert.equal(mapper.update(invalid, 33), null);
-    assert.equal(mapper.update(frame({ x: 0.25 }), 66), null);
+    assert.deepEqual(mapper.update(frame({ x: 0.25 }), 66), {
+      type: 'cursor', to: { x: 0.75, y: 0.4 }, at: 66,
+    });
   }
 });
 
 test('长时间没有帧时重新建锚，较慢设备仍可用高置信度帧连续切割', () => {
   const mapper = createPeelGestureMapper({ smoothing: 1 });
   mapper.update(frame(), 0);
-  assert.equal(mapper.update(frame({ x: 0.3 }), 600), null);
+  assert.equal(mapper.update(frame({ x: 0.3 }), 600)?.type, 'cursor');
   assert.equal(mapper.update(frame({ x: 0.32 }), 800)?.type, 'segment');
 });
 
@@ -185,6 +265,66 @@ test('默认平滑不能掩盖原始坐标跳变，容错也不能跨越跳变',
   }
 });
 
+test('15–30fps 下手掌与指尖共同快速移动时保留完整线段', () => {
+  for (const interval of [33, 50, 66]) {
+    for (const pose of [{}, { score: 0.4 }, { gesture: 'None', score: 0 }]) {
+      const mapper = createPeelGestureMapper({ smoothing: 1 });
+      mapper.update(movingHandFrame({ x: 0.2 }), 0);
+      const segment = mapper.update(movingHandFrame({ x: 0.62, ...pose }), interval);
+      assert.equal(segment?.type, 'segment');
+      assert.deepEqual(segment.from, { x: 0.8, y: 0.4 });
+      assert.deepEqual(segment.to, { x: 0.38, y: 0.4 });
+    }
+  }
+});
+
+test('指尖单独跳变、极短间隔、过大位移和长间隔仍重新建锚', () => {
+  const cases = [
+    { result: frame({ x: 0.62 }), interval: 50 },
+    { result: movingHandFrame({ x: 0.62 }), interval: 10 },
+    { result: movingHandFrame({ x: 0.86 }), interval: 66 },
+    { result: movingHandFrame({ x: 0.62 }), interval: 151 },
+  ];
+  for (const { result, interval } of cases) {
+    const mapper = createPeelGestureMapper({ smoothing: 1 });
+    mapper.update(movingHandFrame({ x: 0.2 }), 0);
+    assert.equal(mapper.update(result, interval), null);
+    const segment = mapper.update(movingHandFrame({ x: result.landmarks[8].x - 0.02 }), interval + 33);
+    assert.equal(segment?.type, 'segment');
+    assert.ok(Math.abs(segment.to.x - segment.from.x) < 0.03, '拒绝后的轨迹从新位置起步');
+  }
+});
+
+test('快划判断使用采样间隔，推理耗时变化不会伪造手部速度', () => {
+  for (const [capturedAt, handledAt, allowed] of [[50, 116, true], [10, 200, false]]) {
+    const mapper = createPeelGestureMapper({ smoothing: 1 });
+    mapper.update({ ...movingHandFrame(), capturedAt: 0 }, 100);
+    const segment = mapper.update({ ...movingHandFrame({ x: 0.62 }), capturedAt }, handledAt);
+    assert.equal(segment?.type === 'segment', allowed);
+  }
+});
+
+test('真实丢手后的快划不能跨缺失区间补刀', () => {
+  const mapper = createPeelGestureMapper({ smoothing: 1 });
+  mapper.update(movingHandFrame(), 0);
+  mapper.update(null, 33);
+  assert.deepEqual(mapper.update(movingHandFrame({ x: 0.62 }), 66), {
+    type: 'cursor', to: { x: 0.38, y: 0.4 }, at: 66,
+  });
+  assert.equal(mapper.update(movingHandFrame({ x: 0.64 }), 99)?.type, 'segment');
+});
+
+test('已接受的连续移动不会在平滑追赶时被第二次跳变检查截断', () => {
+  const mapper = createPeelGestureMapper({ responseMs: 200, fastResponseMs: 200 });
+  mapper.update(frame({ x: 0.1 }), 0);
+  mapper.update(frame({ x: 0.35 }), 33);
+  const previous = mapper.update(frame({ x: 0.6 }), 66);
+  const caughtUp = mapper.update(frame({ x: 0.85 }), 250);
+  assert.equal(caughtUp?.type, 'segment');
+  assert.deepEqual(caughtUp.from, previous.to);
+  assert.ok(Math.abs(caughtUp.to.x - caughtUp.from.x) > 0.3);
+});
+
 test('同一目标在 120ms 内只接受一次命中', () => {
   const mapper = createPeelGestureMapper({ hitCooldownMs: 120 });
 
@@ -201,7 +341,9 @@ test('丢手 600ms 只输出一次暂停，恢复后先恢复再重新建锚', (
   assert.equal(mapper.update(null, 599), null);
   assert.deepEqual(mapper.update(null, 600), { type: 'pause', reason: 'hand-lost' });
   assert.equal(mapper.update(null, 700), null);
-  assert.deepEqual(mapper.update(frame({ x: 0.4 }), 800), { type: 'resume' });
+  assert.deepEqual(mapper.update(frame({ x: 0.4 }), 800), {
+    type: 'resume', to: { x: 0.6, y: 0.4 }, at: 800,
+  });
   assert.equal(mapper.update(frame({ x: 0.42 }), 816).type, 'segment');
 });
 
@@ -211,7 +353,7 @@ test('reset 清除锚点、丢手状态和命中冷却', () => {
   mapper.registerHit('product-1', 10);
   mapper.reset();
 
-  assert.equal(mapper.update(frame({ x: 0.3 }), 20), null);
+  assert.equal(mapper.update(frame({ x: 0.3 }), 20)?.type, 'cursor');
   assert.equal(mapper.registerHit('product-1', 20), true);
 });
 
@@ -230,4 +372,59 @@ test('体感刀锋平滑按真实时间收敛，不随识别帧率改变拖尾�
   const fifteenFps = finalPoint(66);
   assert.ok(Math.abs(thirtyFps - fifteenFps) < 0.002, `同一时长的刀锋位置偏差过大：${thirtyFps} / ${fifteenFps}`);
   assert.ok(fifteenFps < 0.605, '330ms 内刀锋应基本追上手指');
+});
+
+test('快划和折返更快跟随，不超出观测范围，停止后不自行延长轨迹', () => {
+  const adaptive = createPeelGestureMapper({ minTravel: 0 });
+  const steady = createPeelGestureMapper({ minTravel: 0, fastResponseMs: 58 });
+  const xs = [0.23, 0.32, 0.41, 0.50, 0.59, 0.68, 0.77, 0.68, 0.59, 0.50, 0.41, 0.32, 0.23];
+  let adaptiveError = 0;
+  let steadyError = 0;
+  xs.forEach((x, index) => {
+    const at = index * 1000 / 30;
+    const fast = adaptive.update(movingHandFrame({ x }), at);
+    const slow = steady.update(movingHandFrame({ x }), at);
+    assert.ok(fast.to.x >= 0.23 && fast.to.x <= 0.77);
+    if (index > 0) {
+      assert.equal(fast.type, 'segment');
+      adaptiveError += Math.abs(fast.to.x - (1 - x));
+      steadyError += Math.abs(slow.to.x - (1 - x));
+    }
+  });
+  assert.ok(adaptiveError < steadyError * 0.4, '连续快划的累计滞后应明显缩短');
+  let previous = adaptive.smoothedPoint.x;
+  for (let at = 440; at < 1000; at += 33) {
+    adaptive.update(movingHandFrame({ x: 0.23 }), at);
+    assert.ok(adaptive.smoothedPoint.x >= previous && adaptive.smoothedPoint.x <= 0.77);
+    previous = adaptive.smoothedPoint.x;
+  }
+});
+
+test('小幅慢移保留原去抖，1.8 倍增益下静止噪声不生成切割', () => {
+  const adaptive = createPeelGestureMapper({ minTravel: 0 });
+  const steady = createPeelGestureMapper({ minTravel: 0, fastResponseMs: 58 });
+  const jitter = createPeelGestureMapper({ controlGain: 1.8 });
+  jitter.update(frame({ x: 0.5 }), 0);
+  for (let index = 0; index < 40; index++) {
+    const x = 0.4 + index * 0.008;
+    const at = index * 33;
+    assert.deepEqual(adaptive.update(frame({ x }), at), steady.update(frame({ x }), at));
+    assert.equal(jitter.update(frame({ x: 0.5 + (index % 2 ? 0.003 : -0.003) }), at + 33), null);
+  }
+});
+
+test('同一采集轨迹的平滑不受推理送达间隔波动影响', () => {
+  const stable = createPeelGestureMapper();
+  const delayed = createPeelGestureMapper();
+  const xs = [0.2, 0.29, 0.38, 0.47, 0.56, 0.47, 0.38];
+  const delays = [20, 55, 28, 70, 41, 35, 60];
+  xs.forEach((x, index) => {
+    const capturedAt = index * 66;
+    const observed = { ...movingHandFrame({ x }), capturedAt };
+    const normal = stable.update(observed, capturedAt + 20);
+    const late = delayed.update(observed, capturedAt + delays[index]);
+    assert.deepEqual(late.to, normal.to);
+    assert.deepEqual(late.from, normal.from);
+    assert.equal(late.at, capturedAt + delays[index], '命中时间仍使用实际送达时间');
+  });
 });

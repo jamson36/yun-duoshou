@@ -257,7 +257,7 @@ test('剥壳机输入域只转发识别帧，不再驱动房间镜头或热点',
     inputContext: 'activity',
     consecutiveFrameErrors: 2,
     activityFrameConsumer: (frame) => calls.push(['activity', frame]),
-    frameGate: { release: () => calls.push(['release']) },
+    frameGate: { lastCaptureAt: 0, release: () => calls.push(['release']) },
     drawLandmarks: () => calls.push(['draw']),
     updateCalibration: () => assert.fail('游戏内不应触发房间校准提示'),
     stage: { getBoundingClientRect: () => assert.fail('游戏内不应读取房间舞台') },
@@ -277,6 +277,8 @@ test('剥壳机输入域只转发识别帧，不再驱动房间镜头或热点',
   assert.equal(calls[2][0], 'activity');
   assert.equal(calls[2][1].gesture, 'Pointing_Up');
   assert.equal(calls[2][1].score, 0.91);
+  assert.equal(calls[2][1].capturedAt, 0, '传递实际采样时间，不能用推理完成时间替代');
+  assert.ok(calls[2][1].at >= calls[2][1].capturedAt);
   assert.equal(controller.consecutiveFrameErrors, 0);
   assert.match(controller.elements.mode.textContent, /食指/);
 });

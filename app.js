@@ -10,10 +10,10 @@ import { buildSharePosterModel, downloadSharePoster, renderSharePoster } from '.
 import { createGachaponMotion } from './gachapon-motion.js?v=20260901-visual-anchor-4';
 import { buildClinicHash, buildNewHash, buildRoomHash, createRouteSyncScheduler, panelNameFromHash, panelTransitionHistoryMethod, parseClinicHashState, parseNewHashState, parseRoomHashState, routeSignature } from './route-sync.js?v=20260904-interaction-flow-1';
 import { ANALYSIS_STAGES, createAnalysisStageController } from './analysis-stages.js?v=20260830-figma-stages-2';
-import { RoomGestureController } from './gesture-ui.js?v=20260915-gesture-fps-1';
+import { RoomGestureController } from './gesture-ui.js?v=20260915-gesture-swipe-1';
 import { RoomOrientationController } from './orientation-ui.js?v=20260901-device-orientation-1';
-import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260915-gesture-hold-1';
-import { createPeelGameController } from './peel-game-ui.js?v=20260915-gesture-fps-1';
+import { createPeelGestureMapper } from './peel-gesture-controls.js?v=20260915-gesture-stutter-1';
+import { createPeelGameController } from './peel-game-ui.js?v=20260915-gesture-split-1';
 
 const STORAGE_KEY = 'rang-ni-hua-ge-shuang-room-v1';
 const LEGACY_STORAGE_KEYS = ['yun-duoshou-room-v1'];
@@ -562,7 +562,7 @@ const orientationController = new RoomOrientationController({
   isRoomAvailable: () => roomEntered && !activePanel,
   isReducedMotion: () => document.body.classList.contains('reduce-motion'),
 });
-const peelGestureMapper = createPeelGestureMapper();
+const peelGestureMapper = createPeelGestureMapper({ controlGain: 1.8 });
 peelGameController = createPeelGameController({
   root: peelGameRoot,
   reducedMotion: () => document.body.classList.contains('reduce-motion'),
@@ -714,8 +714,12 @@ function consumePeelGestureFrame(frame) {
   if (activeActivity !== 'peel' || !peelGameController) return;
   const command = peelGestureMapper.update(frame, frame?.at);
   if (command?.type === 'segment') peelGameController.applySegment(command);
+  else if (command?.type === 'cursor') peelGameController.updateGestureCursor(command.to);
   else if (command?.type === 'pause') peelGameController.pause('hand-lost');
-  else if (command?.type === 'resume') peelGameController.resume();
+  else if (command?.type === 'resume') {
+    peelGameController.resume();
+    peelGameController.updateGestureCursor(command.to);
+  }
 }
 
 function handlePeelInputMode(mode) {

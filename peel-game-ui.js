@@ -8,7 +8,7 @@ import {
   resumeRound,
   skipTutorial,
   startRound,
-} from './peel-game.js';
+} from './peel-game.js?v=20260915-gesture-swipe-1';
 import { drawPeelProductVisual } from './peel-product-visuals.js?v=20260914-soft3d';
 
 export const MAX_PEEL_DPR = 2;
@@ -427,7 +427,7 @@ export function createPeelGameController({
       drawSignalFilm(context, shell, index, scale, { front: false });
     });
 
-    if (!entity.coreRevealed || motionIsReduced() || effectQuality === PEEL_EFFECT_QUALITY.ESSENTIAL) drawPeelProductVisual(context, entity.item, {
+    if (!entity.coreRevealed || motionIsReduced()) drawPeelProductVisual(context, entity.item, {
       scale,
       revealed: entity.coreRevealed,
       color: '#4d3c32',
@@ -660,21 +660,22 @@ export function createPeelGameController({
             color: shellIndex % 2 === 0 ? '#d56735' : '#45886e',
           });
         }
-        if (effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
-          [-1, 1].forEach((side) => {
-            shellShards.push({
-              x: entity.x + side * 0.018,
-              y: entity.y,
-              vx: side * (0.006 + intensity * 0.003),
-              vy: -(0.008 + intensity * 0.003),
-              rotation: side * 0.08,
-              rotationVelocity: side * 0.025,
-              bornAt: at,
-              color: shellColor,
-              side,
-              entity,
-            });
+        // Splitting is the core hit feedback, even when decoration is reduced for performance.
+        [-1, 1].forEach((side) => {
+          shellShards.push({
+            x: entity.x + side * 0.018,
+            y: entity.y,
+            vx: side * (0.006 + intensity * 0.003),
+            vy: -(0.008 + intensity * 0.003),
+            rotation: side * 0.08,
+            rotationVelocity: side * 0.025,
+            bornAt: at,
+            color: shellColor,
+            side,
+            entity,
           });
+        });
+        if (effectQuality !== PEEL_EFFECT_QUALITY.ESSENTIAL) {
           Array.from(String(reveal.lure || '信号')).slice(0, 4).forEach((character, index) => {
             const direction = index % 2 === 0 ? -1 : 1;
             signalGlyphs.push({
@@ -774,6 +775,17 @@ export function createPeelGameController({
     }
   }
 
+  function updateGestureCursor(point) {
+    if (
+      inputMode !== 'gesture'
+      || ![PEEL_GAME_STATUS.TUTORIAL, PEEL_GAME_STATUS.PLAYING].includes(state?.status)
+      || !Number.isFinite(point?.x)
+      || !Number.isFinite(point?.y)
+    ) return;
+    gestureBladeTarget = { x: clamp(point.x, 0, 1), y: clamp(point.y, 0, 1) };
+    scheduleLoop();
+  }
+
   function createChoice(reveal, index) {
     if (!documentRef?.createElement) return { textContent: reveal.lure || reveal.text };
     const label = documentRef.createElement('label');
@@ -864,7 +876,7 @@ export function createPeelGameController({
     gestureBladeTarget = null;
     resetEffectBudget();
     onInputMode(inputMode);
-    state = startRound(state);
+    state = startRound({ ...state, inputMode });
     showPlayView();
     resizeCanvas();
     renderState();
@@ -879,16 +891,7 @@ export function createPeelGameController({
     if (!state) return state;
     const at = Number.isFinite(Number(segment?.at)) ? Number(segment.at) : now();
     const normalizedSegment = { ...segment, at };
-    if (
-      inputMode === 'gesture'
-      && Number.isFinite(Number(normalizedSegment.to?.x))
-      && Number.isFinite(Number(normalizedSegment.to?.y))
-    ) {
-      gestureBladeTarget = {
-        x: clamp(Number(normalizedSegment.to.x), 0, 1),
-        y: clamp(Number(normalizedSegment.to.y), 0, 1),
-      };
-    }
+    updateGestureCursor(normalizedSegment.to);
     const previousState = state;
     state = applyPeelSegment(state, normalizedSegment);
     const previousTrailAt = trails.at(-1)?.at;
@@ -901,10 +904,14 @@ export function createPeelGameController({
       lastFrameAt = null;
       scheduleLoop();
     }
-    renderState();
-    draw(at);
+    if (inputMode === 'gesture') {
+      // Process every cut immediately; combine its visual work in the next display frame.
+      scheduleLoop();
+    } else {
+      renderState();
+      draw(at);
+    }
     emitState();
-    if (gestureBladeNeedsUpdate()) scheduleLoop();
     return state;
   }
 
@@ -971,6 +978,7 @@ export function createPeelGameController({
       seed: `${config.seed || 'peel-round'}:replay:${replayCount}`,
       tutorialCompleted: true,
       reducedMotion: motionIsReduced(),
+      inputMode,
     });
     state = startRound(state);
     particles = [];
@@ -1136,6 +1144,7 @@ export function createPeelGameController({
     open,
     start,
     applySegment,
+    updateGestureCursor,
     pause,
     resume,
     replay,
