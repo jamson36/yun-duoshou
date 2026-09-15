@@ -302,6 +302,29 @@ test('体感刀锋在稀疏识别帧之间逐帧追踪，并保留亚像素位�
   setup.frames.run(32);
   const secondX = Number.parseFloat(setup.elements.blade.style.values.get('--blade-x'));
   assert.ok(secondX > firstX && secondX < 73.123);
+  assert.ok(secondX > 69.9, '32ms 内应完成至少 86% 的显示层追随，避免额外拖尾');
+});
+
+test('教学商品悬停后，手势唤醒刀锋追踪且不会启动正式倒计时', async () => {
+  const setup = harness();
+  await setup.controller.open({ seed: 'gesture-tutorial-idle' });
+  setup.controller.start('gesture');
+  setup.frames.run(0);
+  setup.frames.run(3000);
+  assert.equal(setup.frames.size, 0);
+  assert.equal(setup.controller.getState().entities[0].frozen, true);
+
+  setup.controller.applySegment({
+    from: { x: 0.1, y: 0.1 },
+    to: { x: 0.2, y: 0.1 },
+    at: 3066,
+  });
+  assert.equal(setup.frames.size, 1);
+  for (let at = 3066; at <= 3226; at += 16) setup.frames.run(at);
+  assert.equal(setup.elements.blade.style.values.get('--blade-x'), '20.000%');
+  assert.equal(setup.controller.getState().status, PEEL_GAME_STATUS.TUTORIAL);
+  assert.equal(setup.controller.getState().elapsedMs, 0);
+  assert.equal(setup.frames.size, 0, '刀锋追上目标后停止空转');
 });
 
 test('Canvas 不可用时开启语义目标降级，减少动态取消高速抛物与旋转', async () => {

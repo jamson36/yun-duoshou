@@ -756,9 +756,15 @@ export function createPeelGameController({
       .slice(-MAX_PEEL_SIGNAL_GLYPHS);
   }
 
+  function gestureBladeNeedsUpdate() {
+    return inputMode === 'gesture'
+      && gestureBladeTarget
+      && lineDistance(bladePoint, gestureBladeTarget) >= 0.0005;
+  }
+
   function updateGestureBlade(deltaMs) {
     if (inputMode !== 'gesture' || !gestureBladeTarget || deltaMs <= 0) return;
-    const alpha = 1 - Math.exp(-Math.min(deltaMs, 80) / 42);
+    const alpha = 1 - Math.exp(-Math.min(deltaMs, 80) / 16);
     bladePoint = {
       x: bladePoint.x + (gestureBladeTarget.x - bladePoint.x) * alpha,
       y: bladePoint.y + (gestureBladeTarget.y - bladePoint.y) * alpha,
@@ -823,7 +829,11 @@ export function createPeelGameController({
     draw(timestamp);
     emitState();
     if (state.status === PEEL_GAME_STATUS.SUMMARY) finishSummary();
-    else if (state.status !== PEEL_GAME_STATUS.TUTORIAL || state.entities.some((entity) => !entity.frozen)) scheduleLoop();
+    else if (
+      state.status !== PEEL_GAME_STATUS.TUTORIAL
+      || state.entities.some((entity) => !entity.frozen)
+      || gestureBladeNeedsUpdate()
+    ) scheduleLoop();
   }
 
   function scheduleLoop() {
@@ -894,6 +904,7 @@ export function createPeelGameController({
     renderState();
     draw(at);
     emitState();
+    if (gestureBladeNeedsUpdate()) scheduleLoop();
     return state;
   }
 

@@ -2,6 +2,7 @@ import { mirroredLandmarkPoint } from './gesture-controls.js?v=20260903-gesture-
 
 const DEFAULT_OPTIONS = Object.freeze({
   minConfidence: 0.68,
+  poseGraceMs: 150,
   smoothing: null,
   responseMs: 58,
   maxJump: 0.3,
@@ -16,8 +17,8 @@ function clamp(value, min, max) {
 
 function finitePoint(point) {
   return point
-    && Number.isFinite(Number(point.x))
-    && Number.isFinite(Number(point.y));
+    && Number.isFinite(point.x)
+    && Number.isFinite(point.y);
 }
 
 function gestureKey(value) {
@@ -26,6 +27,15 @@ function gestureKey(value) {
 
 function distance(left, right) {
   return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function indexStillExtended(landmarks) {
+  const [wrist, base, middle, joint, tip] = [0, 5, 6, 7, 8].map((index) => landmarks[index]);
+  const fingerLength = distance(base, middle) + distance(middle, joint) + distance(joint, tip);
+  // Only support a briefly uncertain pose when the observed finger is still extended.
+  return fingerLength > 0.001
+    && distance(base, tip) >= fingerLength * 0.85
+    && distance(wrist, tip) > distance(wrist, middle) * 1.08;
 }
 
 function smoothingAlpha(fixedAlpha, responseMs, elapsedMs) {
@@ -44,12 +54,18 @@ class PeelGestureMapper {
   }
 
   reset() {
-    this.anchor = null;
-    this.smoothedPoint = null;
-    this.smoothedAt = null;
+    this.resetStroke();
     this.lastSeenAt = null;
     this.pausedForLoss = false;
     this.hitTimes = new Map();
+  }
+
+  resetStroke() {
+    this.anchor = null;
+    this.smoothedPoint = null;
+    this.smoothedAt = null;
+    this.lastPointingAt = null;
+    this.lastRawPoint = null;
   }
 
   smooth(point, now) {
@@ -77,9 +93,7 @@ class PeelGestureMapper {
       && !this.pausedForLoss
       && now - this.lastSeenAt >= this.options.handLostMs
     ) {
-      this.anchor = null;
-      this.smoothedPoint = null;
-      this.smoothedAt = null;
+      this.resetStroke();
       this.pausedForLoss = true;
       return { type: 'pause', reason: 'hand-lost' };
     }
@@ -89,37 +103,54 @@ class PeelGestureMapper {
   update(result, now = 0) {
     const at = Number(now) || 0;
     const confidence = Number(result?.score);
-    const landmark = result?.landmarks?.[8];
-    const hasHand = finitePoint(landmark)
-      && Number.isFinite(confidence)
-      && confidence >= this.options.minConfidence;
+    const landmarks = result?.landmarks;
+    // The category score describes the pose, not whether the hand is being tracked.
+    const hasHand = Array.isArray(landmarks)
+      && landmarks.length === 21
+      && Array.from(landmarks).every(finitePoint);
 
-    if (!hasHand) return this.handLostEvent(at);
+    if (!hasHand) {
+      this.resetStroke();
+      return this.handLostEvent(at);
+    }
 
+    if (this.lastSeenAt !== null && at - this.lastSeenAt >= this.options.handLostMs) {
+      this.resetStroke();
+    }
     this.lastSeenAt = at;
-    const point = mirroredLandmarkPoint(landmark);
+    const point = mirroredLandmarkPoint(landmarks[8]);
     point.x = clamp(point.x, 0, 1);
     point.y = clamp(point.y, 0, 1);
 
-    if (this.pausedForLoss) {
-      this.pausedForLoss = false;
-      this.smoothedPoint = { ...point };
-      this.smoothedAt = at;
-      this.anchor = { ...point };
-      return { type: 'resume' };
+    const resumed = this.pausedForLoss;
+    this.pausedForLoss = false;
+    if (this.lastRawPoint && distance(this.lastRawPoint, point) > this.options.maxJump) {
+      // Check the observed position before smoothing can hide a tracking jump.
+      this.resetStroke();
     }
 
-    if (gestureKey(result.gesture) !== 'pointing_up') {
-      this.anchor = null;
-      this.smoothedPoint = null;
-      this.smoothedAt = null;
-      return null;
+    const gesture = gestureKey(result.gesture);
+    const confirmedPointing = gesture === 'pointing_up'
+      && Number.isFinite(confidence)
+      && confidence >= this.options.minConfidence;
+    const uncertainPose = ['pointing_up', 'none', ''].includes(gesture);
+    const continuingPointing = uncertainPose
+      && this.lastPointingAt !== null
+      && at - this.lastPointingAt >= 0
+      && at - this.lastPointingAt <= this.options.poseGraceMs
+      && indexStillExtended(landmarks);
+
+    if (!confirmedPointing && !continuingPointing) {
+      this.resetStroke();
+      return resumed ? { type: 'resume' } : null;
     }
+    if (confirmedPointing) this.lastPointingAt = at;
+    this.lastRawPoint = { ...point };
 
     const smoothed = this.smooth(point, at);
     if (!this.anchor) {
       this.anchor = { ...smoothed };
-      return null;
+      return resumed ? { type: 'resume' } : null;
     }
 
     const travel = distance(this.anchor, smoothed);

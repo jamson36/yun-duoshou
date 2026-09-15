@@ -26,6 +26,96 @@ test('gesture frame interval backs off on smaller or lower-concurrency devices',
   assert.equal(gestureFrameInterval({ width: 1440, hardwareConcurrency: 2 }), 100);
 });
 
+test('游戏允许桌面和手机达到约 30fps，低并发设备从 20fps 起步', () => {
+  assert.equal(gestureFrameInterval({ width: 1440, hardwareConcurrency: 8, context: 'activity' }), 33);
+  assert.equal(gestureFrameInterval({ width: 390, hardwareConcurrency: 8, context: 'activity' }), 33);
+  assert.equal(gestureFrameInterval({ width: 390, hardwareConcurrency: 2, context: 'activity' }), 50);
+});
+
+test('视频帧没有更新时跳过识别，reset 后可重新采集同编号的视频帧', () => {
+  const gate = new GestureFrameGate(33);
+  assert.equal(gate.tryAcquire(0, 1), true);
+  gate.release();
+  assert.equal(gate.tryAcquire(34, 1), false);
+  assert.equal(gate.tryAcquire(34, 2), true);
+  gate.reset();
+  assert.equal(gate.tryAcquire(35, 2), true);
+});
+
+test('游戏慢推理自动降频、持续快速推理恢复 30fps，期间不积压帧', () => {
+  const gate = new GestureFrameGate(33, true);
+  assert.equal(gate.tryAcquire(0), true);
+  assert.equal(gate.tryAcquire(66), false);
+  gate.release(80);
+  assert.equal(gate.intervalMs, 100);
+  assert.equal(gate.tryAcquire(90), false);
+  let at = 100;
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(gate.tryAcquire(at), true);
+    gate.release(12);
+    at += Math.ceil(gate.intervalMs);
+  }
+  assert.equal(gate.intervalMs, 33);
+});
+
+test('切换采样策略保留正在识别的帧，房间不继承游戏降频', () => {
+  const gate = new GestureFrameGate(33, true);
+  gate.tryAcquire(0, 1);
+  gate.release(80);
+  gate.tryAcquire(100, 2);
+  gate.configure(66);
+  assert.equal(gate.tryAcquire(200, 3), false);
+  gate.release(200);
+  assert.equal(gate.intervalMs, 66);
+  assert.equal(gate.tryAcquire(200, 3), true);
+});
+
+test('捕获循环在房间和游戏之间调整频率，并跳过重复的视频帧', async () => {
+  const originals = Object.fromEntries(['window', 'HTMLMediaElement', 'createImageBitmap']
+    .map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const frames = [];
+  let videoFrame = 1;
+  try {
+    globalThis.window = { requestAnimationFrame: () => 1 };
+    globalThis.HTMLMediaElement = { HAVE_CURRENT_DATA: 2 };
+    globalThis.createImageBitmap = async () => ({ close() {} });
+    const controller = {
+      active: true,
+      session: 1,
+      inputContext: 'room',
+      captureContext: null,
+      captureProfile: { width: 390, hardwareConcurrency: 8 },
+      frameGate: new GestureFrameGate(83),
+      flushGestureMotion() {},
+      elements: { video: { readyState: 2, getVideoPlaybackQuality: () => ({ totalVideoFrames: videoFrame }) } },
+      worker: { postMessage: (frame) => frames.push(frame) },
+    };
+    const capture = (at) => RoomGestureController.prototype.captureLoop.call(controller, at, 1);
+    await capture(0);
+    assert.equal(controller.frameGate.intervalMs, 83);
+    controller.frameGate.release(10);
+    controller.inputContext = 'activity';
+    videoFrame = 2;
+    await capture(33);
+    assert.equal(controller.frameGate.intervalMs, 33);
+    assert.equal(controller.frameGate.adaptive, true);
+    controller.frameGate.release(10);
+    await capture(66);
+    assert.equal(frames.length, 2, '视频没有更新，不应重新推理同一帧');
+    controller.inputContext = 'room';
+    videoFrame = 3;
+    await capture(116);
+    assert.equal(controller.frameGate.intervalMs, 83);
+    assert.equal(controller.frameGate.adaptive, false);
+    assert.equal(frames.length, 3);
+  } finally {
+    for (const [key, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  }
+});
+
 test('camera errors are translated into actionable, provider-neutral copy', () => {
   assert.match(cameraErrorMessage({ name: 'NotAllowedError' }), /允许摄像头/);
   assert.match(cameraErrorMessage({ name: 'NotFoundError' }), /没有找到可用摄像头/);

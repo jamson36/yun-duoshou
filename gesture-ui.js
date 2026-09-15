@@ -21,31 +21,52 @@ function clamp(value, min, max) {
 }
 
 export class GestureFrameGate {
-  constructor(intervalMs = 66) {
-    this.intervalMs = Math.max(16, Number(intervalMs) || 66);
+  constructor(intervalMs = 66, adaptive = false) {
+    this.configure(intervalMs, adaptive);
     this.reset();
   }
 
-  tryAcquire(now = performance.now()) {
+  configure(intervalMs, adaptive = false) {
+    this.baseIntervalMs = Math.max(16, Number(intervalMs) || 66);
+    this.intervalMs = this.baseIntervalMs;
+    this.adaptive = adaptive;
+    this.averageInferenceMs = null;
+  }
+
+  tryAcquire(now = performance.now(), videoFrame = null) {
     const timestamp = Number(now);
     if (this.busy || !Number.isFinite(timestamp)) return false;
-    if (timestamp - this.lastCaptureAt < this.intervalMs) return false;
+    if (videoFrame !== null && videoFrame === this.lastVideoFrame) return false;
+    // Allow clock rounding between the camera and display refresh cycles.
+    if (timestamp - this.lastCaptureAt + 1 < this.intervalMs) return false;
     this.busy = true;
     this.lastCaptureAt = timestamp;
+    this.lastVideoFrame = videoFrame;
     return true;
   }
 
-  release() {
+  release(inferenceMs) {
+    if (this.busy && this.adaptive && Number.isFinite(inferenceMs) && inferenceMs > 0) {
+      this.averageInferenceMs = this.averageInferenceMs === null
+        ? inferenceMs
+        : this.averageInferenceMs + (inferenceMs - this.averageInferenceMs) * 0.2;
+      // Leave headroom for rendering; recover gradually when recognition speeds up.
+      this.intervalMs = Math.max(this.baseIntervalMs, this.averageInferenceMs * 1.25);
+    }
     this.busy = false;
   }
 
   reset() {
     this.busy = false;
     this.lastCaptureAt = Number.NEGATIVE_INFINITY;
+    this.lastVideoFrame = null;
+    this.averageInferenceMs = null;
+    this.intervalMs = this.baseIntervalMs;
   }
 }
 
-export function gestureFrameInterval({ width = 1024, hardwareConcurrency = 4 } = {}) {
+export function gestureFrameInterval({ width = 1024, hardwareConcurrency = 4, context = 'room' } = {}) {
+  if (context === 'activity') return Number(hardwareConcurrency) <= 2 ? 50 : 33;
   if (Number(hardwareConcurrency) <= 2) return 100;
   if (Number(width) <= 480) return 83;
   return 66;
@@ -139,10 +160,12 @@ export class RoomGestureController {
     this.isReducedMotion = isReducedMotion;
     this.mapper = new GestureCommandMapper();
     this.motionInterpolator = new GestureMotionInterpolator();
-    this.frameGate = new GestureFrameGate(gestureFrameInterval({
+    this.captureProfile = {
       width: window.innerWidth,
       hardwareConcurrency: navigator.hardwareConcurrency,
-    }));
+    };
+    this.captureContext = null;
+    this.frameGate = new GestureFrameGate(gestureFrameInterval(this.captureProfile));
     this.session = 0;
     this.active = false;
     this.starting = false;
@@ -270,7 +293,7 @@ export class RoomGestureController {
           facingMode: 'user',
           width: { ideal: 640, max: 960 },
           height: { ideal: 480, max: 720 },
-          frameRate: { ideal: 24, max: 30 },
+          frameRate: { ideal: 30, max: 30 },
         },
       });
       if (!sessionIsCurrent()) {
@@ -347,7 +370,16 @@ export class RoomGestureController {
     this.frameRequest = window.requestAnimationFrame((nextNow) => this.captureLoop(nextNow, session));
     this.flushGestureMotion(now);
     if (this.elements.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-    if (!this.frameGate.tryAcquire(now)) return;
+    if (this.captureContext !== this.inputContext) {
+      this.frameGate.configure(gestureFrameInterval({
+        ...this.captureProfile,
+        context: this.inputContext,
+      }), this.inputContext === 'activity');
+      this.captureContext = this.inputContext;
+    }
+    const videoFrames = this.elements.video.getVideoPlaybackQuality?.().totalVideoFrames;
+    const videoFrame = videoFrames > 0 ? videoFrames : this.elements.video.currentTime;
+    if (!this.frameGate.tryAcquire(now, videoFrame)) return;
 
     try {
       const bitmap = await createImageBitmap(this.elements.video);
@@ -373,7 +405,7 @@ export class RoomGestureController {
     }
     if (data?.type !== 'result') return;
 
-    this.frameGate.release();
+    this.frameGate.release(data.inferenceMs);
     this.consecutiveFrameErrors = 0;
     const landmarks = Array.isArray(data.landmarks) ? data.landmarks : [];
     const score = Number(data.confidence) || 0;
