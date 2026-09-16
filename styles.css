@@ -12764,36 +12764,17 @@ body.reduce-motion :is(
 .room-load-panel progress::-moz-progress-bar { background: #fb8924; }
 .room-load-panel small { font-size: 12px; }
 .room-load-panel .room-load-detail { font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
-.room-intro-gate .room-entry-lockup .room-entry-load-notice { position: absolute; top: 80%; left: 6%; width: 88%; margin: 0; color: #674124; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-align: center; }
+.room-intro-gate .room-entry-lockup .room-entry-load-notice { position: absolute; top: 70%; left: 59%; width: 35%; margin: 0; color: #674124; font-size: 12px; font-weight: 500; line-height: 1.5; letter-spacing: 0; text-align: center; }
 .room-intro-gate .intro-pixel-canvas, .room-intro-gate .intro-loading-state, .room-intro-gate .intro-system-status { display: none; }
 .room-intro-gate .entry-loop-stage { inset: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none; }
-.room-intro-gate .entry-loop-stage .room-entry-lockup { inset: 0; width: 100%; height: 100%; max-width: none; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; transform: none; }
+/* The entry copy sits directly over both the video and its clean poster. */
+.room-intro-gate .entry-loop-stage .room-entry-lockup { inset: 0; width: 100%; height: 100%; max-width: none; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transform: none; }
 .room-intro-gate .room-entry-lockup .room-entry-welcome { top: 6%; left: 4.5%; font-size: clamp(12px, 1.1vw, 21px); line-height: 1.05; }
 .room-intro-gate .room-entry-dots { top: 6.5%; left: auto; right: 6%; width: 76px; height: 21px; }
 .room-intro-gate .room-entry-title-art { top: 24%; left: 59%; width: 35%; height: 35%; object-fit: contain; }
 .room-intro-gate .room-entry-lockup .enter-room-button { top: 58%; left: 64%; right: auto; bottom: auto; width: 25%; height: 8.5%; min-height: 48px; padding: 0; border: 1px solid #fff6df; border-radius: 18px; background: linear-gradient(90deg,#ff861b,#ffb917,#ff5900); color: white; box-shadow: none; transform: none; font-size: clamp(20px,2vw,38px); }
 .room-intro-gate .room-entry-lockup > small { display: block; top: auto; bottom: 8%; left: 59%; width: 35%; margin: 0; text-align: center; font-size: clamp(12px,1.2vw,22px); color: #8d6337; }
 .room-intro-gate .room-entry-lockup > small i { display: none; }
-/* Keep the card in the DOM: both the video and its clean first-frame poster
-   sit behind the same surface, so playback never removes the card. */
-@media (min-width: 721px) {
-  .room-intro-gate .entry-loop-stage .room-entry-lockup {
-    inset: 13.4259% auto auto 58.0208%;
-    width: 35.9375%;
-    height: 67.6852%;
-    border: 1px solid rgba(255, 255, 255, .88);
-    border-radius: 27px;
-    background: linear-gradient(153.71deg, rgba(255, 248, 232, .72) 8.49%, rgba(255, 237, 205, .58) 58.3%, rgba(255, 224, 175, .48) 91.51%);
-    box-shadow: 0 32px 64px rgba(140, 80, 20, .14), inset 0 1px 0 rgba(255, 255, 255, .95);
-    -webkit-backdrop-filter: blur(28px);
-    backdrop-filter: blur(28px);
-  }
-  .room-intro-gate .room-entry-lockup .room-entry-welcome { top: 8.0711%; left: 8.1957%; font-size: clamp(12px, 1.04vw, 20px); }
-  .room-intro-gate .room-entry-dots { top: 9.576%; right: auto; left: 82.3188%; width: 11.0145%; height: 2.8728%; }
-  .room-intro-gate .room-entry-title-art { top: 13.5431%; left: .7246%; width: 98.5507%; height: 52.394%; }
-  .room-intro-gate .room-entry-lockup .enter-room-button { top: 66.1395%; left: 16.3768%; width: 68.9855%; height: 12.1751%; font-size: clamp(20px, 1.875vw, 36px); }
-  .room-intro-gate .room-entry-lockup > small { top: 88.3721%; bottom: auto; left: 2.8986%; right: 2.8986%; width: auto; font-size: clamp(10px, 1.04vw, 20px); letter-spacing: .16em; }
-}
 .scene-budget-note.is-order-note { cursor: default; pointer-events: none; border: 0; border-radius: 1px 1px 16px 1px; background: linear-gradient(165deg,#ffe283,#fff0b3); box-shadow: 3px 6px 9px #62452735; min-height: var(--scene-note-width); }
 .scene-budget-note.is-order-note.is-cyan { background: linear-gradient(165deg,#94cef2,#c0e4fa); }
 .scene-budget-note.is-order-note.is-coral { background: linear-gradient(165deg,#eca0d6,#f9c9e8); }
