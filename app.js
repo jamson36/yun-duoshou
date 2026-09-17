@@ -2628,7 +2628,7 @@ function mallSuccessAdviceItems(product, order, assessment = null) {
 
   const effectiveAssessment = assessment?.eligible
     ? assessment
-    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   const onlineAdvice = aiConsentIsCurrent() && diagnosisIsFreshFor(effectiveAssessment)
     ? (state.diagnosis?.result?.action?.steps || []).map(String).filter(Boolean).slice(0, 2)
     : [];
@@ -2840,36 +2840,8 @@ const REPORT_IMPULSE_SIGNAL_LABELS = Object.freeze({
 
 const REPORT_IMPULSE_REASONS = new Set(['嘴馋', '无聊', '被种草', '情绪不好', '限时优惠']);
 
-// Demo samples stay separate from the user's saved orders.
-function createClinicDemoOrders(sequence, now = new Date()) {
-  const scenarios = [
-    { category: '数码家居', name: '无线耳机', amount: 399, hour: 23, reason: '被种草', signals: ['instant', 'creator'] },
-    { category: '餐饮饮品', name: '快乐奶茶', amount: 16, hour: 12, reason: '嘴馋', signals: ['instant'] },
-    { category: '服饰美妆', name: '限定收藏包', amount: 269, hour: 15, reason: '限时优惠', signals: ['stock', 'deal'] },
-  ];
-  const count = 6 + sequence % 5;
-  return Array.from({ length: count }, (_, index) => {
-    const offset = index >= count - 2 ? index - count + 3 : 0;
-    const scenario = scenarios[(sequence - 1 + offset) % scenarios.length];
-    const created = new Date(now);
-    created.setDate(created.getDate() - 1 - index % 5);
-    created.setHours(scenario.hour, index * 4, 0, 0);
-    const createdAt = created.toISOString();
-    const amount = scenario.amount < 50 ? scenario.amount + (sequence + index) % 12 : scenario.amount + sequence * 13 + index * 21;
-    return {
-      id: `clinic-demo-${sequence}-${index}`, demo: true,
-      name: `${scenario.name} ${index + 1}`, category: scenario.category,
-      amount, reason: scenario.reason, decisionSignals: [...scenario.signals],
-      status: 'purchased', createdAt, updatedAt: createdAt, decidedAt: createdAt,
-      statusHistory: [{ from: 'cooling', to: 'purchased', at: createdAt }],
-    };
-  });
-}
-
-function startClinicDemo() {
+function startClinicTest() {
   if (gachaponIsBusy()) return;
-  state.clinicDemoSequence = (state.clinicDemoSequence || 0) + 1;
-  state.clinicDemoOrders = createClinicDemoOrders(state.clinicDemoSequence);
   restoredTestHistory = null;
   clearPoster();
   startLocalGachaponReveal(analyzeButton);
@@ -2880,8 +2852,8 @@ function clinicPeriodOrders(period, source = 'personal', now = new Date()) {
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - (normalizedPeriod - 1));
   cutoff.setHours(0, 0, 0, 0);
-  return (state.clinicDemoOrders || state.orders)
-    .filter((order) => !order.deletedAt && Number(order.amount) > 0)
+  return state.orders
+    .filter((order) => !order.deletedAt && Number.isFinite(Number(order.amount)) && Number(order.amount) > 0)
     .filter((order) => (source === 'demo' ? Boolean(order.demo) : !order.demo))
     .filter((order) => {
       const createdAt = new Date(order.createdAt);
@@ -2910,38 +2882,27 @@ function orderImpulseEvidence(order) {
 }
 
 function reportProductGroups(orders) {
-  const groups = new Map();
-  orders.filter((order) => order.status === 'purchased').forEach((order) => {
-    const normalizedName = String(order.name || '').trim().toLocaleLowerCase('zh-CN');
-    if (!normalizedName) return;
-    const evidence = orderImpulseEvidence(order);
-    const createdAt = new Date(order.decidedAt || order.updatedAt || order.createdAt).getTime() || 0;
-    const current = groups.get(normalizedName) || {
-      name: String(order.name).trim(),
-      category: order.category || '其他',
-      reason: order.reason || '其他',
-      amount: 0,
-      count: 0,
-      impulseScore: 0,
-      evidence: new Set(),
-      latestAt: 0,
-      latestOrder: order,
-      demoCount: 0,
-    };
-    current.amount += Number(order.amount) || 0;
-    current.count += 1;
-    current.impulseScore += evidence.length;
-    evidence.forEach((item) => current.evidence.add(item));
-    current.demoCount += order.demo ? 1 : 0;
-    if (createdAt >= current.latestAt) {
-      current.latestAt = createdAt;
-      current.latestOrder = order;
-      current.category = order.category || current.category;
-      current.reason = order.reason || current.reason;
-    }
-    groups.set(normalizedName, current);
-  });
-  return [...groups.values()]
+  return orders
+    .filter((order) => order.status === 'purchased'
+      && !order.deletedAt
+      && String(order.name || '').trim()
+      && Number.isFinite(Number(order.amount))
+      && Number(order.amount) > 0)
+    .map((order) => {
+      const evidence = orderImpulseEvidence(order);
+      return {
+        name: String(order.name).trim(),
+        category: order.category || '其他',
+        reason: order.reason || '其他',
+        amount: Number(order.amount),
+        count: 1,
+        impulseScore: evidence.length,
+        evidence: new Set(evidence),
+        latestAt: new Date(order.decidedAt || order.updatedAt || order.createdAt).getTime() || 0,
+        latestOrder: order,
+        demoCount: order.demo ? 1 : 0,
+      };
+    })
     .sort((a, b) => b.amount - a.amount || b.latestAt - a.latestAt || a.name.localeCompare(b.name, 'zh-CN'))
     .slice(0, 3);
 }
@@ -3031,6 +2992,7 @@ function renderPersonalityProfile(assessment) {
   const productGroups = historyContext
     ? restoreReportProductGroups(historyContext.productGroups)
     : reportProductGroups(periodOrders);
+  const hasGroupedProducts = productGroups.some((group) => group.count > 1);
   const diagnosisSteps = historyContext
     ? (Array.isArray(historyContext.adviceSteps) ? historyContext.adviceSteps.map(String).slice(0, 3) : [])
     : diagnosisIsFreshFor(assessment)
@@ -3088,7 +3050,7 @@ function renderPersonalityProfile(assessment) {
       </article>
     </section>
     <section class="report-impulses">
-      <div class="report-section-heading"><div><small>PURCHASED PRODUCT CARDS</small><h4>本月最贵的三个冲动</h4></div><span>只从当前周期已剁手商品中选取</span></div>
+      <div class="report-section-heading"><div><small>PURCHASED PRODUCT CARDS</small><h4>近 ${assessment.period} 天最贵的三${hasGroupedProducts ? '件商品' : '笔购买'}</h4></div><span>${hasGroupedProducts ? '历史报告 · 同名商品合计' : '按单笔金额排序 · 仅已剁手订单'}</span></div>
       <ol>
         ${productGroups.length ? productGroups.map((group, index) => {
           const strength = Math.min(3, group.evidence.size);
@@ -3169,7 +3131,7 @@ function diagnosisRequestFingerprint(assessment = currentAssessment) {
 
 function latestAssessmentForDiagnosis(assessment = currentAssessment) {
   if (!assessment || ![7, 30].includes(Number(assessment.period))) return null;
-  return scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: Number(assessment.period) });
+  return scorePersonality({ orders: state.orders, period: Number(assessment.period) });
 }
 
 function diagnosisMatchesAssessmentContext(
@@ -3337,7 +3299,7 @@ function renderGachapon(assessment) {
   const canonicalName = assessment.primaryPersona?.name || '欲望观察员';
   let machineState = 'ready';
   let title = '一起看看你的钱到底去哪了～';
-  let hint = '30 秒消费测试，生成你的专属消费报告';
+  let hint = `${assessment.source === 'demo' ? '演示数据 · ' : ''}根据冷静单中近 ${assessment.period} 天的 ${assessment.orderCount} 笔记录生成报告。`;
 
   if (!assessment.eligible) {
     const missing = Math.max(0, 3 - assessment.orderCount);
@@ -3383,7 +3345,7 @@ function renderGachapon(assessment) {
 function renderClinic(assessment = null) {
   currentAssessment = assessment?.period === activeClinicPeriod
     ? assessment
-    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   clockClinicAssessmentFingerprint = assessmentReportFingerprint(currentAssessment);
   const topReason = currentAssessment.reasons[0]?.reason || '暂无';
   document.querySelector('#clinicLedger').innerHTML = `
@@ -3424,7 +3386,7 @@ function currentPosterFingerprint(assessment = currentAssessment) {
     ? requestedAssessment
     : requestedAssessment?.period === activeClinicPeriod
       ? requestedAssessment
-      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   const presentation = personaPresentationFor(effectiveAssessment);
   return [
     historyContext?.id || state.dataRevision,
@@ -3502,7 +3464,7 @@ function openGachaponResult({ source = 'hybrid', returnFocus = null } = {}) {
 
 function startLocalGachaponReveal(returnFocus = analyzeButton) {
   if (gachaponIsBusy() || activePanel !== 'clinic') return false;
-  const assessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now: new Date() });
+  const assessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now: new Date() });
   if (!assessment.eligible) {
     currentAssessment = assessment;
     renderClinic(assessment);
@@ -3523,7 +3485,7 @@ function startLocalGachaponReveal(returnFocus = analyzeButton) {
   const reveal = () => {
     localGachaponSpinTimer = null;
     if (spinToken !== localGachaponSpinSequence) return;
-    const latestAssessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now: new Date() });
+    const latestAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now: new Date() });
     const contextIsCurrent = activePanel === 'clinic'
       && startRevision === state.dataRevision
       && startPeriod === activeClinicPeriod
@@ -3539,7 +3501,7 @@ function startLocalGachaponReveal(returnFocus = analyzeButton) {
     gachaponMotion.setState('revealed');
     aiCard.setAttribute('aria-busy', 'false');
     clinicRenderPending = true;
-    showToast('本次演示报告已生成。');
+    showToast(latestAssessment.source === 'demo' ? '演示数据报告已生成。' : '本次消费报告已生成。');
     if (!openGachaponResult({ source: 'local', returnFocus })) {
       clinicRenderPending = false;
       renderClinic(latestAssessment);
@@ -3587,7 +3549,7 @@ function posterModel(assessment = currentAssessment) {
     ? assessment
     : assessment?.period === activeClinicPeriod
       ? assessment
-      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   const modelInput = {
     assessment: effectiveAssessment,
     presentation: personaPresentationFor(effectiveAssessment),
@@ -3608,7 +3570,7 @@ async function generatePoster() {
   const historyContext = historicalReportContextFor(currentAssessment);
   const shareAssessment = historyContext
     ? currentAssessment
-    : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+    : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
   if (posterGenerating || !shareAssessment.eligible) return;
   const fingerprint = currentPosterFingerprint(shareAssessment);
   if (posterBlob && posterFingerprint === fingerprint) {
@@ -3647,7 +3609,7 @@ async function generatePoster() {
     const latestHistoryContext = historicalReportContextFor(currentAssessment);
     const latestShareAssessment = latestHistoryContext
       ? currentAssessment
-      : scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod });
+      : scorePersonality({ orders: state.orders, period: activeClinicPeriod });
     posterButton.disabled = !latestShareAssessment.eligible;
     posterButton.textContent = latestShareAssessment.eligible
       ? '分享报告'
@@ -5074,7 +5036,7 @@ orderForm.querySelectorAll('input[name="decisionSignals"]').forEach((checkbox) =
   });
 });
 
-analyzeButton.addEventListener('click', startClinicDemo);
+analyzeButton.addEventListener('click', startClinicTest);
 document.querySelector('#confirmClinicConsentButton').addEventListener('click', () => {
   clinicConsentDialog.close();
   startAiDiagnosis();
@@ -5126,7 +5088,7 @@ gachaponResultModal.addEventListener('click', (event) => {
 });
 gachaponResultRetryButton.addEventListener('click', () => {
   closeGachaponResult({ restoreFocus: false });
-  startClinicDemo();
+  startClinicTest();
 });
 gachaponResultOpenButton.addEventListener('click', () => {
   closeGachaponResult({ restoreFocus: false });
@@ -5261,8 +5223,9 @@ function updateClock(now = new Date()) {
 
   let latestAssessment = null;
   let assessmentChanged = false;
-  if (activePanel === 'clinic') {
-    latestAssessment = scorePersonality({ orders: state.clinicDemoOrders || state.orders, period: activeClinicPeriod, now });
+  const viewingHistory = activePanel === 'clinic' && Boolean(historicalReportContextFor());
+  if (activePanel === 'clinic' && !viewingHistory) {
+    latestAssessment = scorePersonality({ orders: state.orders, period: activeClinicPeriod, now });
     const nextAssessmentFingerprint = assessmentReportFingerprint(latestAssessment);
     assessmentChanged = Boolean(clockClinicAssessmentFingerprint
       && clockClinicAssessmentFingerprint !== nextAssessmentFingerprint);
@@ -5277,7 +5240,7 @@ function updateClock(now = new Date()) {
   aiUiState = { status: 'idle', message: '' };
   closeGachaponResult({ restoreFocus: false, flushPending: false });
   clearPoster();
-  if (activePanel === 'clinic') renderClinic(latestAssessment);
+  if (activePanel === 'clinic' && !viewingHistory) renderClinic(latestAssessment);
 }
 
 function syncReducedMotionPreference() {

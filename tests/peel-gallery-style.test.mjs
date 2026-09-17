@@ -26,7 +26,7 @@ test('引导说明分类商品切割并保留摄像头选择', () => {
 });
 
 test('入口、手势和游戏视觉加载更新版本', () => {
-  assert.match(html, /app\.js\?v=20260915-gesture-split-1/);
+  assert.match(html, /app\.js\?v=20260917-report-orders-2/);
   assert.match(read('app.js'), /peel-game-ui\.js\?v=20260915-gesture-split-1/);
   assert.match(read('app.js'), /gesture-ui\.js\?v=20260915-gesture-swipe-1/);
   assert.match(read('app.js'), /peel-gesture-controls\.js\?v=20260915-gesture-stutter-1/);

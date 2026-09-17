@@ -78,7 +78,7 @@ test('订单时间筛选与状态筛选串联，不建立第二套订单数据�
   assert.match(appSource, /orderTimeFilterButton\.setAttribute\('aria-expanded'/);
 });
 
-test('报告商品只取最终购买，按合计金额稳定选出最贵三个且不造数据', () => {
+test('报告商品只取最终购买，按单笔金额稳定选出最贵三个且不造数据', () => {
   const reportHelperStart = appSource.indexOf('const REPORT_IMPULSE_SIGNAL_LABELS');
   const reportHelperEnd = appSource.indexOf('function localReportSuggestion', reportHelperStart);
   assert.ok(reportHelperStart >= 0 && reportHelperEnd > reportHelperStart, '报告商品选择逻辑应保持可单独验证');
@@ -117,16 +117,24 @@ this.reportProductGroups = reportProductGroups;`, reportContext);
 
   const selected = reportContext.reportProductGroups(orders);
   assert.deepEqual(JSON.parse(JSON.stringify(selected.map(({ name, amount }) => ({ name, amount })))), [
-    { name: '降噪耳机', amount: 950 },
     { name: '复古托特包', amount: 800 },
     { name: '掌机', amount: 700 },
+    { name: '即时相机', amount: 700 },
   ]);
   assert.ok(selected.every(({ latestOrder }) => latestOrder.status === 'purchased'));
+  assert.ok(selected.every(({ amount, count, latestOrder }) => count === 1 && amount === latestOrder.amount));
   assert.deepEqual(
     JSON.parse(JSON.stringify(reportContext.reportProductGroups(orders).map(({ name }) => name))),
-    ['降噪耳机', '复古托特包', '掌机'],
+    ['复古托特包', '掌机', '即时相机'],
     '金额相同时按最近购买时间稳定决定顺序',
   );
+
+  const sameName = reportContext.reportProductGroups([
+    purchased('降噪耳机', 600, '2026-08-28T10:00:00.000Z'),
+    purchased('降噪耳机', 350, '2026-08-30T10:00:00.000Z'),
+    purchased('托特包', 500, '2026-08-29T10:00:00.000Z'),
+  ]);
+  assert.deepEqual(Array.from(sameName, ({ amount }) => amount), [600, 500, 350], '同名订单分别排名，不累加金额');
 
   const onlyTwo = reportContext.reportProductGroups([
     purchased('商品 A', 80, '2026-08-30T10:00:00.000Z'),
@@ -762,7 +770,7 @@ test('人格抽取首次点击由主按钮读取内联勾选，不进入二次�
   assert.match(source, /requestAiDiagnosis\(\)/);
   assert.doesNotMatch(source, /status:\s*['"]consent['"]/);
   assert.doesNotMatch(source, /querySelector\(['"]#aiConsentTitle['"]\)/);
-  assert.match(appSource, /analyzeButton\.addEventListener\('click', startClinicDemo\)/);
+  assert.match(appSource, /analyzeButton\.addEventListener\('click', startClinicTest\)/);
 });
 
 test('未勾选主按钮直接走本地测试且不请求，勾选后同一次点击授权并请求', () => {
@@ -1527,7 +1535,7 @@ test('本地结果的“再抽一次”继续走本地路径，不误触在线�
       addEventListener: (_event, handler) => { retryHandler = handler; },
     },
     closeGachaponResult: () => { closeCalls += 1; },
-    startClinicDemo: () => {
+    startClinicTest: () => {
       localCalls += 1;
       localReturnFocus = returnFocus;
     },

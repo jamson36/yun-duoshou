@@ -524,6 +524,7 @@ test('页面停留病历页跨本地午夜时只刷新一次并立即作废旧�
   const context = {
     clockDateSignature: '',
     clockClinicAssessmentFingerprint: 'window-a',
+    historicalReportContextFor: () => null,
     activePanel: 'clinic',
     activeClinicPeriod: 30,
     state: { orders: [] , diagnosis: { requestFingerprint: 'stale' } },
@@ -568,6 +569,7 @@ test('页面停留病历页时同日半衰期变化只刷新一次，稳定时�
   const context = {
     clockDateSignature: '2026-08-30',
     clockClinicAssessmentFingerprint: 'score-50',
+    historicalReportContextFor: () => null,
     activePanel: 'clinic',
     activeClinicPeriod: 30,
     state: { orders: [], diagnosis: { requestFingerprint: 'old' } },
