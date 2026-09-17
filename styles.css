@@ -3542,8 +3542,8 @@ body.reduce-motion *::after {
 .order-receipt dd { margin: 5px 0 0; color: var(--phone-navy); font-size: 13px; font-weight: 950; }
 .order-receipt .receipt-note { margin: 18px auto 0; max-width: 430px; color: #675f55; font-size: 10px; line-height: 1.65; }
 .receipt-actions { display: grid; grid-template-columns: 1fr 1.25fr; gap: 10px; margin-top: 19px; }
-.receipt-actions button { min-height: 48px; padding: 0 12px; border: 1px solid var(--phone-navy); border-radius: 14px; background: transparent; color: var(--phone-navy); cursor: pointer; font-size: 10px; font-weight: 950; }
-.receipt-actions button:last-child { border-color: var(--phone-navy); background: var(--phone-navy); color: #fffaf0; }
+.receipt-actions button { min-height: 48px; padding: 0 12px; border: 1px solid var(--phone-navy, #17313b); border-radius: 14px; background: transparent; color: var(--phone-navy, #17313b); cursor: pointer; font-size: 10px; font-weight: 950; }
+.receipt-actions button:last-child { border-color: var(--phone-navy, #17313b); background: var(--phone-navy, #17313b); color: #fffaf0; }
 
 .orders-greeting { margin-bottom: 24px; }
 .orders-greeting .order-count-pill { align-self: start; background: var(--phone-orange); color: #fffaf0; }
@@ -6807,6 +6807,12 @@ body.reduce-motion .panel-view.is-active { animation: none; }
   background: linear-gradient(90deg, #ffe18c, #ffc18e);
   box-shadow: 0 8px 18px rgba(239, 153, 63, .18);
   color: #746d65;
+}
+
+.order-composer-card .order-form:valid .order-submit {
+  background: linear-gradient(90deg, #ffc928, #ff9d3d);
+  color: #4a3500;
+  box-shadow: 0 8px 18px rgba(239, 153, 63, .28);
 }
 
 .order-composer-card .order-submit b { display: none; }
