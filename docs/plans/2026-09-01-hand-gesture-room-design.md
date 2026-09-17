@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 为“让你花个爽！”全景房间增加用户主动开启、浏览器本地识别、平滑且可随时退出的手势环视、缩放与热点进入能力。
+**Goal:** 为“让你花个够爽！”全景房间增加用户主动开启、浏览器本地识别、平滑且可随时退出的手势环视、缩放与热点进入能力。
 
 **Architecture:** 摄像头帧只在用户主动授权后发送给同源 Worker。Worker 使用本站托管的 MediaPipe Tasks Vision 运行时和 Gesture Recognizer 模型，向主线程返回手势类别、置信度与单手关键点；纯函数状态机再把结果转换为全景相机增量和热点停留进度。业务路由、订单、评分与目标数据不接触摄像头或手势数据，现有鼠标、触摸、键盘和顶部语义入口始终保留。
 

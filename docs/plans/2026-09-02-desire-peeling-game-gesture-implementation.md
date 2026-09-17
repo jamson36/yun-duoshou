@@ -332,7 +332,7 @@ app.js business adapter
 **Files:**
 
 - Inspect: <code>AGENTS.md</code>
-- Inspect: <code>让你花个爽！活动网页产品需求文档 (PRD).md</code>
+- Inspect: <code>让你花个够爽！活动网页产品需求文档 (PRD).md</code>
 - Inspect: <code>DESIGN.md</code>
 - Inspect: <code>scene-config.js</code>
 - Inspect: <code>panorama.js</code>
@@ -1060,7 +1060,7 @@ Expected: PASS。
 **Files:**
 
 - Modify: <code>DESIGN.md</code>
-- Verify unchanged: <code>让你花个爽！活动网页产品需求文档 (PRD).md</code>
+- Verify unchanged: <code>让你花个够爽！活动网页产品需求文档 (PRD).md</code>
 
 **Step 1: 补充设计章节**
 
@@ -1083,7 +1083,7 @@ Expected: PASS。
 Run:
 
 ~~~bash
-git diff -- "让你花个爽！活动网页产品需求文档 (PRD).md"
+git diff -- "让你花个够爽！活动网页产品需求文档 (PRD).md"
 ~~~
 
 Expected: 无输出。
